@@ -47,7 +47,7 @@ In short: **one bid → one slot → one segment → N challenges → many atten
 
 ## WebSocket event contract (starter set)
 
-The live-event stream is the single integration seam between the orchestrator/backend and every screen (see [team split](../hackathon/team-split.md#the-seams-contract-first-on-day-1)). These event names are the day-one starter set; the authoritative payload types live in `packages/shared`.
+The live-event stream is the single integration seam between the orchestrator/backend and every screen (see [team split](../hackathon/team-split.md#the-seams-contract-first-on-day-1)). The authoritative event contract is the `WsEvent` discriminated union in [`packages/shared/src/index.ts`](../../packages/shared/src/index.ts) — this table mirrors it. When the two disagree, the shared types win.
 
 | Event | Emitted when | Key payload |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ The live-event stream is the single integration seam between the orchestrator/ba
 | `generation.progress` | A generation stage completes | `slot`, `stage` (script / voice / image / video), `done` |
 | `segment.ready` | Generated asset is available | `segmentId`, `assetUrl`, `durationSec` |
 | `segment.playing` | Segment begins playback | `segmentId`, `startedAt` |
-| `challenge.fired` | A challenge is pushed to listeners | full `Challenge` object (`challengeId`, `segmentId`, `question`, `validFrom`, `validUntil`, `difficulty`) |
+| `challenge.fired` | A challenge is pushed to listeners | `PublicChallenge` object (`challengeId`, `segmentId`, `question`, `validFrom`, `validUntil`, `difficulty`) — **excludes the answer** |
 | `attention.verified` | A valid attention event is recorded | `segmentId`, aggregate `verifiedCount` / `total` (no listener identity) |
 | `bid.cleared` | Segment met threshold; bid clears | `bidId`, `segmentId`, `grossAmount`, `listenerPool`, `platformRevenue` |
 | `bid.uncleared` | Threshold missed; bid returned | `bidId`, `segmentId`, `returnedAmount` |

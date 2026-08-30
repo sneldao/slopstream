@@ -29,6 +29,11 @@ export type ChallengeType =
   | "voice"
   | "image";
 
+/**
+ * Full challenge definition — backend-only. Includes the answer.
+ * Never sent over WebSocket or to the client. Lane 2 stores this;
+ * Lane 1 verifies listener responses against it.
+ */
 export interface Challenge {
   id: string;
   type: ChallengeType;
@@ -36,6 +41,27 @@ export interface Challenge {
   /** Present for multiple-choice style challenges. */
   options?: string[];
   answer: string;
+  segmentId: string;
+  /** Seconds from segment start when the challenge becomes answerable. */
+  validFrom: number;
+  /** Seconds from segment start when the challenge expires. */
+  validUntil: number;
+  /** 1 (easiest) to 5 (hardest). Feeds reward weighting. */
+  difficulty: 1 | 2 | 3 | 4 | 5;
+}
+
+/**
+ * Public challenge — safe to broadcast. Omits the answer.
+ * This is what travels over WebSocket in `challenge.fired` and what
+ * the listener client renders. Lane 2 holds the full Challenge
+ * server-side; the client never receives the answer.
+ */
+export interface PublicChallenge {
+  id: string;
+  type: ChallengeType;
+  question: string;
+  /** Present for multiple-choice style challenges. */
+  options?: string[];
   segmentId: string;
   /** Seconds from segment start when the challenge becomes answerable. */
   validFrom: number;
@@ -178,7 +204,7 @@ export type WsEvent =
       durationSec: number;
     }
   | { type: "segment.playing"; segmentId: string; startedAt: string }
-  | { type: "challenge.fired"; challenge: Challenge }
+  | { type: "challenge.fired"; challenge: PublicChallenge }
   | {
       type: "attention.verified";
       segmentId: string;
