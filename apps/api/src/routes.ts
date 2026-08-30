@@ -271,7 +271,10 @@ export function createRouter(deps: ApiDeps): Router {
       } = market.createListenerSession(resumed, commitment);
       res
         .status(didResume ? 200 : 201)
-        .json({ token: sessionToken, session: toListenerSession(session) });
+        .json({
+          token: sessionToken,
+          session: toListenerSession(session, ledger),
+        });
     }),
   );
 
@@ -279,7 +282,28 @@ export function createRouter(deps: ApiDeps): Router {
     "/listener-sessions/me",
     wrap((req, res) => {
       const session = requireListener(ledger, req);
-      res.json({ session: toListenerSession(session) });
+      res.json({ session: toListenerSession(session, ledger) });
+    }),
+  );
+
+  router.post(
+    "/listener-sessions/me/payout-request",
+    wrap((req, res) => {
+      const session = requireListener(ledger, req);
+      const body = req.body as { amountUsd?: unknown } | undefined;
+      const amountUsd =
+        body?.amountUsd === undefined ? undefined : Number(body.amountUsd);
+      assert(
+        amountUsd === undefined ||
+          (Number.isFinite(amountUsd) && amountUsd > 0),
+        400,
+        "amountUsd must be a positive number",
+      );
+      const receipt = market.requestPayout(session, amountUsd);
+      res.status(201).json({
+        receipt,
+        session: toListenerSession(session, ledger),
+      });
     }),
   );
 

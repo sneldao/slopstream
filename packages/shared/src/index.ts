@@ -429,6 +429,9 @@ export interface StreamSnapshot {
   /** Most recently completed segments, newest first. This is the durable
    *  visual history used by the big-screen Continuum after refresh/reconnect. */
   recentSegments: Segment[];
+  /** Segments that are generated/ready but not yet playing — the upcoming
+   *  queue. Surfaces what's about to air so the screen can show "next up". */
+  upcomingSegments: Segment[];
   /** ISO timestamp of when `nowPlaying` started. Lets a reconnecting client
    *  sync challenge validFrom/validUntil windows to elapsed playback time. */
   nowPlayingStartedAt?: string;
@@ -534,8 +537,25 @@ export const FREE_BRAND_SUMMARY: BrandSummary = {
 export interface ListenerSession {
   id: string;
   joinedAt: string;
+  /** Cleared rewards minus completed payouts. */
   availableBalanceUsd: number;
+  /** Estimated share for verified proofs on segments still in play. */
+  pendingBalanceUsd: number;
   todayVerifiedUsd: number;
+}
+
+/** POST /listener-sessions/me/payout-request — cash out available balance. */
+export interface PayoutRequestCommand {
+  /** Omit to withdraw the full available balance. */
+  amountUsd?: number;
+}
+
+/** Response from the stub payout rail (demo / hackathon). */
+export interface PayoutReceipt {
+  payoutId: string;
+  amountUsd: number;
+  status: "completed";
+  createdAt: string;
 }
 
 // ---------------------------------------------------------------------------

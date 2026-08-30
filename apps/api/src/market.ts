@@ -7,6 +7,7 @@ import type {
   BrandSummary,
   CreateBrandCommand,
   ListenerSession,
+  PayoutReceipt,
   TopUpCommand,
 } from "@slopstream/shared";
 import { isoNow, newId, newToken } from "./ids.js";
@@ -14,6 +15,7 @@ import type {
   BrandBalanceRow,
   BrandRow,
   Ledger,
+  ListenerPayoutRow,
   ListenerSessionRow,
 } from "./ledger.js";
 import { assert, centsToUsd, usdToCents } from "./money.js";
@@ -53,11 +55,33 @@ export function toBalanceView(balance: BrandBalanceRow): BalanceView {
   };
 }
 
-export function toListenerSession(row: ListenerSessionRow): ListenerSession {
+export function computePendingBalanceCents(
+  ledger: Ledger,
+  sessionId: string,
+): number {
+  let pending = 0;
+  for (const event of ledger.attentionEvents.values()) {
+    if (event.listenerSessionId !== sessionId || event.result !== "valid") {
+      continue;
+    }
+    const segment = ledger.segments.get(event.segmentId);
+    if (!segment || segment.windowClosed || segment.status !== "playing") {
+      continue;
+    }
+    pending += event.estimatedRewardCents ?? 0;
+  }
+  return pending;
+}
+
+export function toListenerSession(
+  row: ListenerSessionRow,
+  ledger: Ledger,
+): ListenerSession {
   return {
     id: row.id,
     joinedAt: row.joinedAt,
     availableBalanceUsd: centsToUsd(row.balanceCents),
+    pendingBalanceUsd: centsToUsd(computePendingBalanceCents(ledger, row.id)),
     todayVerifiedUsd: centsToUsd(row.todayVerifiedCents),
   };
 }
@@ -176,5 +200,40 @@ export class MarketService {
     this.ledger.listeners.set(session.id, session);
     this.ledger.listenerTokens.set(session.token, session.id);
     return { session, token: session.token, resumed: false };
+  }
+
+  /**
+   * Stub payout rail: debit available balance and record a completed payout.
+   * Pending rewards cannot be withdrawn until a segment clears.
+   */
+  requestPayout(
+    session: ListenerSessionRow,
+    amountUsd?: number,
+  ): PayoutReceipt {
+    session.lastSeenAtMs = Date.now();
+    assert(session.balanceCents > 0, 400, "no available balance to withdraw");
+    const amountCents =
+      amountUsd === undefined ? session.balanceCents : usdToCents(amountUsd);
+    assert(amountCents > 0, 400, "amountUsd must be positive");
+    assert(
+      amountCents <= session.balanceCents,
+      400,
+      "amount exceeds available balance",
+    );
+    session.balanceCents -= amountCents;
+    const payout: ListenerPayoutRow = {
+      id: newId("pout"),
+      listenerSessionId: session.id,
+      amountCents,
+      status: "completed",
+      createdAt: isoNow(),
+    };
+    this.ledger.listenerPayouts.set(payout.id, payout);
+    return {
+      payoutId: payout.id,
+      amountUsd: centsToUsd(amountCents),
+      status: "completed",
+      createdAt: payout.createdAt,
+    };
   }
 }

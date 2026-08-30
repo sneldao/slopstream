@@ -185,6 +185,19 @@ describe("HTTP authorization boundaries", () => {
       error: "missing bearer token",
     });
   });
+
+  it("requires a listener bearer token before requesting payout", async () => {
+    const response = await fetch(
+      `${baseUrl}/listener-sessions/me/payout-request`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+
+    expect(response.status).toBe(401);
+  });
 });
 
 describe("publishLifecycleEvents gate", () => {

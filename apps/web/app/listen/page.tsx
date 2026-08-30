@@ -6,6 +6,7 @@ import type {
   AttentionProofReceipt,
   BrandSummary,
   ListenerSession,
+  PayoutReceipt,
 } from "@slopstream/shared";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
@@ -51,6 +52,12 @@ export default function ListenPage() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const lastClearBurstId = useRef(0);
 
+  const applySession = (session: ListenerSession) => {
+    setAvailableUsd(session.availableBalanceUsd);
+    setPendingUsd(session.pendingBalanceUsd);
+    setTodayVerified(session.todayVerifiedUsd);
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const stored = window.localStorage.getItem(EARN_MODE_KEY) === "on";
@@ -78,8 +85,7 @@ export default function ListenPage() {
       .then(({ token: nextToken, session }) => {
         window.sessionStorage.setItem(LISTENER_TOKEN_KEY, nextToken);
         setListenerIdentity({ token: nextToken, commitment });
-        setAvailableUsd(session.availableBalanceUsd);
-        setTodayVerified(session.todayVerifiedUsd);
+        applySession(session);
       })
       .catch((error: unknown) => setSubmissionError(errorMessage(error)));
   }, [mode]);
@@ -93,8 +99,7 @@ export default function ListenPage() {
         listenerIdentity.token,
       )
         .then(({ session }) => {
-          setAvailableUsd(session.availableBalanceUsd);
-          setTodayVerified(session.todayVerifiedUsd);
+          applySession(session);
         })
         .catch(() => {
           // A transient heartbeat failure must not interrupt the challenge UI.
@@ -133,17 +138,29 @@ export default function ListenPage() {
   const challenge = state.activeChallenge;
   const attention = state.attention;
 
-  // When a segment clears, pending rewards become available to cash out.
+  // Demo mode simulates pending → available locally; live mode reads the API.
   useEffect(() => {
     const clear = state.lastClear;
     if (!clear || clear.burstId === lastClearBurstId.current) return;
     lastClearBurstId.current = clear.burstId;
+    if (mode === "live" && listenerIdentity) {
+      void requestJson<{ session: ListenerSession }>(
+        "/listener-sessions/me",
+        { method: "GET" },
+        listenerIdentity.token,
+      )
+        .then(({ session }) => applySession(session))
+        .catch(() => {
+          // Heartbeat failure should not block the celebration moment.
+        });
+      return;
+    }
     setPendingUsd((pending) => {
       if (pending <= 0) return 0;
       setAvailableUsd((avail) => avail + pending);
       return 0;
     });
-  }, [state.lastClear]);
+  }, [state.lastClear, mode, listenerIdentity]);
 
   const handleJoin = () => {
     if (joined) return;
@@ -197,14 +214,8 @@ export default function ListenPage() {
       )
         .then(({ receipt: nextReceipt, session }) => {
           setReceipt(nextReceipt);
-          setAvailableUsd(session.availableBalanceUsd);
-          setTodayVerified(session.todayVerifiedUsd);
-          if (nextReceipt.verified) {
-            play("proof");
-            if (nextReceipt.estimatedRewardUsd) {
-              setPendingUsd((p) => p + nextReceipt.estimatedRewardUsd!);
-            }
-          }
+          applySession(session);
+          if (nextReceipt.verified) play("proof");
         })
         .catch((error: unknown) => setSubmissionError(errorMessage(error)));
       return;
@@ -494,8 +505,25 @@ export default function ListenPage() {
         availableUsd={availableUsd}
         pendingUsd={pendingUsd}
         onClose={() => setPayoutOpen(false)}
-        onRequest={() => {
-          setAvailableUsd(0);
+        onRequest={async () => {
+          try {
+            if (mode === "live" && listenerIdentity) {
+              const { session } = await requestJson<{
+                receipt: PayoutReceipt;
+                session: ListenerSession;
+              }>(
+                "/listener-sessions/me/payout-request",
+                { method: "POST", body: JSON.stringify({}) },
+                listenerIdentity.token,
+              );
+              applySession(session);
+              return;
+            }
+            setAvailableUsd(0);
+          } catch (error: unknown) {
+            setSubmissionError(errorMessage(error));
+            throw error;
+          }
         }}
       />
     </main>

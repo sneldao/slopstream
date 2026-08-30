@@ -166,8 +166,10 @@ export class ClearingEngine {
       createdAt,
     };
     this.ledger.attentionEvents.set(event.id, event);
-
     if (outcome.verified) {
+      event.estimatedRewardCents = usdToCents(
+        this.estimateShare(segment, event),
+      );
       const validCount = this.ledger.validEventsForSegment(segment.id).length;
       this.bus.publish({
         type: "attention.verified",

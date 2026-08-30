@@ -18,7 +18,7 @@ export function PayoutSheet({
   pendingUsd: number;
   open: boolean;
   onClose: () => void;
-  onRequest: () => void;
+  onRequest: () => void | Promise<void>;
 }) {
   const [done, setDone] = useState(false);
 
@@ -70,8 +70,8 @@ export function PayoutSheet({
 
             {done ? (
               <p className="slop-payout-sheet__done" role="status">
-                Payout requested — demo mode holds funds locally. Real rails
-                come next.
+                Payout requested — funds leave your available balance. Real
+                rails come next.
               </p>
             ) : (
               <button
@@ -79,8 +79,10 @@ export function PayoutSheet({
                 className="slop-payout-sheet__cta"
                 disabled={!canCashOut}
                 onClick={() => {
-                  onRequest();
-                  setDone(true);
+                  void (async () => {
+                    await onRequest();
+                    setDone(true);
+                  })();
                 }}
               >
                 {canCashOut

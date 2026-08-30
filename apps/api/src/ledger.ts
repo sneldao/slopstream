@@ -118,6 +118,16 @@ export interface AttentionEventRow {
   uniquenessScore: number;
   proofRef: string;
   createdAt: string;
+  /** Snapshot at verify time; pending until the segment window closes. */
+  estimatedRewardCents?: number;
+}
+
+export interface ListenerPayoutRow {
+  id: string;
+  listenerSessionId: string;
+  amountCents: number;
+  status: "completed";
+  createdAt: string;
 }
 
 export interface RewardPoolRow {
@@ -176,6 +186,7 @@ export class Ledger {
   readonly attentionEvents = new Map<string, AttentionEventRow>();
   readonly rewardPools = new Map<string, RewardPoolRow>();
   readonly listenerRewards = new Map<string, ListenerRewardRow>();
+  readonly listenerPayouts = new Map<string, ListenerPayoutRow>();
   readonly auctions = new Map<number, AuctionRow>(); // by slot
   readonly scrapedCompanies = new Map<string, ScrapedCompanyRow>();
   /** Dedupe index: sourceUrl -> scrapedCompanyId. */
