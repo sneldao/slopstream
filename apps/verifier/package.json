@@ -17,6 +17,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@slopstream/midnight": "workspace:*",
     "@slopstream/shared": "workspace:*"
   },
   "devDependencies": {

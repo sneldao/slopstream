@@ -38,7 +38,7 @@ $ REWARD
 5. Correct answers produce a verification result that the attention condition was satisfied.
 6. Once a segment clears its attention threshold the advertiser spend clears — and up to 80% flows into a listener reward pool.
 
-The hackathon build currently uses a typed JSON stub verifier for segment/challenge binding, timing, and replay checks; it is not a cryptographic or Midnight proof. `VERIFIER_MODE=midnight` fails fast until the real implementation exists.
+Attention is verified by a real Midnight contract. `ProofOfAttention.compact` (Compact 0.23, compiled against the preprod testnet toolchain) records each verified listener as an on-chain nullifier — the listener secret is an ephemeral witness that lives only in the prover's private state (rotated every submission); just a ZK proof and the replay-protecting nullifier land on-chain, and segment/challenge binding is proven in-circuit, never disclosed — and flips a public threshold flag that the backend watches before clearing advertiser spend. The verifier (`apps/verifier`) runs in two modes: `VERIFIER_MODE=stub` (typed JSON checks, for offline demos) and `VERIFIER_MODE=midnight` (submits real proofs to the deployed contract on Midnight preprod).
 
 ## Positioning
 
@@ -55,8 +55,9 @@ One caveat on the 80% idea: economically strong, but legally/payment-wise, don't
 ```text
 contracts/              Midnight/Compact contracts (Lane 1)
 packages/shared/        Shared types: WS events, challenges, proofs, bids
+packages/midnight/      Compiled ProofOfAttention artifacts + Midnight SDK wiring (deploy, state, submit-proof)
 apps/api/               Backend API: ledger, auction, Stripe (Lane 2)
-apps/verifier/          JSON-stub attention-proof verifier (Lane 1)
+apps/verifier/          Attention-proof verifier — stub JSON or live Midnight proofs (Lane 1)
 apps/orchestrator/      Stream orchestrator + WebSocket gateway (Lane 3)
 apps/generator/         Daytona generation pipeline + scraper (Lane 1)
 apps/web/               Next.js: big screen, listener client, brand console (Lane 3)

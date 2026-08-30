@@ -8,12 +8,12 @@
     "prepare": "husky",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm --filter @slopstream/shared build && pnpm -r typecheck",
+    "typecheck": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/midnight build && pnpm -r typecheck",
     "dev:web": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/web dev",
     "dev:api": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/api dev",
     "dev:orchestrator": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/orchestrator dev",
     "dev:generator": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/generator dev",
-    "dev:verifier": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/verifier dev"
+    "dev:verifier": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/midnight build && pnpm --filter @slopstream/verifier dev"
   },
   "devDependencies": {
     "husky": "^9.1.7",
@@ -24,6 +24,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "@midnight-ntwrk/ledger-v8": "8.1.0"
+    }
   }
 }

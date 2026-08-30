@@ -16,11 +16,27 @@ import { createStubAttentionProofVerifier } from "./stubVerifier.js";
 const MAX_REQUEST_BYTES = 64 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
-type HealthResponse = { ok: true; service: string; verifierMode: "stub" };
+type HealthResponse = {
+  ok: true;
+  service: string;
+  verifierMode: "stub" | "midnight";
+};
+
+export interface AttentionProofVerifier {
+  verify(
+    request: AttentionProofVerificationRequest,
+  ):
+    | AttentionProofVerificationResult
+    | Promise<AttentionProofVerificationResult>;
+}
 
 export interface VerifierServerOptions {
   /** Optional shared bearer token for Lane 2 → Lane 1 calls. */
   apiToken?: string;
+  /** Verifier implementation; defaults to the JSON-stub verifier. */
+  verifier?: AttentionProofVerifier;
+  /** Reported on /health and on invalid-request results. */
+  verifierMode?: "stub" | "midnight";
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -126,11 +142,13 @@ function sendJson(
   response.end(JSON.stringify(body));
 }
 
-function invalidRequest(): AttentionProofVerificationResult {
+function invalidRequest(
+  mode: "stub" | "midnight",
+): AttentionProofVerificationResult {
   return {
     verified: false,
     failure: "invalid_request",
-    verifierMode: "stub",
+    verifierMode: mode,
     verifiedAt: new Date().toISOString(),
   };
 }
@@ -143,7 +161,8 @@ function invalidRequest(): AttentionProofVerificationResult {
 export function createVerifierServer(
   options: VerifierServerOptions = {},
 ): Server {
-  const verifier = createStubAttentionProofVerifier();
+  const verifier = options.verifier ?? createStubAttentionProofVerifier();
+  const mode = options.verifierMode ?? "stub";
 
   return createServer((request, response) => {
     void (async () => {
@@ -151,7 +170,7 @@ export function createVerifierServer(
         sendJson(response, 200, {
           ok: true,
           service: "slopstream-verifier",
-          verifierMode: "stub",
+          verifierMode: mode,
         });
         return;
       }
@@ -161,7 +180,7 @@ export function createVerifierServer(
         request.url === "/v1/attention-proofs/verify"
       ) {
         if (options.apiToken && !hasValidBearer(request, options.apiToken)) {
-          sendJson(response, 401, invalidRequest());
+          sendJson(response, 401, invalidRequest(mode));
           return;
         }
         try {
@@ -169,18 +188,18 @@ export function createVerifierServer(
             await readJson(request),
           );
           if (!verificationRequest) {
-            sendJson(response, 400, invalidRequest());
+            sendJson(response, 400, invalidRequest(mode));
             return;
           }
 
-          sendJson(response, 200, verifier.verify(verificationRequest));
+          sendJson(response, 200, await verifier.verify(verificationRequest));
         } catch {
-          sendJson(response, 400, invalidRequest());
+          sendJson(response, 400, invalidRequest(mode));
         }
         return;
       }
 
-      sendJson(response, 404, invalidRequest());
+      sendJson(response, 404, invalidRequest(mode));
     })();
   });
 }
