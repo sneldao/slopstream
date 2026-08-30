@@ -141,9 +141,13 @@ export function AttentionCheck({
                     type="button"
                     className={`attn__option${isPicked ? " is-picked" : ""}`}
                     style={{
-                      ["--wash" as string]: isPicked
-                        ? brandColor
-                        : ANSWER_WASH[i % ANSWER_WASH.length],
+                      // The wash is always the answer's own colour from the
+                      // fixed palette, never the brand's. Brands supply their
+                      // own primaryColor and a dark one would put ink text on
+                      // a dark fill; brand presence comes from the veil tint
+                      // and the eyebrow dot instead, where it cannot break
+                      // contrast on a control.
+                      ["--wash" as string]: ANSWER_WASH[i % ANSWER_WASH.length],
                     }}
                     onClick={() => handlePick(option)}
                     disabled={!!picked || expired}
