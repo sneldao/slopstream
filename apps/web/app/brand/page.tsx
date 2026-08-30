@@ -189,8 +189,7 @@ export default function BrandPage() {
         </AnimatePresence>
 
         <SurfaceHeader
-          role="03"
-          subtitle="The auction cockpit"
+          subtitle="Brand console"
           trailing={
             <span
               className="slop-hud-pill"

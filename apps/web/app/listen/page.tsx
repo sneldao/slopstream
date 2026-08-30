@@ -224,8 +224,7 @@ export default function ListenPage() {
       <div className="slop-grain" />
 
       <SurfaceHeader
-        role="02"
-        subtitle="Listener channel"
+        subtitle="Listener"
         trailing={
           joined ? (
             <>

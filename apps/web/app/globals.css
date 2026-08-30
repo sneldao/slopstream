@@ -486,8 +486,12 @@ a {
   transform: translateX(-50%);
 }
 
-.slop-nav--minimal .slop-nav__switcher {
-  justify-self: center;
+.slop-nav--spectacle .slop-nav__brand {
+  justify-self: start;
+}
+
+.slop-nav--spectacle .slop-nav__trail {
+  justify-self: end;
 }
 
 .slop-hud-pill {

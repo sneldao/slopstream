@@ -1,38 +1,32 @@
 import type { ReactNode } from "react";
-import { SurfaceNav, type SurfaceRole } from "./SurfaceNav";
+import { SurfaceNav } from "./SurfaceNav";
 
-/**
- * Compatibility wrapper — product pages use SurfaceHeader; navigation now
- * lives in SurfaceNav (role switcher + mobile dock).
- */
+/** Thin wrapper so product pages import a familiar name. */
 export function SurfaceHeader({
-  role,
   subtitle,
   trailing,
   showDock = true,
   tone = "dark",
   sticky = false,
-  minimal = false,
+  variant = "default",
   hidden = false,
 }: {
-  role: SurfaceRole;
   subtitle?: string;
   trailing?: ReactNode;
   showDock?: boolean;
   tone?: "dark" | "light";
   sticky?: boolean;
-  minimal?: boolean;
+  variant?: "default" | "spectacle";
   hidden?: boolean;
 }) {
   return (
     <SurfaceNav
-      role={role}
       subtitle={subtitle}
       trailing={trailing}
       showDock={showDock}
       tone={tone}
       sticky={sticky}
-      minimal={minimal}
+      variant={variant}
       hidden={hidden}
     />
   );

@@ -185,12 +185,9 @@ export default function ScreenPage() {
 
       {/* Minimal spectacle chrome — no dock; theater hides entirely. */}
       <SurfaceHeader
-        role="01"
-        subtitle="Attention market / on air"
+        variant="spectacle"
         tone="light"
         sticky
-        minimal
-        showDock={false}
         hidden={theater}
         trailing={
           !theater ? (

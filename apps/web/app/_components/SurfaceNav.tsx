@@ -3,76 +3,39 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-export type SurfaceRole = "01" | "02" | "03";
-
-const HOME_HREF = "/screen";
-
-const SURFACES = [
-  {
-    role: "01" as const,
-    href: "/screen",
-    short: "Screen",
-    label: "The spectacle",
-  },
-  {
-    role: "02" as const,
-    href: "/listen",
-    short: "Listen",
-    label: "The pocket portal",
-  },
-  {
-    role: "03" as const,
-    href: "/brand",
-    short: "Brand",
-    label: "The auction cockpit",
-  },
+const NAV = [
+  { href: "/screen", label: "Watch" },
+  { href: "/listen", label: "Listen" },
+  { href: "/brand", label: "Brand" },
 ] as const;
 
 /**
- * Shared navigation across home + product surfaces.
- * Desktop: cream wordmark + role switcher + trailing actions.
- * Mobile: compact header + bottom dock for thumb reach.
- * Spectacle: minimal chrome (home + current role) and no dock.
+ * Shared navigation across product surfaces.
+ * - `default` — wordmark + Watch / Listen / Brand + optional mobile dock.
+ * - `spectacle` — Continuum home: wordmark only in the header; dock on mobile.
  */
 export function SurfaceNav({
-  role,
   subtitle,
   trailing,
   showDock = true,
   tone = "dark",
   sticky = false,
-  minimal = false,
+  variant = "default",
   hidden = false,
 }: {
-  role?: SurfaceRole;
   subtitle?: string;
   trailing?: ReactNode;
-  /** Bottom dock on small screens — off for presentation / spectacle. */
   showDock?: boolean;
   tone?: "dark" | "light";
-  /** Fixed top bar (big screen / continuum). */
   sticky?: boolean;
-  /** Quieter chrome: home + current role only. */
-  minimal?: boolean;
-  /** Theater mode — render nothing. */
+  variant?: "default" | "spectacle";
   hidden?: boolean;
 }) {
   const pathname = usePathname() ?? "/";
-  const activeRole =
-    role ??
-    (pathname.startsWith("/screen")
-      ? "01"
-      : pathname.startsWith("/listen")
-        ? "02"
-        : pathname.startsWith("/brand")
-          ? "03"
-          : undefined);
 
   if (hidden) return null;
 
-  const surfaces = minimal
-    ? SURFACES.filter((s) => s.role === activeRole)
-    : SURFACES;
+  const isHome = pathname.startsWith("/screen");
 
   return (
     <>
@@ -82,42 +45,43 @@ export function SurfaceNav({
           `slop-nav--${tone}`,
           showDock ? "slop-nav--docked" : "",
           sticky ? "slop-nav--screen" : "",
-          minimal ? "slop-nav--minimal" : "",
+          variant === "spectacle" ? "slop-nav--spectacle" : "",
         ]
           .filter(Boolean)
           .join(" ")}
       >
         <div className="slop-nav__brand">
-          <a
-            className="slop-wordmark-chip"
-            href={HOME_HREF}
-            aria-label="Slopstream home"
-          >
-            Slopstream
-          </a>
-          {subtitle && !minimal ? (
+          {isHome ? (
+            <span className="slop-wordmark-chip" aria-current="page">
+              Slopstream
+            </span>
+          ) : (
+            <a className="slop-wordmark-chip" href="/screen" aria-label="Watch">
+              Slopstream
+            </a>
+          )}
+          {subtitle && variant !== "spectacle" ? (
             <span className="slop-nav__subtitle">{subtitle}</span>
           ) : null}
         </div>
 
-        <nav className="slop-nav__switcher" aria-label="Surfaces">
-          {surfaces.map((surface) => {
-            const active = surface.role === activeRole;
-            return (
-              <a
-                key={surface.href}
-                href={minimal ? HOME_HREF : surface.href}
-                className={`slop-nav__link${active ? " is-active" : ""}`}
-                aria-current={active ? "page" : undefined}
-                title={minimal ? "Back to home to switch surfaces" : undefined}
-              >
-                <span className="slop-nav__index">{surface.role}</span>
-                <span className="slop-nav__short">{surface.short}</span>
-                <span className="slop-nav__label">{surface.label}</span>
-              </a>
-            );
-          })}
-        </nav>
+        {variant !== "spectacle" ? (
+          <nav className="slop-nav__switcher" aria-label="Navigate">
+            {NAV.map((item) => {
+              const active = pathname.startsWith(item.href);
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={`slop-nav__link${active ? " is-active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {item.label}
+                </a>
+              );
+            })}
+          </nav>
+        ) : null}
 
         {trailing ? (
           <div className="slop-nav__trail">{trailing}</div>
@@ -130,24 +94,17 @@ export function SurfaceNav({
       </header>
 
       {showDock ? (
-        <nav className="slop-dock" aria-label="Quick surface switch">
-          <a
-            className={`slop-dock__link${pathname === "/" ? " is-active" : ""}`}
-            href={HOME_HREF}
-          >
-            Home
-          </a>
-          {SURFACES.map((surface) => {
-            const active = surface.role === activeRole;
+        <nav className="slop-dock" aria-label="Navigate">
+          {NAV.map((item) => {
+            const active = pathname.startsWith(item.href);
             return (
               <a
-                key={surface.href}
-                href={surface.href}
+                key={item.href}
+                href={item.href}
                 className={`slop-dock__link${active ? " is-active" : ""}`}
                 aria-current={active ? "page" : undefined}
               >
-                <span>{surface.role}</span>
-                {surface.short}
+                {item.label}
               </a>
             );
           })}
