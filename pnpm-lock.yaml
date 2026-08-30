@@ -140,18 +140,6 @@ importers:
 
   apps/web:
     dependencies:
-      "@react-three/drei":
-        specifier: 10.7.8
-        version: 10.7.8(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(@types/react@19.2.18)(@types/three@0.185.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1)
-      "@react-three/fiber":
-        specifier: 9.7.0
-        version: 9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1)
-      "@react-three/postprocessing":
-        specifier: 3.1.1
-        version: 3.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(@types/three@0.185.4)(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1)
-      "@react-three/rapier":
-        specifier: 2.2.0
-        version: 2.2.0(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(react@19.2.8)(three@0.185.1)
       "@slopstream/shared":
         specifier: workspace:*
         version: link:../../packages/shared
@@ -170,10 +158,19 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.8(react@19.2.8)
-      three:
-        specifier: 0.185.1
-        version: 0.185.1
     devDependencies:
+      "@react-three/drei":
+        specifier: 10.7.8
+        version: 10.7.8(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(@types/react@19.2.18)(@types/three@0.185.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1)
+      "@react-three/fiber":
+        specifier: 9.7.0
+        version: 9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1)
+      "@react-three/postprocessing":
+        specifier: 3.1.1
+        version: 3.1.1(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(@types/three@0.185.4)(postprocessing@6.39.4(three@0.185.1))(react@19.2.8)(three@0.185.1)
+      "@react-three/rapier":
+        specifier: 2.2.0
+        version: 2.2.0(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(react@19.2.8)(three@0.185.1)
       "@types/node":
         specifier: ^24.0.0
         version: 24.13.3
@@ -186,6 +183,9 @@ importers:
       "@types/three":
         specifier: 0.185.4
         version: 0.185.4
+      three:
+        specifier: 0.185.1
+        version: 0.185.1
       typescript:
         specifier: ^5.9.0
         version: 5.9.3
