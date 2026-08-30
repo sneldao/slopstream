@@ -406,10 +406,12 @@ function videoPromptFor(
   const brand = request.brandId ?? "a startup";
   const brief = request.brief.trim();
   return (
-    `A cinematic 8-second advertisement video for ${brand}. ${brief}. ` +
-    `Dynamic camera movement, professional lighting, modern aesthetic. ` +
-    `The video should feel like a premium tech ad — fast cuts, ` +
-    `dramatic reveals, and a clear call to action. ` +
+    `A dynamic premium 4-to-8-second motion-design advertisement for ${brand}. ${brief}. ` +
+    `Match Slopstream's live UI world: midnight-blue liquid data, electric violet and cyan ` +
+    `particles, glowing auction bids, a threshold basin filling with verified attention, ` +
+    `a brief QR-code pulse, then a clean proof signal resolving into a confident brand lockup. ` +
+    `Use a fast but readable camera push, fluid transitions, crisp high-contrast lighting, ` +
+    `and intentional visual hierarchy. No readable generated text, no fake logos, no clutter. ` +
     `Voiceover context: "${transcript.slice(0, 150)}..."`
   );
 }

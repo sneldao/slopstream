@@ -5,6 +5,7 @@ import {
   StubGenerationProvider,
   type GenerationProvider,
 } from "./generator.js";
+import { createElevenLabsProviderFromEnv } from "./elevenlabsProvider.js";
 
 const DEFAULT_CREATE_TIMEOUT_SEC = 120;
 const DEFAULT_EXECUTION_TIMEOUT_SEC = 300;
@@ -307,13 +308,6 @@ export function createGenerationProviderFromEnv(
   }
 
   if (mode === "elevenlabs") {
-    // Lazy import to avoid loading the SDK in stub/daytona mode.
-    const { createElevenLabsProviderFromEnv } =
-      require("./elevenlabsProvider.js") as {
-        createElevenLabsProviderFromEnv: (
-          env: Environment,
-        ) => import("./elevenlabsProvider.js").ElevenLabsGenerationProvider;
-      };
     return createElevenLabsProviderFromEnv(environment);
   }
 
