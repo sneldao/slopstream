@@ -1,0 +1,18 @@
+// BidClearing — handles the auction.
+// Interface sketch; implementation lands with the Compact toolchain.
+//
+// placeBid(
+//     brandId,
+//     amount,
+//     segmentSlot
+// )
+//
+// clearBid(
+//     bidId,
+//     attentionProof
+// )
+//
+// Clearing semantics: a bid does NOT clear on the first correct answer.
+// Flow: BID -> AD PLAYS -> ATTENTION WINDOW -> VALID ATTENTION EVENTS
+//       -> CLEARING -> REWARD POOL CREATED.
+// The advertiser buys a defined amount of verified attention.

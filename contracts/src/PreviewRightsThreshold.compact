@@ -1,0 +1,5 @@
+// PreviewRightsThreshold — stretch goal (P2).
+// Interface sketch; implementation lands with the Compact toolchain.
+//
+// A brand proves it has crossed a spending threshold WITHOUT exposing
+// its exact spend, unlocking premium preview/approval functionality.

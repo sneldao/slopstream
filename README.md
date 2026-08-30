@@ -16,7 +16,7 @@ Slopstream: the audience watches, **the audience gets value too**. The listener 
 
 ## How it works
 
-```
+```text
 BRANDS
    │ bid $
    ▼
@@ -47,6 +47,19 @@ Not "an AI advertising platform." Not "blockchain advertising." Not "ad-supporte
 The most important product principle: **don't build an ad platform with a crypto component.** Build a human-attention marketplace. The 80/20 split gives everyone an immediate reason to care about the attention proof — it isn't technical theater, it determines when real economic value gets unlocked.
 
 One caveat on the 80% idea: economically strong, but legally/payment-wise, don't casually market it as "sharing ad revenue" until the rules for target jurisdictions are checked. For the prototype, **"listener rewards funded by verified attention"** is the cleaner product framing.
+
+## Repository layout
+
+```text
+contracts/              Midnight/Compact contracts (Lane 1)
+packages/shared/        Shared types: WS events, challenges, proofs, bids
+apps/api/               Backend API: ledger, auction, Stripe (Lane 2)
+apps/orchestrator/      Stream orchestrator + generation pipeline (Lane 3)
+apps/web/               Next.js: big screen, listener client, brand console (Lane 3)
+docs/                   Product design and technical architecture
+```
+
+Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:orchestrator`. See [docs/hackathon/team-split.md](docs/hackathon/team-split.md).
 
 ## Documentation
 

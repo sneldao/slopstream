@@ -1,0 +1,14 @@
+// ProofOfAttention — the core primitive.
+// Interface sketch; implementation lands with the Compact toolchain.
+//
+// submitAttentionProof(
+//     listenerCommitment,   // private: listener identity stays hidden
+//     segmentId,            // segment binding
+//     challengeId,          // challenge binding
+//     resultProof           // non-replayable proof payload
+// )
+//
+// Proves: a valid listener satisfied the challenge for this specific segment.
+//
+// Private state: listener identity, answer, session info, interaction data.
+// Public state:  aggregate verified attention, segment verification status.

@@ -3,13 +3,24 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm --filter @slopstream/shared build && pnpm -r typecheck",
+    "dev:web": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/web dev",
+    "dev:api": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/api dev",
+    "dev:orchestrator": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/orchestrator dev"
   },
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
     "markdownlint-cli2": "^0.23.2",
     "prettier": "^3.9.6"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

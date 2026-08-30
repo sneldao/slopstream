@@ -1,0 +1,17 @@
+// RewardClearing — proves reward pool creation and distributes claims.
+// Interface sketch; implementation lands with the Compact toolchain.
+// Fully on-chain RewardClearing is P2 — the backend ledger handles
+// distribution first (see docs/hackathon/build-order.md).
+//
+// createRewardPool(
+//     clearedBid,
+//     rewardAmount
+// )
+//
+// claimReward(
+//     listenerCommitment,
+//     rewardProof
+// )
+//
+// Makes the economic relationship explicit:
+// verified advertiser spend -> listener reward pool.
