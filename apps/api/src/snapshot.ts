@@ -42,10 +42,23 @@ export function composeSnapshot(
   }
 
   const open = auction.openAuction();
+  const recentSegments = [...ledger.segments.values()]
+    .filter(
+      (segment) =>
+        segment.status === "done" && segment.id !== nowPlayingRow?.id,
+    )
+    .sort(
+      (a, b) =>
+        (b.windowOpenedAtMs ?? 0) - (a.windowOpenedAtMs ?? 0) ||
+        b.slot - a.slot,
+    )
+    .slice(0, 8)
+    .map(toSharedSegment);
 
   return {
     asOfSequence: bus.sequence,
     nowPlaying: nowPlayingRow ? toSharedSegment(nowPlayingRow) : null,
+    recentSegments,
     nowPlayingStartedAt:
       nowPlayingRow?.windowOpenedAtMs !== undefined
         ? new Date(nowPlayingRow.windowOpenedAtMs).toISOString()

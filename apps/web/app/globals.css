@@ -244,6 +244,199 @@ a {
   line-height: 1.4;
 }
 
+.slop-value-prop__dismiss {
+  display: inline-flex;
+  margin-left: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--slop-yellow);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.slop-wallet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(8, 8, 18, 0.58);
+  backdrop-filter: blur(16px);
+}
+
+.slop-wallet__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  color: rgba(255, 253, 246, 0.72);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.slop-wallet__row strong {
+  color: #fff;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.slop-wallet__row--mute {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.slop-wallet__cta {
+  margin-top: 4px;
+  border: none;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 12px 16px;
+  background: var(--slop-yellow);
+  color: var(--slop-ink);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.slop-payout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+.slop-payout-sheet {
+  width: min(420px, 100%);
+  padding: 22px 20px 18px;
+  border: 2px solid var(--slop-ink);
+  border-radius: 24px 24px 18px 18px;
+  background: var(--slop-cream);
+  color: var(--slop-ink);
+  box-shadow: 8px 10px 0 rgba(16, 16, 20, 0.2);
+}
+
+.slop-payout-sheet__kicker {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(16, 16, 20, 0.5);
+}
+
+.slop-payout-sheet h2 {
+  margin: 8px 0 10px;
+  font-family: var(--slop-display);
+  font-size: 28px;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.slop-payout-sheet p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: rgba(16, 16, 20, 0.72);
+}
+
+.slop-payout-sheet__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.slop-payout-sheet__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(16, 16, 20, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.slop-payout-sheet__rows strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+}
+
+.slop-payout-sheet__cta,
+.slop-payout-sheet__close {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.slop-payout-sheet__cta {
+  border: none;
+  background: var(--slop-ink);
+  color: var(--slop-cream);
+}
+
+.slop-payout-sheet__cta:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.slop-payout-sheet__close {
+  margin-top: 8px;
+  border: 1px solid var(--slop-ink);
+  background: transparent;
+  color: var(--slop-ink);
+}
+
+.slop-payout-sheet__done {
+  margin: 0 0 8px !important;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(74, 222, 128, 0.18);
+  color: #166534 !important;
+  font-weight: 700 !important;
+}
+
+.screen-continuum-shell.is-theater .slop-nav,
+.screen-continuum-shell.is-theater .screen-leaderboard,
+.screen-continuum-shell.is-theater .screen-stats,
+.screen-continuum-shell.is-theater .screen-threshold {
+  display: none !important;
+}
+
+.screen-continuum-shell.is-theater {
+  padding-top: 0;
+}
+
+.screen-join--theater {
+  left: 50% !important;
+  right: auto !important;
+  bottom: max(24px, env(safe-area-inset-bottom, 0px)) !important;
+  transform: translateX(-50%);
+}
+
+.slop-nav--minimal .slop-nav__switcher {
+  justify-self: center;
+}
+
 .slop-hud-pill {
   display: inline-flex;
   align-items: center;
@@ -391,6 +584,10 @@ main.has-dock {
   z-index: 40;
   background: color-mix(in srgb, var(--slop-cream) 82%, transparent);
   backdrop-filter: blur(14px);
+}
+
+.screen-continuum-shell {
+  padding-top: calc(64px + env(safe-area-inset-top, 0px));
 }
 
 .screen-continuum-shell.has-dock {
@@ -662,6 +859,159 @@ main.has-dock {
 .continuum-world--focus .continuum-portal {
   width: min(64vw, 1040px);
   height: min(66vh, 700px);
+}
+
+/* Deterministic world recipes. They share the same materials and palette;
+   only the camera grammar and spatial hierarchy change. */
+.continuum-world--recipe-orbit .continuum-world__grid {
+  background-size: 72px 72px;
+  rotate: 45deg;
+  scale: 1.4;
+}
+
+.continuum-world--recipe-orbit .continuum-portal,
+.continuum-world--recipe-orbit.continuum-world--focus .continuum-portal {
+  top: 47%;
+  width: min(56vw, 650px);
+  height: min(68vh, 650px);
+  min-height: 420px;
+  rotate: 3deg;
+}
+
+.continuum-world--recipe-orbit .continuum-portal__frame {
+  border-radius: 50%;
+  box-shadow:
+    12px 14px 0 var(--slop-ink),
+    0 40px 100px rgba(45, 44, 63, 0.22);
+}
+
+.continuum-world--recipe-orbit .continuum-memory {
+  width: clamp(220px, 20vw, 330px);
+  min-height: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  text-align: center;
+  align-items: center;
+}
+
+.continuum-world--recipe-orbit .continuum-world__type--one {
+  top: 43%;
+  rotate: -11deg;
+}
+
+.continuum-world--recipe-cascade .continuum-world__wash {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--world-a), #fff 50%),
+      transparent 48%
+    ),
+    linear-gradient(135deg, #fffdf7, var(--slop-cream));
+}
+
+.continuum-world--recipe-cascade .continuum-portal,
+.continuum-world--recipe-cascade.continuum-world--focus .continuum-portal {
+  left: 39%;
+  width: min(48vw, 720px);
+  height: min(74vh, 760px);
+  rotate: -3deg;
+}
+
+.continuum-world--recipe-cascade .continuum-portal__frame {
+  border-radius: 150px 32px 150px 32px;
+}
+
+.continuum-world--recipe-cascade .continuum-memory {
+  width: clamp(250px, 26vw, 420px);
+  min-height: 200px;
+  border-radius: 20px 86px 20px 86px;
+}
+
+.continuum-world--recipe-cascade .continuum-world__type--one {
+  top: 2%;
+  left: -18%;
+  rotate: 88deg;
+  transform-origin: center;
+}
+
+.continuum-world--recipe-cascade .continuum-world__route {
+  rotate: -12deg;
+  scale: 1.2;
+}
+
+.continuum-world--recipe-constellation .continuum-portal,
+.continuum-world--recipe-constellation.continuum-world--focus
+  .continuum-portal {
+  top: 48%;
+  width: min(48vw, 760px);
+  height: min(54vh, 570px);
+  rotate: 2deg;
+}
+
+.continuum-world--recipe-constellation .continuum-portal__frame {
+  border-radius: 32% 68% 56% 44% / 47% 38% 62% 53%;
+}
+
+.continuum-world--recipe-constellation .continuum-memory {
+  width: clamp(210px, 19vw, 310px);
+  min-height: 210px;
+  border-radius: 42% 58% 36% 64% / 55% 37% 63% 45%;
+}
+
+.continuum-world--recipe-constellation .continuum-world__grid {
+  opacity: 0.17;
+  background-size: 140px 140px;
+}
+
+.continuum-world--recipe-constellation .continuum-world__route path {
+  stroke-width: 3;
+  stroke-dasharray: 1 18;
+}
+
+.continuum-world--recipe-cinema .continuum-world__wash {
+  opacity: 0.48;
+  background:
+    linear-gradient(
+      90deg,
+      var(--slop-ink) 0 3%,
+      transparent 3% 97%,
+      var(--slop-ink) 97%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--world-a), #fff 72%),
+      var(--slop-cream)
+    );
+}
+
+.continuum-world--recipe-cinema .continuum-portal,
+.continuum-world--recipe-cinema.continuum-world--focus .continuum-portal {
+  top: 49%;
+  width: min(76vw, 1240px);
+  height: min(72vh, 760px);
+  rotate: 0deg;
+}
+
+.continuum-world--recipe-cinema .continuum-portal__frame {
+  border-radius: 16px;
+  box-shadow:
+    0 18px 0 -8px var(--slop-ink),
+    0 42px 110px rgba(45, 44, 63, 0.3);
+}
+
+.continuum-world--recipe-cinema .continuum-memory {
+  opacity: 0.52;
+  filter: saturate(0.8);
+}
+
+.continuum-world--recipe-cinema .continuum-world__type--one {
+  top: 3%;
+  font-size: clamp(48px, 6vw, 100px);
+}
+
+.continuum-world--recipe-cinema .continuum-world__type--two {
+  bottom: 1%;
+  font-size: clamp(40px, 5vw, 84px);
 }
 
 .continuum-portal__halo {
@@ -1083,10 +1433,13 @@ main.has-dock {
 }
 
 @media (max-width: 800px) {
-  .continuum-portal,
-  .continuum-world--focus .continuum-portal {
+  .continuum-world[class*="continuum-world--recipe-"] .continuum-portal {
+    top: 50%;
+    left: 50%;
     width: 78vw;
     height: 54vh;
+    min-height: 320px;
+    rotate: 0deg;
   }
 
   .continuum-memory {

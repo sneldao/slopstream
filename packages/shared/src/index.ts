@@ -426,6 +426,9 @@ export interface WsDelivery {
 export interface StreamSnapshot {
   asOfSequence: number;
   nowPlaying: Segment | null;
+  /** Most recently completed segments, newest first. This is the durable
+   *  visual history used by the big-screen Continuum after refresh/reconnect. */
+  recentSegments: Segment[];
   /** ISO timestamp of when `nowPlaying` started. Lets a reconnecting client
    *  sync challenge validFrom/validUntil windows to elapsed playback time. */
   nowPlayingStartedAt?: string;

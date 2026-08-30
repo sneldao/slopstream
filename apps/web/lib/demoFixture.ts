@@ -59,6 +59,24 @@ export const DEMO_BRANDS: BrandSummary[] = [
 const INITIAL_SNAPSHOT: StreamSnapshot = {
   asOfSequence: 0,
   nowPlaying: null,
+  recentSegments: [
+    {
+      id: "seg_archive_2",
+      slot: -1,
+      brandId: "brand_acme",
+      durationSeconds: 24,
+      summary: "An office robot discovers that attention has a price.",
+      status: "done",
+    },
+    {
+      id: "seg_archive_1",
+      slot: -2,
+      brandId: "brand_dogfood",
+      durationSeconds: 18,
+      summary: "A purple dog launches a startup from inside a vending machine.",
+      status: "done",
+    },
+  ],
   brands: DEMO_BRANDS,
   leaderboard: [],
   nextSlotPriceUsd: 5,

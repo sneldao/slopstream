@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 /**
  * Demo controls — play/pause/restart/step plus the current scene label and
- * progress. Theater mode (`?theater=1` or `t`) hides the bar for audience
- * runs; Space / → / R still work.
+ * progress. Theater mode is owned by the screen page so nav/HUD hide together.
+ * Keyboard: Space/k play, →/n step, r restart (T is handled by useTheaterMode).
  */
 export function DemoControls({
   playing,
@@ -13,26 +13,24 @@ export function DemoControls({
   stepIndex,
   totalSteps,
   label,
+  theater,
   onToggle,
   onRestart,
   onStep,
+  onEnterTheater,
 }: {
   playing: boolean;
   finished: boolean;
   stepIndex: number;
   totalSteps: number;
   label?: string;
+  theater: boolean;
   onToggle: () => void;
   onRestart: () => void;
   onStep: () => void;
+  onEnterTheater: () => void;
 }) {
-  const [theater, setTheater] = useState(false);
   const progress = totalSteps > 0 ? stepIndex / totalSteps : 0;
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("theater") === "1") setTheater(true);
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -47,9 +45,6 @@ export function DemoControls({
       } else if (e.key === "r") {
         e.preventDefault();
         onRestart();
-      } else if (e.key === "t") {
-        e.preventDefault();
-        setTheater((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -59,7 +54,7 @@ export function DemoControls({
   if (theater) {
     return (
       <div style={styles.theaterHint} aria-hidden="true">
-        Theater · Space / → / R · press T to show controls
+        Theater · Space / → / R · press T to show chrome
       </div>
     );
   }
@@ -82,9 +77,9 @@ export function DemoControls({
         </button>
         <button
           style={styles.btn}
-          onClick={() => setTheater(true)}
+          onClick={onEnterTheater}
           aria-label="Enter theater mode"
-          title="Hide controls (T)"
+          title="Hide chrome (T)"
         >
           ◻
         </button>
@@ -122,7 +117,7 @@ const styles: Record<string, React.CSSProperties> = {
     transform: "translateX(-50%)",
     zIndex: 100,
     opacity: 0.35,
-    color: "#fff",
+    color: "#101014",
     fontSize: 10,
     fontWeight: 700,
     letterSpacing: 1,

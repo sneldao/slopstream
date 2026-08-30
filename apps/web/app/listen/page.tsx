@@ -17,6 +17,7 @@ import { requestJson } from "@/lib/liveApi";
 import { SphereField } from "../_components/SphereField";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
+import { PayoutSheet } from "./_components/PayoutSheet";
 import { continuumBlurb, continuumChapter } from "@/lib/continuum";
 
 /**
@@ -39,15 +40,26 @@ export default function ListenPage() {
   const { play } = useSoundDesign();
   const [joined, setJoined] = useState(false);
   const [receipt, setReceipt] = useState<AttentionProofReceipt | null>(null);
-  const [balance, setBalance] = useState(0);
+  const [availableUsd, setAvailableUsd] = useState(0);
+  const [pendingUsd, setPendingUsd] = useState(0);
   const [todayVerified, setTodayVerified] = useState(0);
   const [earnMode, setEarnMode] = useState(false);
+  const [showValueProp, setShowValueProp] = useState(true);
+  const [payoutOpen, setPayoutOpen] = useState(false);
   const [listenerIdentity, setListenerIdentity] =
     useState<ListenerIdentity | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const lastClearBurstId = useRef(0);
 
   useEffect(() => {
-    setEarnMode(window.localStorage.getItem(EARN_MODE_KEY) === "on");
+    const params = new URLSearchParams(window.location.search);
+    const stored = window.localStorage.getItem(EARN_MODE_KEY) === "on";
+    const fromQuery = params.get("earn") === "1";
+    setEarnMode(fromQuery || stored);
+    if (fromQuery) window.localStorage.setItem(EARN_MODE_KEY, "on");
+    if (window.localStorage.getItem(VALUE_PROP_KEY) === "1") {
+      setShowValueProp(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -66,7 +78,7 @@ export default function ListenPage() {
       .then(({ token: nextToken, session }) => {
         window.sessionStorage.setItem(LISTENER_TOKEN_KEY, nextToken);
         setListenerIdentity({ token: nextToken, commitment });
-        setBalance(session.availableBalanceUsd);
+        setAvailableUsd(session.availableBalanceUsd);
         setTodayVerified(session.todayVerifiedUsd);
       })
       .catch((error: unknown) => setSubmissionError(errorMessage(error)));
@@ -81,7 +93,7 @@ export default function ListenPage() {
         listenerIdentity.token,
       )
         .then(({ session }) => {
-          setBalance(session.availableBalanceUsd);
+          setAvailableUsd(session.availableBalanceUsd);
           setTodayVerified(session.todayVerifiedUsd);
         })
         .catch(() => {
@@ -121,6 +133,18 @@ export default function ListenPage() {
   const challenge = state.activeChallenge;
   const attention = state.attention;
 
+  // When a segment clears, pending rewards become available to cash out.
+  useEffect(() => {
+    const clear = state.lastClear;
+    if (!clear || clear.burstId === lastClearBurstId.current) return;
+    lastClearBurstId.current = clear.burstId;
+    setPendingUsd((pending) => {
+      if (pending <= 0) return 0;
+      setAvailableUsd((avail) => avail + pending);
+      return 0;
+    });
+  }, [state.lastClear]);
+
   const handleJoin = () => {
     if (joined) return;
     unlock();
@@ -133,8 +157,17 @@ export default function ListenPage() {
       const next = !enabled;
       window.localStorage.setItem(EARN_MODE_KEY, next ? "on" : "off");
       if (!next) setReceipt(null);
+      if (next) {
+        window.localStorage.setItem(VALUE_PROP_KEY, "1");
+        setShowValueProp(false);
+      }
       return next;
     });
+  };
+
+  const dismissValueProp = () => {
+    window.localStorage.setItem(VALUE_PROP_KEY, "1");
+    setShowValueProp(false);
   };
 
   // Challenge sounds belong only to the explicitly enabled earn experience.
@@ -164,9 +197,14 @@ export default function ListenPage() {
       )
         .then(({ receipt: nextReceipt, session }) => {
           setReceipt(nextReceipt);
-          setBalance(session.availableBalanceUsd);
+          setAvailableUsd(session.availableBalanceUsd);
           setTodayVerified(session.todayVerifiedUsd);
-          if (nextReceipt.verified) play("proof");
+          if (nextReceipt.verified) {
+            play("proof");
+            if (nextReceipt.estimatedRewardUsd) {
+              setPendingUsd((p) => p + nextReceipt.estimatedRewardUsd!);
+            }
+          }
         })
         .catch((error: unknown) => setSubmissionError(errorMessage(error)));
       return;
@@ -188,7 +226,7 @@ export default function ListenPage() {
     });
     if (verified) {
       play("proof");
-      setBalance((b) => b + (estimatedReward ?? 0));
+      setPendingUsd((p) => p + (estimatedReward ?? 0));
       setTodayVerified((t) => t + (estimatedReward ?? 0));
     }
   };
@@ -232,9 +270,10 @@ export default function ListenPage() {
               >
                 {muted ? "Muted" : "Sound on"}
               </button>
-              <motion.div
+              <motion.button
+                type="button"
                 style={styles.balancePill}
-                key={balance}
+                key={`${availableUsd}-${pendingUsd}`}
                 initial={{ scale: 1.2 }}
                 animate={{ scale: 1 }}
                 transition={{
@@ -243,10 +282,16 @@ export default function ListenPage() {
                   damping: 14,
                 }}
                 aria-live="polite"
+                onClick={() => setPayoutOpen(true)}
+                title="View pending and available rewards"
               >
-                <span style={styles.balanceLabel}>Balance</span>
-                <span style={styles.balanceAmount}>${balance.toFixed(2)}</span>
-              </motion.div>
+                <span style={styles.balanceLabel}>
+                  {pendingUsd > 0 ? "Pending" : "Available"}
+                </span>
+                <span style={styles.balanceAmount}>
+                  ${(pendingUsd > 0 ? pendingUsd : availableUsd).toFixed(2)}
+                </span>
+              </motion.button>
             </>
           ) : undefined
         }
@@ -264,21 +309,32 @@ export default function ListenPage() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
             >
-              <FirstRunCoach
-                storageKey="slopstream.coach.listen.v1"
-                title="How you earn"
-                steps={[
-                  "Listen while the ad plays",
-                  "Answer the quick attention check",
-                  "Verified attention funds listener rewards",
-                ]}
-              />
+              {!earnMode && (
+                <FirstRunCoach
+                  storageKey="slopstream.coach.listen.v1"
+                  title="How you earn"
+                  steps={[
+                    "Listen while the ad plays",
+                    "Turn on Earn Mode for attention checks",
+                    "Pending rewards unlock when a segment clears",
+                  ]}
+                />
+              )}
 
-              <p className="slop-value-prop">
-                {earnMode
-                  ? "Earn Mode is on — answer quick checks while ads play to share in listener rewards."
-                  : "Listen without interruptions. Turn on Earn Mode whenever you want to answer checks for rewards."}
-              </p>
+              {showValueProp && (
+                <p className="slop-value-prop">
+                  {earnMode
+                    ? "Earn Mode is on — verified checks go to pending until the segment clears."
+                    : "Listen without interruptions. Turn on Earn Mode whenever you want to answer checks for rewards."}
+                  <button
+                    type="button"
+                    className="slop-value-prop__dismiss"
+                    onClick={dismissValueProp}
+                  >
+                    Got it
+                  </button>
+                </p>
+              )}
 
               {mode === "live" && connectionStatus !== "connected" && (
                 <div role="status" style={styles.signalNotice}>
@@ -399,14 +455,26 @@ export default function ListenPage() {
                 </div>
               )}
 
-              {/* Today's verified — drifting at the bottom */}
-              <div style={styles.todayRow} aria-live="polite">
-                <span style={styles.todayLabel}>
-                  Today&apos;s verified attention
-                </span>
-                <span style={styles.todayAmount}>
-                  +${todayVerified.toFixed(2)}
-                </span>
+              <div className="slop-wallet" aria-live="polite">
+                <div className="slop-wallet__row">
+                  <span>Pending</span>
+                  <strong>${pendingUsd.toFixed(2)}</strong>
+                </div>
+                <div className="slop-wallet__row">
+                  <span>Available</span>
+                  <strong>${availableUsd.toFixed(2)}</strong>
+                </div>
+                <div className="slop-wallet__row slop-wallet__row--mute">
+                  <span>Today verified</span>
+                  <span>+${todayVerified.toFixed(2)}</span>
+                </div>
+                <button
+                  type="button"
+                  className="slop-wallet__cta"
+                  onClick={() => setPayoutOpen(true)}
+                >
+                  {availableUsd > 0 ? "Request payout" : "How payouts work"}
+                </button>
               </div>
             </motion.div>
           )}
@@ -420,6 +488,16 @@ export default function ListenPage() {
           onDismiss={() => setReceipt(null)}
         />
       )}
+
+      <PayoutSheet
+        open={payoutOpen}
+        availableUsd={availableUsd}
+        pendingUsd={pendingUsd}
+        onClose={() => setPayoutOpen(false)}
+        onRequest={() => {
+          setAvailableUsd(0);
+        }}
+      />
     </main>
   );
 }
@@ -545,6 +623,7 @@ function hexA(hex: string, a: number): string {
 
 const LISTENER_TOKEN_KEY = "slopstream.listener-token";
 const EARN_MODE_KEY = "slopstream.listener.earn-mode.v1";
+const VALUE_PROP_KEY = "slopstream.listener.value-prop.v1";
 const LISTENER_COMMITMENT_KEY = "slopstream.listener-commitment";
 
 interface ListenerIdentity {
@@ -735,6 +814,8 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.4,
   },
   balancePill: {
+    border: "none",
+    cursor: "pointer",
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",

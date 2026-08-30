@@ -45,6 +45,7 @@ function resolveWsUrl(afterSequence: number): string | null {
 const EMPTY_STATE: StreamState = snapshotToState({
   asOfSequence: 0,
   nowPlaying: null,
+  recentSegments: [],
   brands: [],
   leaderboard: [],
   nextSlotPriceUsd: 0,

@@ -7,6 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useSoundDesign } from "@/lib/useSoundDesign";
+import { useTheaterMode } from "@/lib/useTheaterMode";
 import { FREE_BRAND_ID, FREE_BRAND_SUMMARY } from "@slopstream/shared";
 import { NowPlaying } from "./_components/NowPlaying";
 import { StatsFooter } from "./_components/StatsFooter";
@@ -24,6 +25,7 @@ const Scene = dynamic(
 
 export default function ScreenPage() {
   const { state, mode, connectionStatus, demo } = useStream();
+  const { theater, setTheater } = useTheaterMode(true);
   // In live mode, play real audio from the segment's asset URL.
   // In demo mode, the asset URLs are placeholders that don't exist, so
   // the hook falls back to the synthesized signal.
@@ -33,7 +35,8 @@ export default function ScreenPage() {
   const { signalRef } = useAudioSignal(!!state.nowPlaying, audioUrl);
   const { play } = useSoundDesign();
   const listenerUrl =
-    process.env.NEXT_PUBLIC_LISTENER_URL ?? "http://localhost:3000/listen";
+    process.env.NEXT_PUBLIC_LISTENER_URL ??
+    "http://localhost:3000/listen?earn=1";
 
   // Active brand drives the now-playing surface. Free segments (scraped
   // companies with no bid) have brandId null — map them to the FREE SLOP
@@ -100,8 +103,13 @@ export default function ScreenPage() {
     ? state.brandById[state.lastOutbid.newBrandId]?.primaryColor
     : undefined;
 
+  const idleRecruit = !state.nowPlaying && !state.generation;
+
   return (
-    <main className="screen-continuum-shell has-dock" style={styles.main}>
+    <main
+      className={`screen-continuum-shell${theater ? " is-theater" : ""}`}
+      style={styles.main}
+    >
       {/* The Continuum — media is the world; brand colour, archive fragments,
           physical spheres and event ripples create the surrounding depth. */}
       <Scene
@@ -116,6 +124,7 @@ export default function ScreenPage() {
         outbidNewBrandId={state.lastOutbid?.newBrandId}
         // Ad surface (Phase 4)
         segment={state.nowPlaying}
+        recentSegments={state.recentSegments}
         generation={state.generation}
         playingTier={state.playingTier}
         // Threshold basin (Phase 5)
@@ -154,83 +163,90 @@ export default function ScreenPage() {
         brandColor={activeBrand?.primaryColor}
       />
 
-      {/* Top nav — shared surface switcher */}
+      {/* Minimal spectacle chrome — no dock; theater hides entirely. */}
       <SurfaceHeader
         role="01"
         subtitle="Attention market / on air"
         tone="light"
         sticky
+        minimal
+        showDock={false}
+        hidden={theater}
         trailing={
-          <>
-            <span style={styles.liveDot} />
-            {mode === "live" && (
-              <span
-                className="slop-hud-pill"
-                style={{
-                  color:
-                    connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
-                }}
-              >
-                <span style={styles.connectionDot} />
-                {connectionStatus === "connected" ? "Live" : "Offline"}
-              </span>
-            )}
-          </>
+          !theater && mode === "live" ? (
+            <span
+              className="slop-hud-pill"
+              style={{
+                color: connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
+              }}
+            >
+              <span style={styles.connectionDot} />
+              {connectionStatus === "connected" ? "Live" : "Offline"}
+            </span>
+          ) : !theater ? (
+            <span style={styles.liveDot} aria-hidden />
+          ) : null
         }
       />
 
-      {/* Floating leaderboard — right side, over the canvas. */}
-      <motion.div
-        className="screen-leaderboard"
-        style={styles.leaderboardFloat}
-        initial={{ opacity: 0, x: 40 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.4, type: "spring", stiffness: 200, damping: 20 }}
-      >
-        <div style={styles.leaderboardHeader}>
-          <span style={styles.leaderboardTitle}>LIVE BIDS</span>
-          {state.nextSlotPriceUsd > 0 && (
-            <span style={styles.nextSlot}>
-              next slot{" "}
-              <span style={styles.nextPrice}>${state.nextSlotPriceUsd}</span>
-            </span>
-          )}
-        </div>
-        <div style={styles.chipsColumn}>
-          <AnimatePresence mode="popLayout">
-            {state.leaderboard.map((entry, i) => {
-              const b = state.brandById[entry.brandId];
-              return (
-                <BlobChip
-                  key={entry.brandId}
-                  name={b?.name ?? entry.brandId}
-                  amount={`$${entry.amountUsd.toFixed(0)}`}
-                  color={b?.primaryColor ?? "#666"}
-                  secondaryColor={b?.secondaryColor ?? "#333"}
-                  rank={i + 1}
-                  isLeader={i === 0}
-                  signalRef={signalRef}
-                />
-              );
-            })}
-          </AnimatePresence>
-          {state.leaderboard.length === 0 && (
-            <div style={styles.emptyBids}>
-              The market is open — waiting for the first bid.
-            </div>
-          )}
-        </div>
-      </motion.div>
+      {!theater && (
+        <motion.div
+          className="screen-leaderboard"
+          style={styles.leaderboardFloat}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{
+            delay: 0.4,
+            type: "spring",
+            stiffness: 200,
+            damping: 20,
+          }}
+        >
+          <div style={styles.leaderboardHeader}>
+            <span style={styles.leaderboardTitle}>LIVE BIDS</span>
+            {state.nextSlotPriceUsd > 0 && (
+              <span style={styles.nextSlot}>
+                next slot{" "}
+                <span style={styles.nextPrice}>${state.nextSlotPriceUsd}</span>
+              </span>
+            )}
+          </div>
+          <div style={styles.chipsColumn}>
+            <AnimatePresence mode="popLayout">
+              {state.leaderboard.map((entry, i) => {
+                const b = state.brandById[entry.brandId];
+                return (
+                  <BlobChip
+                    key={entry.brandId}
+                    name={b?.name ?? entry.brandId}
+                    amount={`$${entry.amountUsd.toFixed(0)}`}
+                    color={b?.primaryColor ?? "#666"}
+                    secondaryColor={b?.secondaryColor ?? "#333"}
+                    rank={i + 1}
+                    isLeader={i === 0}
+                    signalRef={signalRef}
+                  />
+                );
+              })}
+            </AnimatePresence>
+            {state.leaderboard.length === 0 && (
+              <div style={styles.emptyBids}>
+                The market is open — waiting for the first bid.
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       <aside
-        className="screen-join"
+        className={`screen-join${idleRecruit || state.activeChallenge ? " slop-join-pulse" : ""}${theater ? " screen-join--theater" : ""}`}
         style={styles.joinPanel}
         aria-label="Join Slopstream as a listener"
       >
         <div style={styles.qrFrame}>
           <QRCodeSVG
             value={listenerUrl}
-            size={82}
+            size={idleRecruit || theater ? 108 : 82}
             bgColor="#ffffff"
             fgColor="#0b0b1a"
             level="M"
@@ -238,20 +254,20 @@ export default function ScreenPage() {
           />
         </div>
         <div>
-          <div style={styles.joinTitle}>OPTIONAL EARN MODE</div>
+          <div style={styles.joinTitle}>
+            {idleRecruit ? "SCAN TO LISTEN" : "OPTIONAL EARN MODE"}
+          </div>
           <div style={styles.joinCopy}>
             {state.activeChallenge
               ? "A proof moment is open on listener phones."
-              : !state.nowPlaying
-                ? "Scan to listen, or opt in to earn from proof moments."
+              : idleRecruit
+                ? "Join the room. Opt into Earn Mode when you want rewards."
                 : "Listen freely. Opt in to attention checks if you want rewards."}
           </div>
         </div>
       </aside>
 
-      {/* Attention threshold text — the 3D basin shows the visual fill;
-          this small label shows the numbers. */}
-      {state.attention && (
+      {!theater && state.attention && (
         <motion.div
           className="screen-threshold"
           style={styles.thresholdLabel}
@@ -271,20 +287,21 @@ export default function ScreenPage() {
         </motion.div>
       )}
 
-      {/* Drifting stats — bottom center, no border, floating. */}
-      <motion.div
-        className="screen-stats"
-        style={styles.statsFloat}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <StatsFooter
-          listeners={state.listeners}
-          attentionProofs={state.attentionProofs}
-          listenerRewardsUsd={state.listenerRewardsUsd}
-        />
-      </motion.div>
+      {!theater && (
+        <motion.div
+          className="screen-stats"
+          style={styles.statsFloat}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <StatsFooter
+            listeners={state.listeners}
+            attentionProofs={state.attentionProofs}
+            listenerRewardsUsd={state.listenerRewardsUsd}
+          />
+        </motion.div>
+      )}
 
       {mode === "demo" && (
         <DemoControls
@@ -293,9 +310,11 @@ export default function ScreenPage() {
           stepIndex={demo.stepIndex}
           totalSteps={demo.totalSteps}
           label={demo.label}
+          theater={theater}
           onToggle={demo.toggle}
           onRestart={demo.restart}
           onStep={demo.stepNext}
+          onEnterTheater={() => setTheater(true)}
         />
       )}
     </main>

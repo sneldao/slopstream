@@ -30,6 +30,7 @@ const SURFACES = [
  * Shared navigation across home + product surfaces.
  * Desktop: cream wordmark + role switcher + trailing actions.
  * Mobile: compact header + bottom dock for thumb reach.
+ * Spectacle: minimal chrome (home + current role) and no dock.
  */
 export function SurfaceNav({
   role,
@@ -38,15 +39,21 @@ export function SurfaceNav({
   showDock = true,
   tone = "dark",
   sticky = false,
+  minimal = false,
+  hidden = false,
 }: {
   role?: SurfaceRole;
   subtitle?: string;
   trailing?: ReactNode;
-  /** Bottom dock on small screens — off for presentation theater. */
+  /** Bottom dock on small screens — off for presentation / spectacle. */
   showDock?: boolean;
   tone?: "dark" | "light";
   /** Fixed top bar (big screen / continuum). */
   sticky?: boolean;
+  /** Quieter chrome: home + current role only. */
+  minimal?: boolean;
+  /** Theater mode — render nothing. */
+  hidden?: boolean;
 }) {
   const pathname = usePathname() ?? "/";
   const activeRole =
@@ -59,10 +66,24 @@ export function SurfaceNav({
           ? "03"
           : undefined);
 
+  if (hidden) return null;
+
+  const surfaces = minimal
+    ? SURFACES.filter((s) => s.role === activeRole)
+    : SURFACES;
+
   return (
     <>
       <header
-        className={`slop-nav slop-nav--${tone}${showDock ? " slop-nav--docked" : ""}${sticky ? " slop-nav--screen" : ""}`}
+        className={[
+          "slop-nav",
+          `slop-nav--${tone}`,
+          showDock ? "slop-nav--docked" : "",
+          sticky ? "slop-nav--screen" : "",
+          minimal ? "slop-nav--minimal" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
         <div className="slop-nav__brand">
           <a
@@ -72,20 +93,21 @@ export function SurfaceNav({
           >
             Slopstream
           </a>
-          {subtitle ? (
+          {subtitle && !minimal ? (
             <span className="slop-nav__subtitle">{subtitle}</span>
           ) : null}
         </div>
 
         <nav className="slop-nav__switcher" aria-label="Surfaces">
-          {SURFACES.map((surface) => {
+          {surfaces.map((surface) => {
             const active = surface.role === activeRole;
             return (
               <a
                 key={surface.href}
-                href={surface.href}
+                href={minimal ? "/" : surface.href}
                 className={`slop-nav__link${active ? " is-active" : ""}`}
                 aria-current={active ? "page" : undefined}
+                title={minimal ? "Back to home to switch surfaces" : undefined}
               >
                 <span className="slop-nav__index">{surface.role}</span>
                 <span className="slop-nav__short">{surface.short}</span>

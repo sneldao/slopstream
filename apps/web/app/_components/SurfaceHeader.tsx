@@ -12,6 +12,8 @@ export function SurfaceHeader({
   showDock = true,
   tone = "dark",
   sticky = false,
+  minimal = false,
+  hidden = false,
 }: {
   role: SurfaceRole;
   subtitle?: string;
@@ -19,6 +21,8 @@ export function SurfaceHeader({
   showDock?: boolean;
   tone?: "dark" | "light";
   sticky?: boolean;
+  minimal?: boolean;
+  hidden?: boolean;
 }) {
   return (
     <SurfaceNav
@@ -28,6 +32,8 @@ export function SurfaceHeader({
       showDock={showDock}
       tone={tone}
       sticky={sticky}
+      minimal={minimal}
+      hidden={hidden}
     />
   );
 }

@@ -83,6 +83,8 @@ export interface OutbidFlash {
 export interface StreamState {
   asOfSequence: number;
   nowPlaying: Segment | null;
+  /** Durable and event-projected Continuum history, newest first. */
+  recentSegments: Segment[];
   nowPlayingStartedAt?: string;
   nowPlayingAttentionThreshold?: number;
   brands: BrandSummary[];
@@ -114,6 +116,7 @@ export function snapshotToState(snapshot: StreamSnapshot): StreamState {
   return {
     asOfSequence: snapshot.asOfSequence,
     nowPlaying: snapshot.nowPlaying,
+    recentSegments: snapshot.recentSegments,
     nowPlayingStartedAt: snapshot.nowPlayingStartedAt,
     nowPlayingAttentionThreshold: snapshot.nowPlayingAttentionThreshold,
     brands: snapshot.brands,
@@ -224,6 +227,10 @@ export function reduceStreamEvent(
 
     case "segment.playing": {
       const gen = prev.generation;
+      const previousSegment =
+        prev.nowPlaying && prev.nowPlaying.id !== event.segmentId
+          ? { ...prev.nowPlaying, status: "done" as const }
+          : undefined;
       const segment: Segment =
         prev.nowPlaying && prev.nowPlaying.id === event.segmentId
           ? { ...prev.nowPlaying, status: "playing" }
@@ -239,6 +246,7 @@ export function reduceStreamEvent(
       return {
         ...next,
         nowPlaying: segment,
+        recentSegments: addRecentSegment(prev.recentSegments, previousSegment),
         nowPlayingStartedAt: event.startedAt,
         // Carry the tier from generation into playback so the 3D AdSurface
         // knows whether to render an orb, image plane, or video plane.
@@ -273,6 +281,12 @@ export function reduceStreamEvent(
     case "bid.cleared":
       return {
         ...next,
+        recentSegments: addRecentSegment(
+          prev.recentSegments,
+          prev.nowPlaying?.id === event.segmentId
+            ? { ...prev.nowPlaying, status: "done" }
+            : undefined,
+        ),
         lastClear: {
           bidId: event.bidId,
           grossAmountUsd: event.grossAmountUsd,
@@ -299,6 +313,12 @@ export function reduceStreamEvent(
       // Threshold missed — return spend and clear attention window.
       return {
         ...next,
+        recentSegments: addRecentSegment(
+          prev.recentSegments,
+          prev.nowPlaying?.id === event.segmentId
+            ? { ...prev.nowPlaying, status: "done" }
+            : undefined,
+        ),
         lastSettlement: {
           kind: "uncleared",
           bidId: event.bidId,
@@ -347,4 +367,15 @@ export function reduceStreamEvent(
     default:
       return next;
   }
+}
+
+function addRecentSegment(
+  segments: Segment[],
+  segment: Segment | undefined,
+): Segment[] {
+  if (!segment) return segments;
+  return [segment, ...segments.filter((item) => item.id !== segment.id)].slice(
+    0,
+    8,
+  );
 }

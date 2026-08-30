@@ -13,6 +13,7 @@ const snapshot: StreamSnapshot = {
     summary: "",
     status: "playing",
   },
+  recentSegments: [],
   nowPlayingAttentionThreshold: 2,
   brands: [],
   leaderboard: [{ brandId: "brand_1", amountUsd: 10 }],
@@ -50,6 +51,10 @@ describe("streamReducer live lifecycle", () => {
     });
 
     expect(state.nowPlaying).toBeNull();
+    expect(state.recentSegments[0]).toMatchObject({
+      id: "seg_1",
+      status: "done",
+    });
     expect(state.attention).toBeUndefined();
     expect(state.lastClear?.grossAmountUsd).toBe(10);
     expect(state.lastSettlement).toMatchObject({

@@ -21,6 +21,11 @@ import type {
   ProductionTier,
   Segment,
 } from "@slopstream/shared";
+import {
+  continuumAssetType,
+  selectSceneRecipe,
+  type SceneRecipe,
+} from "@/lib/continuumScene";
 
 interface SceneProps {
   signalRef: React.RefObject<AudioSignal>;
@@ -34,6 +39,7 @@ interface SceneProps {
   outbidDisplacedBrandId?: string;
   outbidNewBrandId?: string;
   segment: Segment | null;
+  recentSegments: Segment[];
   generation: GenerationState | undefined;
   playingTier: ProductionTier | undefined;
   attention: AttentionState | undefined;
@@ -88,13 +94,46 @@ const PLATFORM_ORBS = [
   ["97%", "65%", "clamp(44px, 6vw, 90px)", "var(--slop-coral)", "-13s", "0.12"],
 ] as const;
 
-const ARCHIVE_POSITIONS = [
-  { left: "4%", top: "49%", rotate: "-8deg", scale: 0.72 },
-  { left: "68%", top: "7%", rotate: "7deg", scale: 0.66 },
-  { left: "76%", top: "57%", rotate: "-4deg", scale: 0.58 },
-  { left: "19%", top: "4%", rotate: "5deg", scale: 0.48 },
-  { left: "54%", top: "74%", rotate: "3deg", scale: 0.44 },
-] as const;
+const ARCHIVE_POSITIONS: Record<
+  SceneRecipe,
+  readonly { left: string; top: string; rotate: string; scale: number }[]
+> = {
+  editorial: [
+    { left: "4%", top: "49%", rotate: "-8deg", scale: 0.72 },
+    { left: "68%", top: "7%", rotate: "7deg", scale: 0.66 },
+    { left: "76%", top: "57%", rotate: "-4deg", scale: 0.58 },
+    { left: "19%", top: "4%", rotate: "5deg", scale: 0.48 },
+    { left: "54%", top: "74%", rotate: "3deg", scale: 0.44 },
+  ],
+  orbit: [
+    { left: "8%", top: "16%", rotate: "-14deg", scale: 0.52 },
+    { left: "73%", top: "9%", rotate: "10deg", scale: 0.6 },
+    { left: "77%", top: "62%", rotate: "-8deg", scale: 0.54 },
+    { left: "6%", top: "68%", rotate: "7deg", scale: 0.46 },
+    { left: "44%", top: "78%", rotate: "-2deg", scale: 0.4 },
+  ],
+  cascade: [
+    { left: "69%", top: "5%", rotate: "6deg", scale: 0.62 },
+    { left: "75%", top: "34%", rotate: "-3deg", scale: 0.55 },
+    { left: "70%", top: "63%", rotate: "5deg", scale: 0.48 },
+    { left: "8%", top: "66%", rotate: "-8deg", scale: 0.42 },
+    { left: "50%", top: "76%", rotate: "2deg", scale: 0.38 },
+  ],
+  constellation: [
+    { left: "2%", top: "28%", rotate: "-5deg", scale: 0.5 },
+    { left: "78%", top: "20%", rotate: "8deg", scale: 0.46 },
+    { left: "69%", top: "69%", rotate: "-7deg", scale: 0.44 },
+    { left: "16%", top: "72%", rotate: "4deg", scale: 0.4 },
+    { left: "43%", top: "5%", rotate: "-2deg", scale: 0.35 },
+  ],
+  cinema: [
+    { left: "2%", top: "18%", rotate: "-8deg", scale: 0.36 },
+    { left: "80%", top: "15%", rotate: "7deg", scale: 0.34 },
+    { left: "83%", top: "70%", rotate: "-4deg", scale: 0.3 },
+    { left: "5%", top: "72%", rotate: "5deg", scale: 0.28 },
+    { left: "48%", top: "82%", rotate: "0deg", scale: 0.26 },
+  ],
+};
 
 type WorldStyle = CSSProperties & {
   "--world-a": string;
@@ -122,7 +161,7 @@ export function Scene(props: SceneProps) {
 function ContinuumWorld(props: SceneProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const previousSegment = useRef<Segment | null>(null);
-  const [archive, setArchive] = useState<ArchiveItem[]>([]);
+  const [sessionArchive, setSessionArchive] = useState<ArchiveItem[]>([]);
 
   useEffect(() => {
     const previous = previousSegment.current;
@@ -138,7 +177,7 @@ function ContinuumWorld(props: SceneProps) {
         primary: brand?.primaryColor ?? "#ff5c58",
         secondary: brand?.secondaryColor ?? "#ffe45e",
       };
-      setArchive((items) =>
+      setSessionArchive((items) =>
         [item, ...items.filter((i) => i.id !== item.id)].slice(0, 5),
       );
     }
@@ -189,10 +228,39 @@ function ContinuumWorld(props: SceneProps) {
       ? props.brandById[props.generation.brandId]
       : undefined;
 
+  const archive = useMemo(() => {
+    const persisted = props.recentSegments.map((segment) =>
+      toArchiveItem(segment, props.brandById),
+    );
+    return [...sessionArchive, ...persisted]
+      .filter(
+        (item, index, items) =>
+          item.id !== props.segment?.id &&
+          items.findIndex((candidate) => candidate.id === item.id) === index,
+      )
+      .slice(0, 5);
+  }, [
+    props.recentSegments,
+    props.brandById,
+    props.segment?.id,
+    sessionArchive,
+  ]);
+
+  const recipe = useMemo(
+    () =>
+      selectSceneRecipe({
+        segmentId: props.segment?.id,
+        assetUrl: props.segment?.assetUrl,
+        generationId: props.generation?.segmentId,
+        latestArchiveId: props.recentSegments[0]?.id,
+      }),
+    [props.segment, props.generation, props.recentSegments],
+  );
+
   return (
     <div
       ref={rootRef}
-      className={`continuum-world${props.segment ? " continuum-world--focus" : ""}`}
+      className={`continuum-world continuum-world--recipe-${recipe}${props.segment ? " continuum-world--focus" : ""}`}
       style={
         { "--world-a": props.colorA, "--world-b": props.colorB } as WorldStyle
       }
@@ -216,11 +284,17 @@ function ContinuumWorld(props: SceneProps) {
 
       <div className="continuum-world__archive">
         {archive.map((item, index) => (
-          <ArchiveCard key={item.id} item={item} index={index} />
+          <ArchiveCard
+            key={item.id}
+            item={item}
+            index={index}
+            recipe={recipe}
+          />
         ))}
       </div>
 
       <ActivePortal
+        key={props.segment?.id ?? props.generation?.segmentId ?? "open"}
         segment={props.segment}
         generation={props.generation}
         brand={activeBrand}
@@ -363,7 +437,7 @@ function MediaAsset({
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [segment.assetUrl]);
   const mediaType = useMemo(
-    () => assetType(segment.assetUrl),
+    () => continuumAssetType(segment.assetUrl),
     [segment.assetUrl],
   );
 
@@ -408,8 +482,17 @@ function MediaAsset({
   );
 }
 
-function ArchiveCard({ item, index }: { item: ArchiveItem; index: number }) {
-  const position = ARCHIVE_POSITIONS[index % ARCHIVE_POSITIONS.length];
+function ArchiveCard({
+  item,
+  index,
+  recipe,
+}: {
+  item: ArchiveItem;
+  index: number;
+  recipe: SceneRecipe;
+}) {
+  const positions = ARCHIVE_POSITIONS[recipe];
+  const position = positions[index % positions.length];
   return (
     <div
       className="continuum-memory"
@@ -425,7 +508,7 @@ function ArchiveCard({ item, index }: { item: ArchiveItem; index: number }) {
       }
     >
       <span>ARCHIVE {String(index + 1).padStart(2, "0")}</span>
-      {item.assetUrl && assetType(item.assetUrl) === "image" ? (
+      {item.assetUrl && continuumAssetType(item.assetUrl) === "image" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.assetUrl} alt="" />
       ) : (
@@ -436,12 +519,19 @@ function ArchiveCard({ item, index }: { item: ArchiveItem; index: number }) {
   );
 }
 
-function assetType(url?: string): "image" | "video" | "audio" {
-  if (!url) return "audio";
-  const clean = url.split(/[?#]/)[0]?.toLowerCase() ?? "";
-  if (/\.(mp4|webm|mov|m4v)$/.test(clean)) return "video";
-  if (/\.(png|jpe?g|webp|gif|avif)$/.test(clean)) return "image";
-  return "audio";
+function toArchiveItem(
+  segment: Segment,
+  brandById: Record<string, BrandSummary>,
+): ArchiveItem {
+  const brand = segment.brandId ? brandById[segment.brandId] : undefined;
+  return {
+    id: segment.id,
+    assetUrl: segment.assetUrl,
+    summary: segment.summary,
+    brandName: brand?.name ?? "Open frequency",
+    primary: brand?.primaryColor ?? "#45a7ff",
+    secondary: brand?.secondaryColor ?? "#ffe45e",
+  };
 }
 
 function ContinuumFallback(props: SceneProps) {
