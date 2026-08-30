@@ -24,6 +24,41 @@ const MAX_POLL_ATTEMPTS_VIDEO = 72; // 6 minutes
 const IMAGE_MODEL = "gemini-3-pro-image";
 const VIDEO_MODEL = "veo-3.1-fast-generate-001";
 
+/**
+ * TTS model options. `eleven_flash_v2_5` is 50% cheaper per character than
+ * `eleven_v3` — use it for initial testing to conserve credits. Switch to
+ * `eleven_v3` for the most expressive delivery once the pipeline is verified.
+ */
+const TTS_MODELS = [
+  "eleven_flash_v2_5",
+  "eleven_v3",
+  "eleven_multilingual_v2",
+] as const;
+type TtsModel = (typeof TTS_MODELS)[number];
+
+/**
+ * Tier hierarchy — used by ELEVENLABS_MAX_TIER to cap spend. If set to
+ * `audio`, all requests produce audio-only regardless of the bid tier,
+ * skipping image and video generation entirely.
+ */
+const TIER_ORDER: ProductionTier[] = [
+  "audio",
+  "audio_image",
+  "video",
+  "premium",
+];
+
+function tierRank(tier: ProductionTier): number {
+  return TIER_ORDER.indexOf(tier);
+}
+
+function capTier(
+  tier: ProductionTier,
+  maxTier: ProductionTier,
+): ProductionTier {
+  return tierRank(tier) <= tierRank(maxTier) ? tier : maxTier;
+}
+
 export interface ElevenLabsProviderConfig {
   apiKey: string;
   voiceId: string;
@@ -31,6 +66,10 @@ export interface ElevenLabsProviderConfig {
   assetBaseUrl: string;
   /** Local directory to save generated assets. */
   assetsDir: string;
+  /** TTS model — `eleven_flash_v2_5` (cheap) or `eleven_v3` (expressive). */
+  ttsModel: TtsModel;
+  /** Maximum tier to generate. Requests above this are downgraded. */
+  maxTier: ProductionTier;
 }
 
 function requiredEnvironmentValue(
@@ -53,6 +92,24 @@ function optionalEnvironmentValue(
   return value || fallback;
 }
 
+function parseTtsModel(value: string | undefined): TtsModel {
+  if (value === undefined || value === "") return "eleven_flash_v2_5";
+  if ((TTS_MODELS as readonly string[]).includes(value))
+    return value as TtsModel;
+  throw new Error(
+    `ELEVENLABS_TTS_MODEL=${value} is not supported. Use one of: ${TTS_MODELS.join(", ")}`,
+  );
+}
+
+function parseMaxTier(value: string | undefined): ProductionTier {
+  if (value === undefined || value === "") return "premium";
+  if ((TIER_ORDER as readonly string[]).includes(value))
+    return value as ProductionTier;
+  throw new Error(
+    `ELEVENLABS_MAX_TIER=${value} is not a valid tier. Use one of: ${TIER_ORDER.join(", ")}`,
+  );
+}
+
 export function createElevenLabsProviderFromEnv(
   environment: Environment,
 ): ElevenLabsGenerationProvider {
@@ -65,6 +122,12 @@ export function createElevenLabsProviderFromEnv(
       `http://localhost:${environment.PORT ?? 4300}`,
     )!,
     assetsDir: optionalEnvironmentValue(environment, "ASSETS_DIR", ASSETS_DIR)!,
+    ttsModel: parseTtsModel(
+      optionalEnvironmentValue(environment, "ELEVENLABS_TTS_MODEL"),
+    ),
+    maxTier: parseMaxTier(
+      optionalEnvironmentValue(environment, "ELEVENLABS_MAX_TIER"),
+    ),
   };
   return new ElevenLabsGenerationProvider(config);
 }
@@ -74,8 +137,9 @@ export function createElevenLabsProviderFromEnv(
  *
  * - **Script**: A template-based ad script from the brand brief. Produces a
  *   compelling 15-30 second voiceover transcript.
- * - **Voice**: ElevenLabs TTS (`textToSpeech.convert`) with the
- *   `eleven_v3` model for expressive delivery.
+ * - **Voice**: ElevenLabs TTS (`textToSpeech.convert`) — model is
+ *   configurable via `ELEVENLABS_TTS_MODEL` (defaults to
+ *   `eleven_flash_v2_5` for cost; switch to `eleven_v3` for expression).
  * - **Image** (audio_image+): ElevenLabs image generation (`flows.image`)
  *   using `gemini-3-pro-image`.
  * - **Video** (video+): ElevenLabs video generation (`flows.video`) using
@@ -99,6 +163,9 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     // Ensure the assets directory exists.
     await mkdir(this.config.assetsDir, { recursive: true });
 
+    // Cap the tier to the configured maximum (spend mitigation).
+    const tier = capTier(request.tier, this.config.maxTier);
+
     // Stage 1: Script — generate a compelling ad transcript from the brief.
     const transcript = scriptFor(request);
 
@@ -111,7 +178,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     const summary = summaryFor(request);
 
     // For audio tier, the asset is the MP3 itself.
-    if (request.tier === "audio") {
+    if (tier === "audio") {
       return {
         segmentId: request.segmentId,
         assetUrl: assetUrl(this.config.assetBaseUrl, audioKey),
@@ -121,14 +188,14 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         audioMetadata: {
           provider: "elevenlabs",
           voiceId: this.config.voiceId,
-          modelId: "eleven_v3",
+          modelId: this.config.ttsModel,
           format: "mp3_44100_128",
         },
       };
     }
 
     // Stage 3: Image — generate a visual for audio_image and above.
-    if (request.tier === "audio_image") {
+    if (tier === "audio_image") {
       const imagePrompt = imagePromptFor(request, transcript);
       const imageBytes = await this.generateImage(imagePrompt);
       const imageKey = `${request.segmentId}.png`;
@@ -148,7 +215,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         audioMetadata: {
           provider: "elevenlabs",
           voiceId: this.config.voiceId,
-          modelId: "eleven_v3",
+          modelId: this.config.ttsModel,
           format: "mp3_44100_128",
           file: audioKey,
         },
@@ -175,7 +242,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       audioMetadata: {
         provider: "elevenlabs",
         voiceId: this.config.voiceId,
-        modelId: "eleven_v3",
+        modelId: this.config.ttsModel,
         format: "mp3_44100_128",
         file: audioKey,
       },
@@ -189,7 +256,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       this.config.voiceId,
       {
         text,
-        modelId: "eleven_v3",
+        modelId: this.config.ttsModel,
         outputFormat: "mp3_44100_128",
       },
     );
