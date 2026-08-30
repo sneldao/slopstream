@@ -348,6 +348,7 @@ function ImagePlane({
 
   useEffect(() => {
     const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin("anonymous");
     loader.load(
       url,
       (tex) => {
