@@ -61,8 +61,8 @@ Handles the auction. The format is an **open ascending (English) auction**. For 
 ```text
 placeBid(
     brandId,
-    amount,
-    segmentSlot
+    amountUsd,
+    slot
 )
 ```
 
@@ -101,8 +101,8 @@ New contract. Responsible for proving that a reward pool has been generated and 
 
 ```text
 createRewardPool(
-    clearedBid,
-    rewardAmount
+    bidId,
+    eligibleAmountUsd
 )
 ```
 

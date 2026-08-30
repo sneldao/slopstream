@@ -266,7 +266,7 @@ function PlayingAd({
   );
 }
 
-/** Receding segment ghosts — the Infinite Slop trail behind the current ad. */
+/** Receding segment ghosts — the Continuum trail behind the current ad. */
 function RecedingSegments({ brand }: { brand: BrandSummary | undefined }) {
   // In demo mode we don't have real previous segments, so we render
   // abstract receding cards tinted to the brand color — the visual

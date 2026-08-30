@@ -74,7 +74,7 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:verifier
 | [docs/product/economics.md](docs/product/economics.md)             | Economic model, reward pools, auction strategy, anti-gaming                     |
 | [docs/product/surfaces.md](docs/product/surfaces.md)               | Big screen, listener client, brand console, proof receipt                       |
 | [docs/product/design-language.md](docs/product/design-language.md) | Living canvas aesthetic, fluid event reactions, build stack                     |
-| [docs/product/content.md](docs/product/content.md)                 | Infinite Slop™, attention challenges, free-AI-ads growth engine                 |
+| [docs/product/content.md](docs/product/content.md)                 | The Continuum, attention challenges, free-AI-ads growth engine                  |
 | [docs/technical/architecture.md](docs/technical/architecture.md)   | System architecture, tech stack, generation pipeline                            |
 | [docs/technical/contracts.md](docs/technical/contracts.md)         | Midnight smart contracts                                                        |
 | [docs/technical/backend.md](docs/technical/backend.md)             | Money architecture, ledger schema, threshold/window mechanics, challenge engine |

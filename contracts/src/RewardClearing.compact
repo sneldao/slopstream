@@ -4,8 +4,8 @@
 // distribution first (see docs/hackathon/build-order.md).
 //
 // createRewardPool(
-//     clearedBid,
-//     rewardAmount
+//     bidId,
+//     eligibleAmountUsd
 // )
 //
 // claimReward(

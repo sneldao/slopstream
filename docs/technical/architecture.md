@@ -70,7 +70,7 @@ If a later release adds private socket updates, it must define a separately scop
 ## Component responsibilities
 
 - **Big screen** — stream playback, live leaderboard, QR code, live stats. Consumes WebSocket events.
-- **Stream orchestrator** — the live brain: queue manager, segment scheduler, stream continuity (Infinite Slop), attention challenge timing. Consumes auction results from the backend — it never resolves auctions or settles money; the ledger is the single source of truth for both.
+- **Stream orchestrator** — the live brain: queue manager, segment scheduler, stream continuity (The Continuum), attention challenge timing. Consumes auction results from the backend — it never resolves auctions or settles money; the ledger is the single source of truth for both.
 - **Daytona pool** — disposable sandboxes for ad generation (LLM script, TTS, image generation, video generation); returns the generated asset to the orchestrator.
 - **Backend API** — brand accounts, Stripe balances, listener sessions, reward ledger and accounting, scraper ingestion, challenge generation, auction resolution (winner selection and slot assignment). Owns all clearing and settlement, and is the sole caller of Midnight and Stripe.
 - **Midnight** — proves conditions on-chain; consulted by the backend. See [contracts](contracts.md).
@@ -107,12 +107,12 @@ Each generation receives:
 
 - brand brief
 - production tier
-- previous 1–2 segment summaries (the Infinite Slop continuity input)
+- previous 1–2 segment summaries (the Continuum continuity input)
 - campaign constraints
 
 The sandbox is then destroyed. This retains the isolation rationale: brand-submitted prompts are untrusted input, so generation runs should not share mutable state.
 
-**What plays while the winner generates.** Generation takes real wall-clock time, and the stream must never go silent. The segment scheduler keeps playing queued segments — typically free Infinite Slop filler ads — while the winning bid's segment generates in the background. When `segment.ready` fires, the generated segment cuts into the stream at the next segment boundary. This is also why the free-ad queue is load-bearing, not just a cold-start nicety: it is the filler that keeps the stream alive between paid slots. The `GENERATING AD...` stage checklist plays as an overlay/preview, not as dead air.
+**What plays while the winner generates.** Generation takes real wall-clock time, and the stream must never go silent. The segment scheduler keeps playing queued segments — typically free Continuum filler ads — while the winning bid's segment generates in the background. When `segment.ready` fires, the generated segment cuts into the stream at the next segment boundary. This is also why the free-ad queue is load-bearing, not just a cold-start nicety: it is the filler that keeps the stream alive between paid slots. The `GENERATING AD...` stage checklist plays as an overlay/preview, not as dead air.
 
 ## Lane 1 development services
 
@@ -174,3 +174,5 @@ The verifier checks that the server-issued stub payload matches the listener/seg
 | Authentication   | Lightweight session identity (listener); email/OAuth for brand console                                                                                       |
 
 **Authentication scope.** Listeners join via QR with a lightweight, anonymous bearer session — no account needed — and the browser stores its token plus commitment in `sessionStorage`. The brand console moves real money (Stripe top-ups, bids), so production requires a stronger identity (email/OAuth). The local hackathon profile is an intentional exception: it seeds ACME with `DEMO_ACME_BRAND_TOKEN`, exposed as `NEXT_PUBLIC_DEMO_BRAND_TOKEN` only for a deterministic demo. That token is not production authentication. Full KYC is explicitly out of scope (see [economics](../product/economics.md#listener-rewards-start-with-an-internal-balance)).
+
+**Current-state caveat.** The table above is the target stack. For the hackathon, two rows are not yet real: the **Database** is an in-memory `Map` store shaped like the Postgres schema (`DATABASE_URL` is decorative; no migrations), and the **Queue** (Redis) is an in-process pub/sub fallback unless `REDIS_URL` is set. See [backend ledger](backend.md#backend-ledger) and [progress](../hackathon/progress.md). The 3D-rendering / 3D-physics / post-processing rows are the planned big-screen overhaul; the shipped big screen is currently Canvas 2D + Framer Motion (see [design language](../product/design-language.md) and [3D overhaul plan](../hackathon/3d-overhaul-plan.md)).

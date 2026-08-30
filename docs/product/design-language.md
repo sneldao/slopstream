@@ -2,12 +2,14 @@
 
 Slopstream is not a dashboard. It is a living, colorful, fluid canvas — an art installation that happens to be a marketplace. The product is named after slop: gooey, liquid, flowing abundance. The UI should _be_ slop.
 
+> **Current state.** The shipped big screen is the first visual overhaul — Canvas 2D + Framer Motion + Web Audio (audio-reactive ambient canvas, soft-body blob leaderboard, liquid threshold, flowing clearing streams, synthesized sound design). The 3D fluid world described below (R3F + ray-marched metaball shader + Rapier physics) is the planned next step; see [3D overhaul plan](../hackathon/3d-overhaul-plan.md) for the phased build. The listener and brand surfaces are 2D with 3D accents and are already built.
+
 ## Visual references
 
 Four projects define the direction:
 
 - **[Floaty](https://github.com/matsuoka-601/Floaty)** — soft-body and fluid simulation. The soul of Slopstream: things squish, flow, splash, and react with playful physics. OUTBID is a splash. A cleared bid bursts into reward droplets. The attention threshold is a liquid filling up, not a striped progress bar. Brand mascots are soft-body blobs competing for the slot.
-- **[Infinite Canvas](https://github.com/edoardolunardi/infinite-canvas)** — a 3D media space you drift through. Infinite Slop becomes spatial: the current ad is center-stage, previous segments (the robot escaping the lab, getting hired, hitting Shark Tank) recede behind it in a navigable grid. The continuity story is a _place_, not a playlist.
+- **[Infinite Canvas](https://github.com/edoardolunardi/infinite-canvas)** — a 3D media space you drift through. The Continuum becomes spatial: the current ad is center-stage, previous segments (the robot escaping the lab, getting hired, hitting Shark Tank) recede behind it in a navigable grid. The continuity story is a _place_, not a playlist.
 - **[Spotify Visualiser](https://github.com/J0SUKE/spotify-visualiser)** — audio-reactive GLSL. The stream's heartbeat: the background pulses with the voiceover, colors shift per brand, generation stages ripple outward. The room feels the stream even when nobody's looking directly at it.
 - **[Codrops Interactive Grid](https://github.com/samueljarry/codrops-tutorial-grid)** — tactile grid grammar. Hover-distortions on brand tiles, image grids that warp and respond, tactile feedback on every touchable thing.
 
@@ -172,7 +174,7 @@ market in space.
 **The ad lives inside the world.** The current ad is a 3D surface at center —
 a glowing orb (audio), a textured plane (audio + image), or a video-textured
 plane (video). The ad's audio drives the surrounding fluid. Previous segments
-recede behind it in 3D space with perspective and blur — the Infinite Slop
+recede behind it in 3D space with perspective and blur — the Continuum
 continuity is visible as a trail of receding media in depth.
 
 **The OUTBID moment.** This is the signature event. When a brand is overtaken:

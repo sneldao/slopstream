@@ -261,7 +261,7 @@ export interface Segment {
    *  the `segment.ready` event — one concept, one name across the seam. */
   assetUrl?: string;
   durationSeconds: number;
-  /** Infinite Slop continuity input for the next generation. */
+  /** The Continuum continuity input for the next generation. */
   summary: string;
   status: SegmentStatus;
 }
@@ -332,6 +332,7 @@ export type WsEvent =
       segmentId: string;
       slot: number;
       tier: ProductionTier;
+      brandId: string;
     }
   | {
       type: "generation.progress";
@@ -345,7 +346,12 @@ export type WsEvent =
       assetUrl: string;
       durationSec: number;
     }
-  | { type: "segment.playing"; segmentId: string; startedAt: string }
+  | {
+      type: "segment.playing";
+      segmentId: string;
+      brandId: string;
+      startedAt: string;
+    }
   | { type: "challenge.fired"; challenge: PublicChallenge }
   | {
       type: "attention.verified";
@@ -450,7 +456,7 @@ export interface GenerationRequest {
   brandId: string | null;
   brief: string;
   tier: ProductionTier;
-  /** Summaries of the previous 1–2 segments — Infinite Slop continuity input. */
+  /** Summaries of the previous 1–2 segments — The Continuum continuity input. */
   previousSummaries: string[];
   constraints?: string;
 }
@@ -461,7 +467,7 @@ export interface GenerationResult {
   durationSec: number;
   /** Feeds Lane 2's challenge engine. */
   transcript: string;
-  /** Infinite Slop continuity input for the next generation. */
+  /** The Continuum continuity input for the next generation. */
   summary: string;
   visualMetadata?: Record<string, unknown>;
   audioMetadata?: Record<string, unknown>;

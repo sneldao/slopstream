@@ -2,7 +2,7 @@ import type { Segment } from "@slopstream/shared";
 
 // Stream orchestrator responsibilities (see docs/technical/architecture.md):
 // - queue manager / segment scheduler
-// - stream continuity (Infinite Slop)
+// - stream continuity (The Continuum)
 // - attention challenge timing (when to fire, not what they are)
 //
 // The orchestrator NEVER resolves auctions or settles money — the backend

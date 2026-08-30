@@ -117,52 +117,19 @@ export function snapshotToState(snapshot: StreamSnapshot): StreamState {
 
 const ALL_STAGES: GenerationStage[] = ["script", "voice", "image", "video"];
 
-/**
- * Per-slot leader inference (see contract-gap note above). The reducer keeps
- * the highest bid per slot from `bid.placed` and corrects it on `bid.outbid`.
- * Not authoritative — the backend ledger is. This only lets the screen tint
- * to the right brand during generation/playback when the event omits brandId.
- */
-function updateSlotLeaders(
-  leaders: Record<number, { brandId: string; amount: number }>,
-  event: WsEvent,
-): Record<number, { brandId: string; amount: number }> {
-  switch (event.type) {
-    case "bid.placed": {
-      const prev = leaders[event.slot];
-      if (!prev || event.amountUsd > prev.amount) {
-        return {
-          ...leaders,
-          [event.slot]: { brandId: event.brandId, amount: event.amountUsd },
-        };
-      }
-      return leaders;
-    }
-    case "bid.outbid": {
-      return {
-        ...leaders,
-        [event.slot]: { brandId: event.newBrandId, amount: event.newAmountUsd },
-      };
-    }
-    default:
-      return leaders;
-  }
-}
-
 export function reduceStreamEvent(
   prev: StreamState,
   event: WsEvent,
   sequence?: number,
 ): StreamState {
-  const slotLeaders = updateSlotLeaders(prev._slotLeaders ?? {}, event);
-  let next: StreamState = { ...prev, _slotLeaders: slotLeaders };
+  let next: StreamState = { ...prev };
 
   if (sequence !== undefined) next = { ...next, asOfSequence: sequence };
 
   switch (event.type) {
     case "bid.placed":
       // Leaderboard is updated separately via `leaderboard.updated`; nothing
-      // to project here beyond the slot-leader inference above.
+      // to project here.
       return next;
 
     case "bid.outbid":
@@ -186,13 +153,12 @@ export function reduceStreamEvent(
       };
 
     case "segment.generating": {
-      const leader = slotLeaders[event.slot];
       return {
         ...next,
         generation: {
           slot: event.slot,
           segmentId: event.segmentId,
-          brandId: leader?.brandId ?? null,
+          brandId: event.brandId,
           tier: event.tier,
           doneStages: [],
           ready: false,
@@ -234,7 +200,7 @@ export function reduceStreamEvent(
           : {
               id: event.segmentId,
               slot: gen?.slot ?? 0,
-              brandId: gen?.brandId ?? null,
+              brandId: event.brandId,
               durationSeconds: 0,
               summary: "",
               status: "playing",
@@ -301,11 +267,4 @@ export function reduceStreamEvent(
     default:
       return next;
   }
-}
-
-// Internal cache: per-slot leader inference (see contract-gap note above).
-// Carried forward on state via interface merging so consumers don't see it
-// in the primary declaration but the reducer can read/write it.
-export interface StreamState {
-  _slotLeaders?: Record<number, { brandId: string; amount: number }>;
 }

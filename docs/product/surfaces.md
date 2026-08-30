@@ -43,7 +43,7 @@ LIVE SLOPSTREAM
 └──────────────────────────────────────────────┘
 ```
 
-Brand entries are **colored, semi-transparent floating chips** that bob with subtle physics — not table rows. The background is a **living gradient** driven by the current ad's audio, tinted to the current brand's color palette. Previous segments recede behind the current ad with perspective and blur — Infinite Slop as a spatial trail, not a playlist.
+Brand entries are **colored, semi-transparent floating chips** that bob with subtle physics — not table rows. The background is a **living gradient** driven by the current ad's audio, tinted to the current brand's color palette. Previous segments recede behind the current ad with perspective and blur — the Continuum as a spatial trail, not a playlist.
 
 When a brand gets outbid, the screen's color **washes** from the old leader's palette to the new leader's, the displaced chip wobbles and drops, the new leader's chip swells and glows, and a splash particle effect ripples outward:
 

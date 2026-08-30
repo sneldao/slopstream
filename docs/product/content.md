@@ -1,4 +1,4 @@
-# Content: Infinite Slop™, Challenges, and Cold Start
+# Content: The Continuum, Challenges, and Cold Start
 
 ## Randomized attention challenges
 
@@ -50,7 +50,7 @@ The important thing is that **the challenge itself becomes part of the entertain
 
 Technical details of the challenge engine live in [backend](../technical/backend.md#attention-challenge-engine).
 
-## The infinite ad: Infinite Slop™
+## The infinite ad: The Continuum
 
 This is one of Slopstream's strongest differentiators. The stream should not feel like:
 
@@ -98,7 +98,7 @@ Acme AI tries to buy it back.
 
 This builds on the continuity mechanism in the architecture and turns it into an explicit product feature.
 
-**Call this: Infinite Slop™** — the ad stream continuously mutates into increasingly absurd stories.
+**Call this: The Continuum** — the ad stream continuously mutates into increasingly absurd stories.
 
 ## Free AI-generated ads (cold-start engine)
 

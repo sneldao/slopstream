@@ -3,8 +3,8 @@
 //
 // placeBid(
 //     brandId,
-//     amount,
-//     segmentSlot
+//     amountUsd,
+//     slot
 // )
 //
 // clearBid(

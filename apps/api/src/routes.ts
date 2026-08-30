@@ -274,6 +274,7 @@ export function createRouter(deps: ApiDeps): Router {
         segmentId: segment.id,
         slot: segment.slot,
         tier,
+        brandId: segment.brandId ?? "",
       });
       res.json({ segmentId: segment.id, status: segment.status });
     }),
@@ -365,6 +366,7 @@ export function createRouter(deps: ApiDeps): Router {
       bus.publish({
         type: "segment.playing",
         segmentId: opened.id,
+        brandId: segment.brandId ?? "",
         startedAt,
       });
       res.json({

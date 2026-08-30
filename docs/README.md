@@ -8,7 +8,7 @@ Product design and technical architecture for a live, infinite AI-generated adve
 - [economics.md](product/economics.md) — the economic model: verified spend, the 80/20 split, the attention reward pool (don't pay per question), bid clearing semantics, auction strategy and theory, and the anti-gaming layer.
 - [surfaces.md](product/surfaces.md) — the three main surfaces: the big screen, the listener experience (QR + mobile web), and the brand bidding console, plus the proof receipt.
 - [design-language.md](product/design-language.md) — the living canvas aesthetic: fluid event reactions, audio-reactive backgrounds, per-brand color palettes, the pragmatic build stack (Framer Motion + Canvas 2D + Web Audio), and the full event-to-screen behavior spec.
-- [content.md](product/content.md) — Infinite Slop™ continuity, randomized attention challenge types, and the free-AI-ads cold-start engine with company claim pages.
+- [content.md](product/content.md) — The Continuum (evolving ad-story continuity), randomized attention challenge types, and the free-AI-ads cold-start engine with company claim pages.
 
 ## Technical
 
@@ -22,3 +22,5 @@ Product design and technical architecture for a live, infinite AI-generated adve
 - [judge-story.md](hackathon/judge-story.md) — first-10-seconds pitch, judge-friendly demo arc, technical honesty guardrails, and rehearsal checklist.
 - [build-order.md](hackathon/build-order.md) — P0 must-work, P1 makes-the-demo-excellent, P2 stretch goals.
 - [team-split.md](hackathon/team-split.md) — splitting the work across three parallel development lanes.
+- [progress.md](hackathon/progress.md) — per-lane status: what's implemented, what's stubbed, known inconsistencies, and cross-lane integration status.
+- [3d-overhaul-plan.md](hackathon/3d-overhaul-plan.md) — phased build plan for the big-screen 3D fluid world (R3F + metaball shader + Rapier physics).

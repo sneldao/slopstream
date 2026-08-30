@@ -21,7 +21,7 @@
 - [ ] AI-generated video _(stub generator only)_
 - [x] Proof receipt
 - [x] Listener reward balance
-- [ ] Infinite Slop continuity _(field exists in shared types; not yet wired through generation)_
+- [ ] The Continuum continuity _(field exists in shared types; not yet wired through generation)_
 - [ ] Scraped startup cold start _(cross-lane: Lane 1 writes the scraper and generates the free ads → Lane 2 backend ingests companies and serves claim pages → Lane 3 inserts segments into the stream; agree on the scraped-company payload shape in `packages/shared` before any lane starts)_
 - [ ] 3D fluid world for the big screen _(see [3D overhaul plan](./3d-overhaul-plan.md) — R3F + metaball shader + Rapier physics)_
 

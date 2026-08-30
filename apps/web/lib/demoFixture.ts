@@ -215,6 +215,7 @@ export const DEMO_FIXTURE: DemoFixture = {
         segmentId: "seg_392",
         slot: 1,
         tier: "video",
+        brandId: "brand_coolstartup",
       },
       900,
       "Scene 4 — AI generation",
@@ -248,6 +249,7 @@ export const DEMO_FIXTURE: DemoFixture = {
       {
         type: "segment.playing",
         segmentId: "seg_392",
+        brandId: "brand_coolstartup",
         startedAt: new Date("2026-08-30T12:00:00Z").toISOString(),
       },
       3000,
@@ -368,6 +370,7 @@ export const DEMO_FIXTURE: DemoFixture = {
         segmentId: "seg_393",
         slot: 2,
         tier: "video",
+        brandId: "brand_dogfood",
       },
       4000,
     ),

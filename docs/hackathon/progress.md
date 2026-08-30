@@ -63,11 +63,9 @@ context }` request.
 - **Receipt provenance — resolved** — Lane 2's API retains and returns
   `AttentionProofVerificationResult.verifierMode` on receipts so the UI can
   label stub and Midnight receipts truthfully.
-- `BidClearing.compact` uses `amount`/`segmentSlot`; shared `Bid` uses
-  `amountUsd`/`slot`. Contract parameter names should align before
-  implementation.
-- `RewardClearing.compact` uses `rewardAmount`; shared `RewardPool` uses
-  `grossAmountUsd`/`eligibleAmountUsd`.
+- **Contract/shared naming drift — resolved.** `BidClearing.compact` now uses
+  `amountUsd`/`slot` (matching shared `Bid`); `RewardClearing.compact` now uses
+  `bidId`/`eligibleAmountUsd` (matching shared `RewardPool`).
 - `ProofOfAttention.compact` doesn't model `AttentionProofVerificationContext`
   (timing facts) — those are validated outside the contract by the stub.
 
@@ -280,10 +278,12 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 
 ### Lane 3: known inconsistencies
 
-- **Contract gap flagged to Lanes 1–2:** `segment.generating` and
-  `segment.playing` don't carry `brandId`. The reducer infers the per-slot
-  leader from `bid.placed`/`bid.outbid`. Recommend adding `brandId` to both
-  events in `packages/shared`.
+- **`brandId` on segment events — resolved.** `segment.generating` and
+  `segment.playing` now carry `brandId` in `packages/shared`. The reducer
+  reads it directly; the per-slot leader inference (`updateSlotLeaders` /
+  `_slotLeaders`) has been removed. Lane 2's lifecycle routes populate
+  `brandId` from the segment's brand; the demo fixture populates it per
+  scene.
 - **No Tailwind** — used CSS variables + inline styles + Framer Motion
   instead. The design-language doc lists Tailwind as P0, but the per-brand
   dynamic color system maps more naturally to CSS custom properties. Can be
