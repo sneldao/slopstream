@@ -10,7 +10,8 @@
     "typecheck": "pnpm --filter @slopstream/shared build && pnpm -r typecheck",
     "dev:web": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/web dev",
     "dev:api": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/api dev",
-    "dev:orchestrator": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/orchestrator dev"
+    "dev:orchestrator": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/orchestrator dev",
+    "dev:generator": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/generator dev"
   },
   "devDependencies": {
     "husky": "^9.1.7",

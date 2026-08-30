@@ -239,6 +239,74 @@ export type WsEvent =
       listenerRewardsUsd: number;
     };
 
+/**
+ * Gateway transport envelope. Wraps every public event delivered over
+ * WebSocket. Clients use eventId to deduplicate and sequence to detect
+ * gaps; on a gap or reconnect they reload GET /stream/snapshot.
+ */
+export interface WsDelivery {
+  eventId: string;
+  /** Monotonically increasing per stream. */
+  sequence: number;
+  event: WsEvent;
+}
+
+/**
+ * Authoritative response of GET /stream/snapshot — initial load and
+ * recovery after a missed event or reconnect.
+ */
+export interface StreamSnapshot {
+  asOfSequence: number;
+  nowPlaying: Segment | null;
+  leaderboard: LeaderboardEntry[];
+  nextSlotPriceUsd: number;
+  listeners: number;
+  attentionProofs: number;
+  listenerRewardsUsd: number;
+  /** The challenge currently answerable, if any. Never includes the answer. */
+  activeChallenge?: PublicChallenge;
+}
+
+// ---------------------------------------------------------------------------
+// Generation interface (Lane 1 boundary)
+// ---------------------------------------------------------------------------
+
+export interface GenerationRequest {
+  /** null = free ad generated from a scraped company. */
+  brandId: string | null;
+  brief: string;
+  tier: ProductionTier;
+  /** Summaries of the previous 1–2 segments — Infinite Slop continuity input. */
+  previousSummaries: string[];
+  constraints?: string;
+}
+
+export interface GenerationResult {
+  segmentId: string;
+  assetUrl: string;
+  durationSec: number;
+  /** Feeds Lane 2's challenge engine. */
+  transcript: string;
+  /** Infinite Slop continuity input for the next generation. */
+  summary: string;
+  visualMetadata?: Record<string, unknown>;
+  audioMetadata?: Record<string, unknown>;
+}
+
+export type ScrapedCompanySource =
+  "hacker_news" | "product_hunt" | "yc_launch" | "news";
+
+export interface ScrapedCompany {
+  id: string;
+  name: string;
+  source: ScrapedCompanySource;
+  sourceUrl: string;
+  tagline?: string;
+  description?: string;
+  scrapedAt: string;
+  claimed: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Listener sessions
 // ---------------------------------------------------------------------------

@@ -54,12 +54,13 @@ One caveat on the 80% idea: economically strong, but legally/payment-wise, don't
 contracts/              Midnight/Compact contracts (Lane 1)
 packages/shared/        Shared types: WS events, challenges, proofs, bids
 apps/api/               Backend API: ledger, auction, Stripe (Lane 2)
-apps/orchestrator/      Stream orchestrator + generation pipeline (Lane 3)
+apps/orchestrator/      Stream orchestrator + WebSocket gateway (Lane 3)
+apps/generator/         Daytona generation pipeline + scraper (Lane 1)
 apps/web/               Next.js: big screen, listener client, brand console (Lane 3)
 docs/                   Product design and technical architecture
 ```
 
-Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:orchestrator`. See [docs/hackathon/team-split.md](docs/hackathon/team-split.md).
+Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:orchestrator` / `pnpm dev:generator`. See [docs/hackathon/team-split.md](docs/hackathon/team-split.md).
 
 ## Documentation
 
