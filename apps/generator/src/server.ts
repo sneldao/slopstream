@@ -10,6 +10,7 @@ import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type {
+  GenerationMarketContext,
   GenerationRequest,
   GenerationResult,
   ProductionTier,
@@ -64,6 +65,75 @@ function isProductionTier(value: unknown): value is ProductionTier {
   );
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function parseMarketContext(value: unknown): GenerationMarketContext | null {
+  if (!isRecord(value)) return null;
+  if (
+    value.leaderBrandId !== undefined &&
+    !isNonEmptyString(value.leaderBrandId)
+  ) {
+    return null;
+  }
+  if (
+    value.leaderAmountUsd !== undefined &&
+    !isFiniteNumber(value.leaderAmountUsd)
+  ) {
+    return null;
+  }
+  if (value.openSlot !== undefined && !isFiniteNumber(value.openSlot)) {
+    return null;
+  }
+  if (
+    value.nextSlotPriceUsd !== undefined &&
+    !isFiniteNumber(value.nextSlotPriceUsd)
+  ) {
+    return null;
+  }
+  if (
+    value.verifiedCount !== undefined &&
+    !isFiniteNumber(value.verifiedCount)
+  ) {
+    return null;
+  }
+  if (
+    value.attentionThreshold !== undefined &&
+    !isFiniteNumber(value.attentionThreshold)
+  ) {
+    return null;
+  }
+  if (
+    value.attentionProgress !== undefined &&
+    !isFiniteNumber(value.attentionProgress)
+  ) {
+    return null;
+  }
+
+  const ctx: GenerationMarketContext = {};
+  if (isNonEmptyString(value.leaderBrandId)) {
+    ctx.leaderBrandId = value.leaderBrandId;
+  }
+  if (isFiniteNumber(value.leaderAmountUsd)) {
+    ctx.leaderAmountUsd = value.leaderAmountUsd;
+  }
+  if (isFiniteNumber(value.openSlot)) ctx.openSlot = value.openSlot;
+  if (isFiniteNumber(value.nextSlotPriceUsd)) {
+    ctx.nextSlotPriceUsd = value.nextSlotPriceUsd;
+  }
+  if (isFiniteNumber(value.verifiedCount)) {
+    ctx.verifiedCount = value.verifiedCount;
+  }
+  if (isFiniteNumber(value.attentionThreshold)) {
+    ctx.attentionThreshold = value.attentionThreshold;
+  }
+  if (isFiniteNumber(value.attentionProgress)) {
+    ctx.attentionProgress = value.attentionProgress;
+  }
+  return ctx;
+}
+
 export function parseGenerationRequest(
   value: unknown,
 ): GenerationRequest | undefined {
@@ -71,8 +141,16 @@ export function parseGenerationRequest(
     return undefined;
   }
 
-  const { segmentId, brandId, brief, tier, previousSummaries, constraints } =
-    value;
+  const {
+    segmentId,
+    brandId,
+    brief,
+    tier,
+    previousSummaries,
+    constraints,
+    continuityImageUrl,
+    marketContext,
+  } = value;
   if (
     !isNonEmptyString(segmentId) ||
     (brandId !== null && !isNonEmptyString(brandId)) ||
@@ -80,9 +158,17 @@ export function parseGenerationRequest(
     !isProductionTier(tier) ||
     !Array.isArray(previousSummaries) ||
     !previousSummaries.every(isNonEmptyString) ||
-    (constraints !== undefined && !isNonEmptyString(constraints))
+    (constraints !== undefined && !isNonEmptyString(constraints)) ||
+    (continuityImageUrl !== undefined && !isNonEmptyString(continuityImageUrl))
   ) {
     return undefined;
+  }
+
+  let parsedMarket: GenerationMarketContext | undefined;
+  if (marketContext !== undefined) {
+    const parsed = parseMarketContext(marketContext);
+    if (parsed === null) return undefined;
+    parsedMarket = parsed;
   }
 
   return {
@@ -92,6 +178,8 @@ export function parseGenerationRequest(
     tier,
     previousSummaries,
     ...(constraints === undefined ? {} : { constraints }),
+    ...(continuityImageUrl === undefined ? {} : { continuityImageUrl }),
+    ...(parsedMarket === undefined ? {} : { marketContext: parsedMarket }),
   };
 }
 

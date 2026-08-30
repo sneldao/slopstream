@@ -100,7 +100,7 @@ SEGMENT 6
 Acme AI tries to buy it back.
 ```
 
-This has two complementary continuity layers:
+This has four complementary continuity layers:
 
 - **Story continuity:** the orchestrator passes recent summaries into the next
   generation request so the next segment can continue the premise.
@@ -108,6 +108,18 @@ This has two complementary continuity layers:
   completed segments. The screen renders them as archive fragments with a
   deterministic composition recipe, so refresh and reconnect preserve the
   world already built.
+- **Hero-frame continuity:** for `video` and `premium` tiers the generator
+  produces a still image first, stores its URL in `visualMetadata.heroImageUrl`,
+  and passes it forward as `continuityImageUrl` on the next request so motion
+  ads can echo the prior segment's palette and composition.
+- **Market continuity:** the orchestrator snapshots live auction pressure
+  (`leaderboard`, open slot, attention progress) into `GenerationMarketContext`
+  so scripts and image/video prompts can react to a hot market or a segment
+  that just cleared its threshold.
+
+When nothing is playing and no segment is generating, the Continuum enters an
+**idle** state: archive cards drift more slowly so the world still feels alive
+between slots.
 
 This builds on the continuity mechanism in the architecture and turns it into
 an explicit product feature.
@@ -133,7 +145,9 @@ ID, so replays are stable):
 
 Each format has its own script template (hook → body → CTA structure varies
 by tone), a distinct ElevenLabs voice, and a visual style hint that feeds the
-image/video prompt. The format name and tone are included in
+image/video prompt. When `marketContext` is present, a short market sting
+("The market is hot.", "The room proved it.") may be woven into the script
+within the spoken word budget. The format name and tone are included in
 `audioMetadata` so the UI can display them, and the tone prefix is carried
 into the Continuity summary so the next segment knows what style came before.
 

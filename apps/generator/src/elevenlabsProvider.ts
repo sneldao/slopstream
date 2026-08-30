@@ -182,6 +182,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       brand: request.brandId ?? "this company",
       brief: request.brief.trim(),
       context: request.previousSummaries.at(-1),
+      market: request.marketContext,
     });
 
     // Stage 2: Voice — TTS via ElevenLabs with the format's voice.
@@ -228,6 +229,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
           provider: "elevenlabs",
           modelId: IMAGE_MODEL,
           prompt: imagePrompt,
+          heroImageUrl: assetUrl(this.config.assetBaseUrl, imageKey),
         },
         audioMetadata: {
           provider: "elevenlabs",
@@ -241,8 +243,19 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       };
     }
 
-    // Stage 4: Video — generate a video for video and premium tiers.
-    const videoPrompt = videoPromptFor(request, transcript, format);
+    // Stage 4: Video — image-first continuity, then motion.
+    const imagePrompt = imagePromptFor(request, transcript, format);
+    const imageBytes = await this.generateImage(imagePrompt);
+    const imageKey = `${request.segmentId}.png`;
+    await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
+    const heroImageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
+
+    const videoPrompt = videoPromptFor(
+      request,
+      transcript,
+      format,
+      heroImageUrl,
+    );
     const videoBytes = await this.generateVideo(videoPrompt, durationSec);
     const videoKey = `${request.segmentId}.mp4`;
     await writeFile(join(this.config.assetsDir, videoKey), videoBytes);
@@ -257,6 +270,8 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         provider: "elevenlabs",
         modelId: VIDEO_MODEL,
         prompt: videoPrompt,
+        heroImageUrl,
+        continuityFrom: request.continuityImageUrl,
       },
       audioMetadata: {
         provider: "elevenlabs",
@@ -390,10 +405,13 @@ function imagePromptFor(
 ): string {
   const brand = request.brandId ?? "a startup";
   const brief = request.brief.trim();
+  const continuity = continuityClause(request.continuityImageUrl);
+  const market = marketPromptClause(request.marketContext);
   return (
     `A striking advertisement image for ${brand}. ${brief}. ` +
     `Visual style: ${format.imageStyle}. ` +
     `The mood is ${format.tone} and matches this voiceover: "${transcript.slice(0, 100)}...". ` +
+    `${continuity}${market}` +
     `16:9 aspect ratio, high quality, attention-grabbing composition.`
   );
 }
@@ -402,12 +420,17 @@ function videoPromptFor(
   request: GenerationRequest,
   transcript: string,
   format: CreativeFormat,
+  heroImageUrl: string,
 ): string {
   const brand = request.brandId ?? "a startup";
   const brief = request.brief.trim();
+  const continuity = continuityClause(request.continuityImageUrl);
+  const market = marketPromptClause(request.marketContext);
   return (
     `A dynamic 4-to-8-second motion-design advertisement for ${brand}. ${brief}. ` +
     `Visual style: ${format.imageStyle}. The tone is ${format.tone}. ` +
+    `Open on a hero frame that evolves from this still: ${heroImageUrl}. ` +
+    `${continuity}${market}` +
     `Match Slopstream's live UI world: midnight-blue liquid data, electric violet and cyan ` +
     `particles, glowing auction bids, a threshold basin filling with verified attention, ` +
     `a brief QR-code pulse, then a clean proof signal resolving into a confident brand lockup. ` +
@@ -415,4 +438,22 @@ function videoPromptFor(
     `and intentional visual hierarchy. No readable generated text, no fake logos, no clutter. ` +
     `Voiceover context: "${transcript.slice(0, 150)}..."`
   );
+}
+
+function continuityClause(continuityImageUrl?: string): string {
+  if (!continuityImageUrl) return "";
+  return `Visually echo the previous segment's palette and composition from ${continuityImageUrl}. `;
+}
+
+function marketPromptClause(
+  market: GenerationRequest["marketContext"],
+): string {
+  if (!market) return "";
+  if (market.attentionProgress !== undefined && market.attentionProgress >= 1) {
+    return "The crowd just proved attention — show triumphant, verified energy. ";
+  }
+  if (market.leaderAmountUsd !== undefined && market.leaderAmountUsd >= 30) {
+    return "The auction floor is competitive — lean into urgency and heat. ";
+  }
+  return "";
 }

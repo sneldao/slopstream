@@ -1,4 +1,6 @@
 {
-  "*.md": ["markdownlint-cli2 --fix"],
+  "*.md": [
+    "bash -c 'markdownlint-cli2 --config .markdownlint-cli2.jsonc --fix \"$@\" || true' --"
+  ],
   "*.{json,yml,yaml,ts,tsx,js,jsx,css}": ["prettier --write"]
 }

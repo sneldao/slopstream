@@ -380,10 +380,16 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
     `/failed` (Lane 2 refunds + emits `bid.failed`) and survives; on restart
     it adopts an in-flight `nowPlaying` instead of re-driving settled slots.
   - Continuity: the scheduler keeps the last ≤2 segment summaries and passes
-    them as `GenerationRequest.previousSummaries`.
-  - 8 passing Vitest tests: cursor logic, a full fake-Lane-2 + fake-generator
-    end-to-end drive through one gateway sequence space, the dead-generator
-    failure path, and proxy/auth forwarding.
+    them as `GenerationRequest.previousSummaries`. It also tracks the last
+    segment's hero image URL (`continuityImageUrl`) and snapshots live market
+    pressure into `GenerationRequest.marketContext` before each generator call.
+  - Ops HUD: `GET /ops/metrics` on the gateway returns `StreamOpsMetrics`
+    (generation latency, playback, queue depth, at-risk flag). The brand
+    console can poll it when `NEXT_PUBLIC_OPS_HUD=1`.
+  - 20 passing Vitest tests across cursor logic, market context helpers, ops
+    metrics route, a full fake-Lane-2 + fake-generator end-to-end drive
+    through one gateway sequence space, the dead-generator failure path, and
+    proxy/auth forwarding.
 
 ### Lane 3: stubbed / not yet implemented
 

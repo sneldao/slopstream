@@ -70,7 +70,7 @@ If a later release adds private socket updates, it must define a separately scop
 ## Component responsibilities
 
 - **Big screen** — stream playback, live leaderboard, QR code, live stats. Consumes WebSocket events.
-- **Stream orchestrator** — the live brain: queue manager, segment scheduler, stream continuity (The Continuum), attention challenge timing. Consumes auction results from the backend — it never resolves auctions or settles money; the ledger is the single source of truth for both.
+- **Stream orchestrator** — the live brain: queue manager, segment scheduler, stream continuity (The Continuum), attention challenge timing, and local ops metrics (`GET /ops/metrics`). Consumes auction results from the backend — it never resolves auctions or settles money; the ledger is the single source of truth for both.
 - **Daytona pool** — disposable sandboxes for ad generation (LLM script, TTS, image generation, video generation); returns the generated asset to the orchestrator.
 - **Backend API** — brand accounts, Stripe balances, listener sessions, reward ledger and accounting, scraper ingestion, challenge generation, auction resolution (winner selection and slot assignment). Owns all clearing and settlement, and is the sole caller of Midnight and Stripe.
 - **Midnight** — proves conditions on-chain; consulted by the backend. See [contracts](contracts.md).
@@ -109,6 +109,8 @@ Each generation receives:
 - production tier
 - previous 1–2 segment summaries (the Continuity continuity input)
 - campaign constraints
+- optional `continuityImageUrl` — the prior segment's hero frame, for image-first video continuity
+- optional `marketContext` — a snapshot of auction pressure (leader bid, slot price, attention progress) for market-aware scripts and prompts
 
 The generator deterministically selects a **creative format** per segment
 (FNV-1a hash of the segment ID — see [content.md](../product/content.md#creative-format-rotation)).

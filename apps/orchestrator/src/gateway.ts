@@ -23,7 +23,12 @@ import {
 } from "node:http";
 import type { WebSocket } from "ws";
 import { WebSocketServer } from "ws";
-import type { StreamSnapshot, WsDelivery, WsEvent } from "@slopstream/shared";
+import type {
+  StreamSnapshot,
+  StreamOpsMetrics,
+  WsDelivery,
+  WsEvent,
+} from "@slopstream/shared";
 
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -35,6 +40,7 @@ const MAX_PROXY_BODY_BYTES = 1024 * 1024;
 export interface GatewayOptions {
   apiBaseUrl: string;
   fetcher?: typeof fetch;
+  getMetrics?: () => Promise<StreamOpsMetrics> | StreamOpsMetrics;
 }
 
 export class Gateway {
@@ -46,6 +52,7 @@ export class Gateway {
   private static readonly RECENT_LIMIT = 256;
   private readonly apiBaseUrl: string;
   private readonly fetcher: typeof fetch;
+  private getMetrics?: () => Promise<StreamOpsMetrics> | StreamOpsMetrics;
   readonly server: Server;
   private readonly wss: WebSocketServer;
   private readonly heartbeat: NodeJS.Timeout;
@@ -53,6 +60,7 @@ export class Gateway {
   constructor(options: GatewayOptions) {
     this.apiBaseUrl = options.apiBaseUrl.replace(/\/$/, "");
     this.fetcher = options.fetcher ?? fetch;
+    this.getMetrics = options.getMetrics;
 
     this.server = createServer((req, res) => {
       void this.handleHttp(req, res);
@@ -83,6 +91,13 @@ export class Gateway {
       }
     }, 30_000);
     this.heartbeat.unref();
+  }
+
+  /** Wire the scheduler metrics provider after construction. */
+  setMetricsProvider(
+    provider: () => Promise<StreamOpsMetrics> | StreamOpsMetrics,
+  ): void {
+    this.getMetrics = provider;
   }
 
   /** The gateway's current sequence — stamped into snapshot responses. */
@@ -145,11 +160,41 @@ export class Gateway {
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/ops/metrics") {
+      await this.handleMetrics(res);
+      return;
+    }
+
     await this.proxy(req, res, url);
   }
 
   /** Fetch upstream, then overwrite asOfSequence with the gateway's own
    *  sequence so clients and deliveries share one sequence space. */
+  private async handleMetrics(res: ServerResponse): Promise<void> {
+    if (!this.getMetrics) {
+      res.writeHead(503, {
+        ...CORS_HEADERS,
+        "content-type": "application/json",
+      });
+      res.end(JSON.stringify({ error: "metrics unavailable" }));
+      return;
+    }
+    try {
+      const metrics = await this.getMetrics();
+      res.writeHead(200, {
+        ...CORS_HEADERS,
+        "content-type": "application/json",
+      });
+      res.end(JSON.stringify(metrics));
+    } catch {
+      res.writeHead(502, {
+        ...CORS_HEADERS,
+        "content-type": "application/json",
+      });
+      res.end(JSON.stringify({ error: "metrics unavailable" }));
+    }
+  }
+
   private async handleSnapshot(res: ServerResponse): Promise<void> {
     try {
       const upstream = await this.fetcher(`${this.apiBaseUrl}/stream/snapshot`);

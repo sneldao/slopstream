@@ -12,6 +12,7 @@ import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
 import { LoopStatus } from "../_components/LoopStatus";
 import { ScreenCrossLink } from "../_components/ScreenCrossLink";
+import { StreamOpsHud } from "../_components/StreamOpsHud";
 import { tierForAmount, tierMin } from "@/lib/tierForAmount";
 
 /**
@@ -545,6 +546,7 @@ export default function BrandPage() {
           </section>
         </div>
       </div>
+      <StreamOpsHud />
     </main>
   );
 }

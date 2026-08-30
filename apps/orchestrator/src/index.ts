@@ -41,6 +41,7 @@ const feed = new MarketplaceFeed(api, env.eventsPollMs, (event, eventId) => {
 feed.start();
 
 const scheduler = new SegmentScheduler({ env, gateway, api });
+gateway.setMetricsProvider(() => scheduler.getMetrics());
 await scheduler.start();
 
 // Cold-start scraper: when PARALLEL_API_KEY is configured, continuously

@@ -1418,6 +1418,34 @@ main.has-dock {
   }
 }
 
+.continuum-world--idle .continuum-memory {
+  animation: continuum-memory-idle-drift 42s ease-in-out infinite alternate;
+}
+
+.continuum-world--idle .continuum-world__archive {
+  animation: continuum-archive-breathe 24s ease-in-out infinite alternate;
+}
+
+@keyframes continuum-memory-idle-drift {
+  from {
+    translate: -14px -12px;
+    scale: 1;
+  }
+  to {
+    translate: 18px 22px;
+    scale: 1.03;
+  }
+}
+
+@keyframes continuum-archive-breathe {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes continuum-marquee {
   from {
     translate: -4vw 0;
@@ -1478,6 +1506,59 @@ main.has-dock {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+.stream-ops-hud {
+  position: fixed;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  min-width: 168px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(8, 10, 18, 0.88);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.stream-ops-hud__title {
+  margin-bottom: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.stream-ops-hud__grid {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.stream-ops-hud__grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stream-ops-hud__grid dt {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.stream-ops-hud__grid dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.stream-ops-hud--warn {
+  color: #fbbf24;
 }
 
 @keyframes sphere-drift {

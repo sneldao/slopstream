@@ -94,7 +94,9 @@ theater mode.
 
 On narrow displays, media portal recipes collapse to one reliable central
 composition and archive cards withdraw rather than competing with the current
-asset. Reduced-motion preferences disable continuous drift and ripple loops.
+asset. When the stream is between segments, archive cards use a slower idle
+drift so the Continuum still breathes. Reduced-motion preferences disable
+continuous drift and ripple loops.
 
 ## Implementation guardrails
 

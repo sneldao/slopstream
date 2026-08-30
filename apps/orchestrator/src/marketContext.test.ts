@@ -1,0 +1,61 @@
+import { describe, expect, it } from "vitest";
+import {
+  continuityFromResult,
+  marketContextFromSnapshot,
+} from "./marketContext.js";
+
+describe("marketContextFromSnapshot", () => {
+  it("maps leaderboard and attention into generation context", () => {
+    const ctx = marketContextFromSnapshot({
+      asOfSequence: 1,
+      nowPlaying: null,
+      recentSegments: [],
+      upcomingSegments: [],
+      brands: [],
+      leaderboard: [{ brandId: "brand_acme", amountUsd: 42, slot: 3 }],
+      nextSlotPriceUsd: 25,
+      currentAuction: { slot: 4, closesAt: new Date().toISOString() },
+      listeners: 2,
+      attentionProofs: 3,
+      listenerRewardsUsd: 0,
+      nowPlayingAttentionThreshold: 6,
+    });
+
+    expect(ctx).toMatchObject({
+      leaderBrandId: "brand_acme",
+      leaderAmountUsd: 42,
+      openSlot: 4,
+      nextSlotPriceUsd: 25,
+      verifiedCount: 3,
+      attentionThreshold: 6,
+      attentionProgress: 0.5,
+    });
+  });
+});
+
+describe("continuityFromResult", () => {
+  it("prefers heroImageUrl from visual metadata", () => {
+    expect(
+      continuityFromResult({
+        segmentId: "seg_1",
+        assetUrl: "https://cdn.test/seg_1.mp4",
+        durationSec: 10,
+        transcript: "t",
+        summary: "s",
+        visualMetadata: { heroImageUrl: "https://cdn.test/seg_1.png" },
+      }),
+    ).toBe("https://cdn.test/seg_1.png");
+  });
+
+  it("falls back to image asset URLs", () => {
+    expect(
+      continuityFromResult({
+        segmentId: "seg_1",
+        assetUrl: "https://cdn.test/seg_1.webp",
+        durationSec: 10,
+        transcript: "t",
+        summary: "s",
+      }),
+    ).toBe("https://cdn.test/seg_1.webp");
+  });
+});

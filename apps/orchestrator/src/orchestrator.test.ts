@@ -328,6 +328,36 @@ function waitFor(predicate: () => boolean, timeoutMs: number): Promise<void> {
   });
 }
 
+describe("gateway ops metrics", () => {
+  it("returns scheduler metrics from GET /ops/metrics", async () => {
+    const gateway = new Gateway({ apiBaseUrl: "http://unused.test" });
+    gateway.setMetricsProvider(async () => ({
+      asOf: new Date().toISOString(),
+      segmentPlaySec: 30,
+      generation: {
+        inFlight: false,
+        lastDurationMs: 1200,
+        lastSegmentId: SEGMENT_ID,
+        atRisk: false,
+      },
+      playback: { active: false },
+      queue: { upcomingCount: 0, processedSegments: 1 },
+      market: { nextSlotPriceUsd: 5 },
+    }));
+    const gatewayBaseUrl = await listen(gateway.server);
+    try {
+      const response = await fetch(`${gatewayBaseUrl}/ops/metrics`);
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        segmentPlaySec: 30,
+        generation: { lastSegmentId: SEGMENT_ID },
+      });
+    } finally {
+      await gateway.close();
+    }
+  });
+});
+
 describe("gateway replay cursor", () => {
   it("replays only deliveries newer than the snapshot cursor", async () => {
     const replayGateway = new Gateway({ apiBaseUrl: "http://unused.test" });

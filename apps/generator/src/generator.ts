@@ -60,6 +60,8 @@ function requestFingerprint(request: GenerationRequest): string {
     tier: request.tier,
     previousSummaries: request.previousSummaries,
     constraints: request.constraints ?? null,
+    continuityImageUrl: request.continuityImageUrl ?? null,
+    marketContext: request.marketContext ?? null,
   });
 }
 

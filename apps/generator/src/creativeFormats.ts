@@ -6,6 +6,8 @@
  * supplies tone + one short sting; the brand brief is truncated, not padded.
  */
 
+import type { GenerationMarketContext } from "@slopstream/shared";
+
 export interface CreativeFormat {
   /** Human-readable name for UI display. */
   name: string;
@@ -19,10 +21,26 @@ export interface CreativeFormat {
   script: (args: ScriptArgs) => string;
 }
 
-interface ScriptArgs {
+export interface ScriptArgs {
   brand: string;
   brief: string;
   context?: string;
+  market?: GenerationMarketContext;
+}
+
+/** Short market-aware sting — stays within the word budget when appended. */
+export function marketSting(market?: GenerationMarketContext): string {
+  if (!market) return "";
+  if (market.attentionProgress !== undefined && market.attentionProgress >= 1) {
+    return "The room proved it.";
+  }
+  if (market.leaderAmountUsd !== undefined && market.leaderAmountUsd >= 30) {
+    return "The market is hot.";
+  }
+  if (market.nextSlotPriceUsd !== undefined && market.nextSlotPriceUsd >= 20) {
+    return "Slots are moving.";
+  }
+  return "";
 }
 
 /** Soft cap on spoken words so ads stay punchy on the big screen. */
@@ -68,9 +86,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.domi,
     imageStyle:
       "playful, colorful, slightly absurd — think meme-meets-magazine",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} Boring software is a crime. ${brand}.`,
+        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} Boring software is a crime. ${marketSting(market)} ${brand}.`,
       ),
   },
   {
@@ -79,9 +97,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.antoni,
     imageStyle:
       "epic, cinematic, dramatic lighting — hero shot with deep shadows",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} The future doesn't wait. ${brand}.`,
+        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} The future doesn't wait. ${marketSting(market)} ${brand}.`,
       ),
   },
   {
@@ -90,9 +108,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.josh,
     imageStyle:
       "moody, nocturnal, neon-lit — like a 2am cityscape with the product glowing",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `Tonight's sponsor: ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} Stay tuned.`,
+        `Tonight's sponsor: ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} ${marketSting(market)} Stay tuned.`,
       ),
   },
   {
@@ -101,9 +119,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.arnold,
     imageStyle:
       "over-the-top, bold colors, exaggerated — like a 90s TV ad on steroids",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `${brand} is here! ${truncateWords(brief, MAX_BRIEF_WORDS)} It actually works.`,
+        `${brand} is here! ${truncateWords(brief, MAX_BRIEF_WORDS)} ${marketSting(market)} It actually works.`,
       ),
   },
   {
@@ -112,9 +130,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.elli,
     imageStyle:
       "minimal, elegant, soft focus — like a premium lifestyle brand campaign",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `Hey. ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} It just works.`,
+        `Hey. ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} ${marketSting(market)} It just works.`,
       ),
   },
   {
@@ -123,9 +141,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.bella,
     imageStyle:
       "vibrant, explosive, graffiti-meets-tech — bold shapes and electric color",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `${brand} just dropped. ${truncateWords(brief, MAX_BRIEF_WORDS)} Get in early.`,
+        `${brand} just dropped. ${truncateWords(brief, MAX_BRIEF_WORDS)} ${marketSting(market)} Get in early.`,
       ),
   },
   {
@@ -134,9 +152,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.george,
     imageStyle:
       "nature-documentary-meets-tech — wide shots, shallow depth of field, serious",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} Evolution, accelerated.`,
+        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} ${marketSting(market)} Evolution, accelerated.`,
       ),
   },
   {
@@ -145,9 +163,9 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.rachel,
     imageStyle:
       "clean, editorial, newsroom-style — sharp lines, confident composition",
-    script: ({ brand, brief }) =>
+    script: ({ brand, brief, market }) =>
       withBudget(
-        `Breaking: ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} More as it develops.`,
+        `Breaking: ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} ${marketSting(market)} More as it develops.`,
       ),
   },
 ];

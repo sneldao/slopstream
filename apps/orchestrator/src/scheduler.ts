@@ -17,11 +17,16 @@ import type {
   GenerationStage,
   ProductionTier,
   PublicChallenge,
+  StreamOpsMetrics,
 } from "@slopstream/shared";
 import { FREE_BRAND_ID } from "@slopstream/shared";
 import type { ApiClient } from "./apiClient.js";
 import type { OrchestratorEnv } from "./env.js";
 import type { Gateway } from "./gateway.js";
+import {
+  continuityFromResult,
+  marketContextFromSnapshot,
+} from "./marketContext.js";
 
 type Winner = NonNullable<AuctionState["winner"]>;
 type FreeSegment = NonNullable<AuctionState["freeSegment"]>;
@@ -70,6 +75,11 @@ export class SegmentScheduler {
   private playbackSettled: Promise<void> = Promise.resolve();
   /** Continuity ring — summaries of the previous segments. */
   private previousSummaries: string[] = [];
+  /** Hero image URL from the last generated segment — video continuity input. */
+  private continuityImageUrl?: string;
+  private generationInFlight = false;
+  private lastGenDurationMs?: number;
+  private lastGenSegmentId?: string;
   private pollTimer?: NodeJS.Timeout;
   private stopped = false;
 
@@ -91,6 +101,67 @@ export class SegmentScheduler {
     this.stopped = true;
     if (this.pollTimer) clearTimeout(this.pollTimer);
     if (this.playback?.timer) clearTimeout(this.playback.timer);
+  }
+
+  /** Ops metrics for GET /ops/metrics — stream health HUD. */
+  async getMetrics(): Promise<StreamOpsMetrics> {
+    let snapshot;
+    try {
+      snapshot = await this.api.snapshot();
+    } catch {
+      snapshot = undefined;
+    }
+
+    const playback = this.playback;
+    const elapsedSec = playback
+      ? (Date.now() - playback.startedAtMs) / 1000
+      : undefined;
+    const remainingSec =
+      playback && elapsedSec !== undefined
+        ? Math.max(0, playback.durationSec - elapsedSec)
+        : undefined;
+    const upcomingCount = snapshot?.upcomingSegments.length ?? 0;
+    const atRisk =
+      this.generationInFlight &&
+      upcomingCount === 0 &&
+      remainingSec !== undefined &&
+      remainingSec < 15;
+
+    return {
+      asOf: new Date().toISOString(),
+      segmentPlaySec: this.env.segmentPlaySec,
+      generation: {
+        inFlight: this.generationInFlight,
+        lastDurationMs: this.lastGenDurationMs,
+        lastSegmentId: this.lastGenSegmentId,
+        atRisk,
+      },
+      playback: {
+        active: !!playback,
+        segmentId: playback?.segmentId,
+        elapsedSec:
+          elapsedSec !== undefined
+            ? Math.round(elapsedSec * 10) / 10
+            : undefined,
+        remainingSec:
+          remainingSec !== undefined
+            ? Math.round(remainingSec * 10) / 10
+            : undefined,
+      },
+      queue: {
+        nowPlayingStatus: snapshot?.nowPlaying?.status,
+        upcomingCount,
+        processedSegments: this.processed.size,
+      },
+      market: snapshot
+        ? {
+            leaderBrandId: snapshot.leaderboard[0]?.brandId,
+            leaderAmountUsd: snapshot.leaderboard[0]?.amountUsd,
+            openSlot: snapshot.currentAuction?.slot,
+            nextSlotPriceUsd: snapshot.nextSlotPriceUsd,
+          }
+        : {},
+    };
   }
 
   // ---------------------------------------------------------- startup adoption
@@ -261,6 +332,16 @@ export class SegmentScheduler {
       });
       await this.api.markGenerating(segmentId);
 
+      let marketContext;
+      try {
+        marketContext = marketContextFromSnapshot(await this.api.snapshot());
+      } catch {
+        marketContext = undefined;
+      }
+
+      this.generationInFlight = true;
+      const genStartedAt = Date.now();
+
       // Generation runs concurrently with the four progress beats; beats
       // complete before segment.ready so the screen's stage checkmarks land
       // in order.
@@ -270,48 +351,58 @@ export class SegmentScheduler {
         brief,
         tier,
         previousSummaries: this.previousSummaries,
+        continuityImageUrl: this.continuityImageUrl,
+        marketContext,
       });
       // Attach a handler now: if the generator is down the promise rejects
       // while the beats still run, and an unattached rejection crashes the
       // process. The error is surfaced again at the await below.
       void generation.catch(() => {});
-      for (const stage of GENERATION_STAGES) {
-        await this.delay(this.env.genStageDelayMs);
-        if (this.stopped) return;
-        this.gateway.emit({
-          type: "generation.progress",
-          slot,
-          stage,
-          done: true,
+      try {
+        for (const stage of GENERATION_STAGES) {
+          await this.delay(this.env.genStageDelayMs);
+          if (this.stopped) return;
+          this.gateway.emit({
+            type: "generation.progress",
+            slot,
+            stage,
+            done: true,
+          });
+        }
+        const result = await generation;
+        this.lastGenDurationMs = Date.now() - genStartedAt;
+        this.lastGenSegmentId = segmentId;
+        this.continuityImageUrl =
+          continuityFromResult(result) ?? this.continuityImageUrl;
+
+        // Compressed playback: the orchestrator's segmentPlaySec — not the
+        // generator's duration — is authoritative for the window timeline.
+        await this.api.markReady(segmentId, {
+          assetUrl: result.assetUrl,
+          durationSec: this.env.segmentPlaySec,
+          summary: result.summary,
         });
+        this.gateway.emit({
+          type: "segment.ready",
+          segmentId,
+          assetUrl: result.assetUrl,
+          durationSec: this.env.segmentPlaySec,
+        });
+        await this.api.sendChallengeSource(segmentId, {
+          transcript: result.transcript,
+          durationSec: this.env.segmentPlaySec,
+          visualMetadata: result.visualMetadata,
+          audioMetadata: result.audioMetadata,
+        });
+        this.previousSummaries = [
+          ...this.previousSummaries,
+          result.summary,
+        ].slice(-2);
+
+        await this.startPlayback(segmentId, brandId, slot);
+      } finally {
+        this.generationInFlight = false;
       }
-      const result = await generation;
-
-      // Compressed playback: the orchestrator's segmentPlaySec — not the
-      // generator's duration — is authoritative for the window timeline.
-      await this.api.markReady(segmentId, {
-        assetUrl: result.assetUrl,
-        durationSec: this.env.segmentPlaySec,
-        summary: result.summary,
-      });
-      this.gateway.emit({
-        type: "segment.ready",
-        segmentId,
-        assetUrl: result.assetUrl,
-        durationSec: this.env.segmentPlaySec,
-      });
-      await this.api.sendChallengeSource(segmentId, {
-        transcript: result.transcript,
-        durationSec: this.env.segmentPlaySec,
-        visualMetadata: result.visualMetadata,
-        audioMetadata: result.audioMetadata,
-      });
-      this.previousSummaries = [
-        ...this.previousSummaries,
-        result.summary,
-      ].slice(-2);
-
-      await this.startPlayback(segmentId, brandId, slot);
     } catch (error) {
       console.error(`[scheduler] drive failed for ${segmentId}:`, error);
       // Lane 2 releases the reservation and emits bid.failed itself.

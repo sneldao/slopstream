@@ -260,7 +260,7 @@ function ContinuumWorld(props: SceneProps) {
   return (
     <div
       ref={rootRef}
-      className={`continuum-world continuum-world--recipe-${recipe}${props.segment ? " continuum-world--focus" : ""}`}
+      className={`continuum-world continuum-world--recipe-${recipe}${props.segment ? " continuum-world--focus" : ""}${!props.segment && !props.generation ? " continuum-world--idle" : ""}`}
       style={
         { "--world-a": props.colorA, "--world-b": props.colorB } as WorldStyle
       }

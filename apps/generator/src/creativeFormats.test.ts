@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { FORMATS, MAX_SCRIPT_WORDS, truncateWords } from "./creativeFormats.js";
+import {
+  FORMATS,
+  MAX_SCRIPT_WORDS,
+  marketSting,
+  truncateWords,
+} from "./creativeFormats.js";
 
 describe("truncateWords", () => {
   it("keeps short text intact", () => {
@@ -10,6 +15,14 @@ describe("truncateWords", () => {
     const long =
       "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda";
     expect(truncateWords(long, 4)).toBe("alpha beta gamma delta.");
+  });
+});
+
+describe("marketSting", () => {
+  it("adds heat copy when the market is competitive", () => {
+    expect(marketSting({ leaderAmountUsd: 35 })).toContain("hot");
+    expect(marketSting({ nextSlotPriceUsd: 22 })).toContain("moving");
+    expect(marketSting({ attentionProgress: 1 })).toContain("proved");
   });
 });
 

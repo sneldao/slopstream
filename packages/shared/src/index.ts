@@ -458,6 +458,18 @@ export interface StreamSnapshot {
 // Generation interface (Lane 1 boundary)
 // ---------------------------------------------------------------------------
 
+/** Live market snapshot passed into generation for tone-aware scripts. */
+export interface GenerationMarketContext {
+  leaderBrandId?: string;
+  leaderAmountUsd?: number;
+  openSlot?: number;
+  nextSlotPriceUsd?: number;
+  verifiedCount?: number;
+  attentionThreshold?: number;
+  /** 0–1 progress toward clearing the on-air attention threshold. */
+  attentionProgress?: number;
+}
+
 export interface GenerationRequest {
   /**
    * Canonical ID allocated by Lane 2 when an auction winner realizes a
@@ -472,6 +484,40 @@ export interface GenerationRequest {
   /** Summaries of the previous 1–2 segments — The Continuum continuity input. */
   previousSummaries: string[];
   constraints?: string;
+  /** Hero frame from the prior segment — image-first continuity for video. */
+  continuityImageUrl?: string;
+  /** Optional auction/attention context for market-aware scripts. */
+  marketContext?: GenerationMarketContext;
+}
+
+/** Orchestrator ops snapshot for the stream HUD (GET /ops/metrics). */
+export interface StreamOpsMetrics {
+  asOf: string;
+  segmentPlaySec: number;
+  generation: {
+    inFlight: boolean;
+    lastDurationMs?: number;
+    lastSegmentId?: string;
+    /** True when playback may run dry before the next segment is ready. */
+    atRisk: boolean;
+  };
+  playback: {
+    active: boolean;
+    segmentId?: string;
+    elapsedSec?: number;
+    remainingSec?: number;
+  };
+  queue: {
+    nowPlayingStatus?: string;
+    upcomingCount: number;
+    processedSegments: number;
+  };
+  market: {
+    leaderBrandId?: string;
+    leaderAmountUsd?: number;
+    openSlot?: number;
+    nextSlotPriceUsd?: number;
+  };
 }
 
 export interface GenerationResult {

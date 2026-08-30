@@ -65,7 +65,13 @@ The WebSocket is a **server-to-client projection**, not a mutation API. Clients 
 | Load or recover stream state     | `GET /stream/snapshot`                         | Current segment, eight recent completed segments, the next generated/ready queue, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
 | Poll auction state               | `GET /auctions/current`, `GET /auctions/:slot` | `AuctionState` (status, deadline, standing bid, winner + `segmentId` after close)                                                                                  |
 
+Stream ops (local debug): `GET /ops/metrics` on the orchestrator gateway returns
+`StreamOpsMetrics` (generation latency, playback, queue depth). Enable the brand
+console HUD with `NEXT_PUBLIC_OPS_HUD=1`. This route is not proxied to Lane 2.
+
 Brand and listener commands authenticate with their bearer token. The orchestrator additionally authenticates with `ORCHESTRATOR_API_TOKEN` and drives the per-segment lifecycle against Lane 2 — `POST /segments/:id/generating`, `/ready`, `/challenge-source`, `/challenges/next` (Lane 3 decides when to fire; the response is a `PublicChallenge`, never the answer), `/playing` (opens the attention window and freezes `required_events`), `/window-closed` (exactly-once clearing evaluation), and `/failed` — so clearing state stays in the ledger even though playback lives in Lane 3. Invoking the generator similarly requires `GENERATOR_API_TOKEN`; production processes refuse to start with the checked-in demo defaults.
+
+The orchestrator gateway answers three local HTTP routes before reverse-proxying everything else to Lane 2: `GET /health`, `GET /stream/snapshot` (stamps `asOfSequence` into the gateway sequence space), and `GET /ops/metrics`.
 
 Commands are authenticated and validated at the API boundary; the API persists the result before it publishes the corresponding marketplace event to Redis. The current hackathon server uses an in-memory ledger and has no request-idempotency or durable audit-log layer yet, so those are production follow-ups rather than current guarantees. Clients must never treat a WebSocket message as evidence that a bid, balance, proof, or reward is settled.
 
