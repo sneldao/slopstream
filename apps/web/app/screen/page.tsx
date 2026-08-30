@@ -183,7 +183,12 @@ export default function ScreenPage() {
       />
 
       {!theater && (
-        <LoopStatus state={state} tone="light" className="screen-loop-status" />
+        <LoopStatus
+          state={state}
+          tone="light"
+          className="screen-loop-status"
+          showHint
+        />
       )}
 
       {!theater && (
@@ -227,9 +232,7 @@ export default function ScreenPage() {
               })}
             </AnimatePresence>
             {state.leaderboard.length === 0 && (
-              <div style={styles.emptyBids}>
-                The market is open — waiting for the first bid.
-              </div>
+              <div style={styles.emptyBids}>Waiting for bids</div>
             )}
           </div>
         </motion.div>
@@ -292,17 +295,12 @@ export default function ScreenPage() {
             title="Listener join QR code"
           />
         </div>
-        <div>
-          <div style={styles.joinTitle}>
-            {idleRecruit ? "SCAN TO EARN" : "PROOF MOMENT"}
-          </div>
-          <div style={styles.joinCopy}>
-            {state.activeChallenge
-              ? "A proof moment is open on listener phones."
-              : idleRecruit
-                ? "Scan to join — Earn Mode turns on automatically."
-                : "Listeners can verify attention and earn from the pool."}
-          </div>
+        <div style={styles.joinTitle}>
+          {state.activeChallenge
+            ? "PROOF OPEN"
+            : idleRecruit
+              ? "SCAN TO EARN"
+              : "LISTEN"}
         </div>
       </aside>
 

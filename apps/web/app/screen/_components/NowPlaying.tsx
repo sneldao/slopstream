@@ -1,7 +1,6 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { continuumBlurb, continuumChapter } from "@/lib/continuum";
 import type {
   BrandSummary,
   GenerationStage,
@@ -71,12 +70,7 @@ function EmptyMarket() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <div style={styles.emptyKicker}>
-        Open frequency · waiting for the next bid
-      </div>
-      <div style={styles.emptySub}>
-        The archive is awake. The next winning bid becomes part of the world.
-      </div>
+      <div style={styles.emptyKicker}>Waiting for a bid</div>
       <div style={styles.emptyPulse}>
         <i className="empty-pulse__dot" /> Market open
       </div>
@@ -135,7 +129,6 @@ function GenerationLabels({
 }
 
 function PlayingLabels({
-  segment,
   brand,
   startedAt,
 }: {
@@ -172,8 +165,6 @@ function PlayingLabels({
       >
         {brand?.name ?? "Free Ad"}
       </motion.div>
-      <div style={styles.adChapter}>{continuumChapter(segment, brand)}</div>
-      <div style={styles.adBlurb}>{continuumBlurb(segment)}</div>
       {startedAt && (
         <div style={styles.adTime}>
           live · {new Date(startedAt).toLocaleTimeString()}
@@ -198,8 +189,7 @@ function ChallengeBanner({ brandColor }: { brandColor: string | undefined }) {
     >
       <i style={{ ...styles.challengeDot, background: brandColor }} />
       <div>
-        <div style={styles.challengeHeader}>EARN MODE IS LIVE</div>
-        <div style={styles.challengeHint}>Optional on listener phones</div>
+        <div style={styles.challengeHeader}>PROOF OPEN</div>
       </div>
     </motion.div>
   );

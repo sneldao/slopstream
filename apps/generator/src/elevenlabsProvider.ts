@@ -11,6 +11,7 @@ import type {
 import type { GenerationProvider } from "./generator.js";
 import {
   pickFormat,
+  truncateWords,
   voiceForFormat,
   type CreativeFormat,
 } from "./creativeFormats.js";
@@ -378,12 +379,8 @@ function summaryFor(
   request: GenerationRequest,
   format: CreativeFormat,
 ): string {
-  const context = request.previousSummaries.at(-1);
-  const brief = request.brief.trim();
-  const tone = format.tone;
-  return context
-    ? `[${tone}] Continuation after "${context}": ${brief}`
-    : `[${tone}] Introduction: ${brief}`;
+  const brief = truncateWords(request.brief.trim(), 18);
+  return `[${format.tone}] ${brief}`;
 }
 
 function imagePromptFor(

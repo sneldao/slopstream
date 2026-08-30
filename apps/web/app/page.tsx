@@ -8,8 +8,7 @@ const SURFACES = [
     index: "01",
     eyebrow: "The spectacle",
     title: "Enter the live world",
-    description:
-      "A fluid broadcast where brands collide, bids burst and attention becomes visible.",
+    description: "Bids, ads, and attention — visible in one room.",
     color: "var(--slop-coral)",
   },
   {
@@ -17,8 +16,7 @@ const SURFACES = [
     index: "02",
     eyebrow: "The pocket portal",
     title: "Listen. Prove. Earn.",
-    description:
-      "Join the stream, catch the cue and turn real attention into a reward.",
+    description: "Join the stream. Opt in to earn.",
     color: "var(--slop-blue)",
   },
   {
@@ -26,8 +24,7 @@ const SURFACES = [
     index: "03",
     eyebrow: "The auction cockpit",
     title: "Put your brand in play",
-    description:
-      "Bid for the next moment and watch your campaign enter the living canvas.",
+    description: "Bid for the next moment.",
     color: "var(--slop-violet)",
   },
 ] as const;
@@ -93,8 +90,7 @@ export default function Home() {
       </footer>
 
       <p className="home-operator">
-        Demo tip: open Screen on the projector, Listen on a phone, Brand on a
-        laptop — use the nav to jump between them.
+        Screen → projector · Listen → phone · Brand → laptop
       </p>
     </main>
   );

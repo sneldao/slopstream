@@ -20,7 +20,6 @@ import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
 import { LoopStatus } from "../_components/LoopStatus";
 import { PayoutSheet } from "./_components/PayoutSheet";
-import { continuumBlurb, continuumChapter } from "@/lib/continuum";
 
 /**
  * The listener experience — a game show on a phone. Full-bleed audio-
@@ -46,7 +45,6 @@ export default function ListenPage() {
   const [pendingUsd, setPendingUsd] = useState(0);
   const [todayVerified, setTodayVerified] = useState(0);
   const [earnMode, setEarnMode] = useState(false);
-  const [showValueProp, setShowValueProp] = useState(true);
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [listenerIdentity, setListenerIdentity] =
     useState<ListenerIdentity | null>(null);
@@ -65,9 +63,6 @@ export default function ListenPage() {
     const fromQuery = params.get("earn") === "1";
     setEarnMode(fromQuery || stored);
     if (fromQuery) window.localStorage.setItem(EARN_MODE_KEY, "on");
-    if (window.localStorage.getItem(VALUE_PROP_KEY) === "1") {
-      setShowValueProp(false);
-    }
   }, []);
 
   useEffect(() => {
@@ -175,17 +170,8 @@ export default function ListenPage() {
       const next = !enabled;
       window.localStorage.setItem(EARN_MODE_KEY, next ? "on" : "off");
       if (!next) setReceipt(null);
-      if (next) {
-        window.localStorage.setItem(VALUE_PROP_KEY, "1");
-        setShowValueProp(false);
-      }
       return next;
     });
-  };
-
-  const dismissValueProp = () => {
-    window.localStorage.setItem(VALUE_PROP_KEY, "1");
-    setShowValueProp(false);
   };
 
   // Challenge sounds belong only to the explicitly enabled earn experience.
@@ -328,25 +314,10 @@ export default function ListenPage() {
                   title="How you earn"
                   steps={[
                     "Listen while the ad plays",
-                    "Turn on Earn Mode for attention checks",
-                    "Pending rewards unlock when a segment clears",
+                    "Turn on Earn Mode for checks",
+                    "Pending unlocks when a segment clears",
                   ]}
                 />
-              )}
-
-              {showValueProp && (
-                <p className="slop-value-prop">
-                  {earnMode
-                    ? "Earn Mode is on — verified checks go to pending until the segment clears."
-                    : "Listen without interruptions. Turn on Earn Mode whenever you want to answer checks for rewards."}
-                  <button
-                    type="button"
-                    className="slop-value-prop__dismiss"
-                    onClick={dismissValueProp}
-                  >
-                    Got it
-                  </button>
-                </p>
               )}
 
               {mode === "live" && connectionStatus !== "connected" && (
@@ -364,22 +335,10 @@ export default function ListenPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 200, damping: 20 }}
               >
-                <div style={styles.listeningLabel}>
-                  Now flooding your frequency
-                </div>
+                <div style={styles.listeningLabel}>Now playing</div>
                 <div style={{ ...styles.brandName, color: brandColor }}>
                   {activeBrand?.name ?? "Open Stream"}
                 </div>
-                {state.nowPlaying && (
-                  <>
-                    <div style={styles.chapter}>
-                      {continuumChapter(state.nowPlaying, activeBrand)}
-                    </div>
-                    <div style={styles.blurb}>
-                      {continuumBlurb(state.nowPlaying)}
-                    </div>
-                  </>
-                )}
                 <div style={styles.nowPlayingRule} />
               </motion.div>
 
@@ -438,18 +397,16 @@ export default function ListenPage() {
                   {attention && (
                     <span>
                       <b className="slop-figures">{attention.verifiedCount}</b>
-                      {" of "}
+                      {" / "}
                       <b className="slop-figures">{attention.threshold}</b>
                       {" verified"}
                     </span>
                   )}
-                  <span>
-                    {state.lastClear
-                      ? `Last clear unlocked $${state.lastClear.listenerPoolUsd.toFixed(2)} for listeners (80%).`
-                      : attention
-                        ? "Rewards unlock for this segment when the rule fills."
-                        : "Rewards unlock when verified attention clears a segment."}
-                  </span>
+                  {state.lastClear ? (
+                    <span>
+                      Last clear ${state.lastClear.listenerPoolUsd.toFixed(2)}
+                    </span>
+                  ) : null}
                 </p>
               </section>
 
@@ -629,9 +586,7 @@ function JoinSplash({ onJoin }: { onJoin: () => void }) {
         transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       />
       <div style={styles.splashTitle}>Join the stream</div>
-      <div style={styles.splashSub}>
-        Listen. Prove you were here. Earn rewards.
-      </div>
+      <div style={styles.splashSub}>Listen. Prove. Earn.</div>
       <motion.button
         type="button"
         style={styles.joinButton}
@@ -663,7 +618,6 @@ function hexA(hex: string, a: number): string {
 
 const LISTENER_TOKEN_KEY = "slopstream.listener-token";
 const EARN_MODE_KEY = "slopstream.listener.earn-mode.v1";
-const VALUE_PROP_KEY = "slopstream.listener.value-prop.v1";
 const LISTENER_COMMITMENT_KEY = "slopstream.listener-commitment";
 
 interface ListenerIdentity {

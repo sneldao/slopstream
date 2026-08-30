@@ -2,13 +2,8 @@
  * Creative format rotation — picks a varied ad format for each generation
  * request so consecutive ads don't sound identical.
  *
- * Each format defines:
- * - `script`: a template function that produces a voiceover transcript
- * - `voice`: a preferred ElevenLabs voice ID (falls back to the env default)
- * - `imageStyle`: a visual style hint for the image/video prompt
- * - `tone`: a short descriptor appended to the summary for UI display
- *
- * The rotation is deterministic per segmentId so replays are stable.
+ * Word budget: keep VO roughly 12–18 spoken seconds (~35–50 words). Format
+ * supplies tone + one short sting; the brand brief is truncated, not padded.
  */
 
 export interface CreativeFormat {
@@ -28,6 +23,27 @@ interface ScriptArgs {
   brand: string;
   brief: string;
   context?: string;
+}
+
+/** Soft cap on spoken words so ads stay punchy on the big screen. */
+export const MAX_SCRIPT_WORDS = 45;
+/** Soft cap on brand brief words before format wrapping. */
+export const MAX_BRIEF_WORDS = 22;
+
+/**
+ * Collapse whitespace and keep the first `maxWords` words.
+ */
+export function truncateWords(text: string, maxWords: number): string {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return words.join(" ");
+  return `${words
+    .slice(0, maxWords)
+    .join(" ")
+    .replace(/[.,;:]+$/, "")}.`;
+}
+
+function withBudget(script: string): string {
+  return truncateWords(script, MAX_SCRIPT_WORDS);
 }
 
 /**
@@ -52,12 +68,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.domi,
     imageStyle:
       "playful, colorful, slightly absurd — think meme-meets-magazine",
-    script: ({ brand, brief, context }) =>
-      `${context ? `Okay, so last time we talked about ${context}. ` : ""}` +
-      `But forget that. ${brand}. ${brief} ` +
-      `Look, I'm not saying this will change your life. I'm saying it'll ` +
-      `make your life funnier. ${brand}. Because boring software is a crime. ` +
-      `And you deserve better than crime.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} Boring software is a crime. ${brand}.`,
+      ),
   },
   {
     name: "Cinematic Anthem",
@@ -65,12 +79,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.antoni,
     imageStyle:
       "epic, cinematic, dramatic lighting — hero shot with deep shadows",
-    script: ({ brand, brief, context }) =>
-      `${context ? `The story continues. ` : ""}` +
-      `In a world of endless scrolling... one name rises above the noise. ` +
-      `${brand}. ${brief} ` +
-      `This is not just a product. This is a movement. ` +
-      `${brand}. The future doesn't wait. Neither should you.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} The future doesn't wait. ${brand}.`,
+      ),
   },
   {
     name: "Late Night Radio",
@@ -78,12 +90,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.josh,
     imageStyle:
       "moody, nocturnal, neon-lit — like a 2am cityscape with the product glowing",
-    script: ({ brand, brief, context }) =>
-      `You're tuned to the midnight frequency. ` +
-      `${context ? `Coming up after that last segment — ` : ``}` +
-      `tonight's sponsor: ${brand}. ${brief} ` +
-      `It's the kind of thing that makes you go, "huh, why didn't I think of that?" ` +
-      `${brand}. Stay tuned. The night is young.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `Tonight's sponsor: ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} Stay tuned.`,
+      ),
   },
   {
     name: "Infomercial Parody",
@@ -91,12 +101,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.arnold,
     imageStyle:
       "over-the-top, bold colors, exaggerated — like a 90s TV ad on steroids",
-    script: ({ brand, brief, context }) =>
-      `Tired of software that promises everything and delivers nothing?! ` +
-      `${context ? `You've seen the rest. Now see the BEST. ` : ``}` +
-      `${brand} is here! ${brief} ` +
-      `But wait — there's more! It actually works! Call now... or just open a tab. ` +
-      `${brand}. Your workflow will never be the same.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `${brand} is here! ${truncateWords(brief, MAX_BRIEF_WORDS)} It actually works.`,
+      ),
   },
   {
     name: "Soft Launch",
@@ -104,11 +112,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.elli,
     imageStyle:
       "minimal, elegant, soft focus — like a premium lifestyle brand campaign",
-    script: ({ brand, brief, context }) =>
-      `Hey. ${context ? `You know ${brand}. ` : `There's something I want to tell you about. `}` +
-      `${brief} ` +
-      `It's quiet. It's thoughtful. It just... works. ` +
-      `${brand}. Sometimes the best things don't shout.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `Hey. ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} It just works.`,
+      ),
   },
   {
     name: "Hype Drop",
@@ -116,11 +123,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.bella,
     imageStyle:
       "vibrant, explosive, graffiti-meets-tech — bold shapes and electric color",
-    script: ({ brand, brief, context }) =>
-      `Yo! ${context ? `We're back and ${brand} just leveled up. ` : `${brand} just dropped. `}` +
-      `${brief} ` +
-      `This is not a drill. This is the real thing. ` +
-      `${brand}. Get in early. Thank me later.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `${brand} just dropped. ${truncateWords(brief, MAX_BRIEF_WORDS)} Get in early.`,
+      ),
   },
   {
     name: "Documentary Voice",
@@ -128,11 +134,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.george,
     imageStyle:
       "nature-documentary-meets-tech — wide shots, shallow depth of field, serious",
-    script: ({ brand, brief, context }) =>
-      `Here, in the digital wild, a new species emerges. ` +
-      `${brand}. ${brief} ` +
-      `${context ? `Unlike its predecessors, ` : ``}this one adapts. It learns. It survives. ` +
-      `${brand}. Evolution, accelerated.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} Evolution, accelerated.`,
+      ),
   },
   {
     name: "News Bulletin",
@@ -140,13 +145,10 @@ export const FORMATS: readonly CreativeFormat[] = [
     voiceId: VOICES.rachel,
     imageStyle:
       "clean, editorial, newsroom-style — sharp lines, confident composition",
-    script: ({ brand, brief, context }) =>
-      `Breaking tonight. ` +
-      `${context ? `Following our earlier coverage, ` : ``}` +
-      `${brand} has announced what experts are calling a significant development. ` +
-      `${brief} ` +
-      `Analysts say this could reshape the landscape. ` +
-      `${brand}. We'll continue to follow this story.`,
+    script: ({ brand, brief }) =>
+      withBudget(
+        `Breaking: ${brand}. ${truncateWords(brief, MAX_BRIEF_WORDS)} More as it develops.`,
+      ),
   },
 ];
 
@@ -170,7 +172,7 @@ export function pickFormat(segmentId: string): CreativeFormat {
  */
 export function voiceForFormat(
   format: CreativeFormat,
-  defaultVoiceId: string,
+  fallbackVoiceId: string,
 ): string {
-  return format.voiceId || defaultVoiceId;
+  return format.voiceId || fallbackVoiceId;
 }

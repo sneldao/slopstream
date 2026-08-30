@@ -158,8 +158,7 @@ export default function BrandPage() {
               exit={{ y: -60, opacity: 0, scale: 0.9 }}
               transition={{ type: "spring", stiffness: 300, damping: 18 }}
             >
-              <span style={styles.outbidBolt}>⚡</span> OUTBID — you&apos;ve
-              been overtaken! Raise your bid.
+              <span style={styles.outbidBolt}>⚡</span> OUTBID — raise your bid.
             </motion.div>
           )}
         </AnimatePresence>
@@ -195,15 +194,10 @@ export default function BrandPage() {
           title="How bidding works"
           steps={[
             "Raise your bid to own the next slot",
-            "Winning amount unlocks production quality",
-            "You pay when verified attention clears — not for empty airtime",
+            "Higher bids unlock better production",
+            "You pay when attention clears",
           ]}
         />
-
-        <p className="slop-value-prop">
-          Bid for the next moment. You pay for verified attention — not empty
-          impressions.
-        </p>
 
         <AnimatePresence>
           {state.lastSettlement && (
@@ -430,7 +424,7 @@ export default function BrandPage() {
                     <BidParticleEffect
                       color={myBrand?.primaryColor ?? "#1e6fff"}
                     />
-                    ✓ Bid placed — watch the leaderboard
+                    ✓ Bid placed — open Screen
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -440,11 +434,11 @@ export default function BrandPage() {
             <div style={styles.tierSection}>
               <div style={styles.tierLabel}>PRODUCTION TIER</div>
               <p style={styles.tierHint}>
-                Your bid unlocks{" "}
+                Unlocks{" "}
                 <strong style={{ color: TIER_COLORS[unlockedTier] }}>
                   {TIER_LABELS[unlockedTier]}
                 </strong>
-                . Tap a tier to jump to its minimum bid.
+                . Tap a tier for min bid.
               </p>
               <div style={styles.tierGrid}>
                 {(Object.keys(TIER_BID_THRESHOLDS_USD) as ProductionTier[]).map(

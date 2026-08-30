@@ -451,7 +451,6 @@ function MediaAsset({
       >
         <span>NOW PLAYING</span>
         <strong>{brand?.name ?? "OPEN STREAM"}</strong>
-        <p>{segment.summary || "A new signal entering the Continuum."}</p>
       </div>
     );
   }
@@ -514,7 +513,9 @@ function ArchiveCard({
       ) : (
         <strong>{item.brandName}</strong>
       )}
-      <small>{item.summary || "Previously on this frequency"}</small>
+      <small>
+        {(item.summary || item.brandName).split(/\s+/).slice(0, 8).join(" ")}
+      </small>
     </div>
   );
 }

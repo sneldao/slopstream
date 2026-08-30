@@ -12,16 +12,19 @@ const PHASE_HINT: Record<LoopPhase, string> = {
 
 /**
  * Tiny shared stepper: Bid → Play → Prove → Clear.
- * Makes the cross-surface loop legible without leaving any page.
+ * Hints are optional — screen-only by default so Listen/Brand stay quiet.
  */
 export function LoopStatus({
   state,
   tone = "dark",
   className = "",
+  showHint = false,
 }: {
   state: StreamState;
   tone?: "light" | "dark";
   className?: string;
+  /** Sentence under the stepper — keep for spectacle, off for phone/cockpit. */
+  showHint?: boolean;
 }) {
   const phase = deriveLoopPhase(state);
 
@@ -52,7 +55,9 @@ export function LoopStatus({
           );
         })}
       </ol>
-      <p className="slop-loop-status__hint">{PHASE_HINT[phase]}</p>
+      {showHint ? (
+        <p className="slop-loop-status__hint">{PHASE_HINT[phase]}</p>
+      ) : null}
     </div>
   );
 }
