@@ -14,6 +14,7 @@ import { OutbidFlashOverlay } from "./_components/OutbidFlash";
 import { BlobChip } from "./_components/SoftBlob";
 import { DemoControls } from "./_components/DemoControls";
 import { ProofReceipt3D } from "./_components/ProofReceipt3D";
+import { SurfaceHeader } from "../_components/SurfaceHeader";
 
 // 3D scene — loaded client-only to avoid SSR issues with WebGL.
 const Scene = dynamic(
@@ -155,30 +156,35 @@ export default function ScreenPage() {
         brandColor={activeBrand?.primaryColor}
       />
 
-      {/* Floating header — wordmark + live status. Top-left, single row. */}
-      <motion.header
+      {/* Floating header — cream chip + role badge. */}
+      <motion.div
         style={styles.header}
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <span style={styles.liveDot} />
-        <a className="slop-wordmark" href="/" style={styles.title}>
-          SLOPSTREAM
-        </a>
-        <span style={styles.broadcastTag}>Attention market / on air</span>
-        {mode === "live" && (
-          <span
-            style={{
-              ...styles.connectionBadge,
-              color: connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
-            }}
-          >
-            <span style={styles.connectionDot} />
-            {connectionStatus === "connected" ? "Live" : "Offline"}
-          </span>
-        )}
-      </motion.header>
+        <SurfaceHeader
+          role="01"
+          subtitle="Attention market / on air"
+          trailing={
+            <>
+              <span style={styles.liveDot} />
+              {mode === "live" && (
+                <span
+                  className="slop-hud-pill"
+                  style={{
+                    color:
+                      connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
+                  }}
+                >
+                  <span style={styles.connectionDot} />
+                  {connectionStatus === "connected" ? "Live" : "Offline"}
+                </span>
+              )}
+            </>
+          }
+        />
+      </motion.div>
 
       {/* Floating leaderboard — right side, over the canvas. */}
       <motion.div
@@ -216,20 +222,24 @@ export default function ScreenPage() {
             })}
           </AnimatePresence>
           {state.leaderboard.length === 0 && (
-            <div style={styles.emptyBids}>The market is open.</div>
+            <div style={styles.emptyBids}>
+              The market is open — waiting for the first bid.
+            </div>
           )}
         </div>
       </motion.div>
 
       <aside
-        className="screen-join"
+        className={`screen-join${
+          state.activeChallenge || !state.nowPlaying ? " slop-join-pulse" : ""
+        }`}
         style={styles.joinPanel}
         aria-label="Join Slopstream as a listener"
       >
         <div style={styles.qrFrame}>
           <QRCodeSVG
             value={listenerUrl}
-            size={92}
+            size={state.activeChallenge || !state.nowPlaying ? 108 : 92}
             bgColor="#ffffff"
             fgColor="#0b0b1a"
             level="M"
@@ -237,8 +247,16 @@ export default function ScreenPage() {
           />
         </div>
         <div>
-          <div style={styles.joinTitle}>SCAN TO JOIN</div>
-          <div style={styles.joinCopy}>Prove attention. Earn rewards.</div>
+          <div style={styles.joinTitle}>
+            {state.activeChallenge ? "ANSWER ON YOUR PHONE" : "SCAN TO JOIN"}
+          </div>
+          <div style={styles.joinCopy}>
+            {state.activeChallenge
+              ? "Attention check in progress — prove you were here."
+              : !state.nowPlaying
+                ? "Market open. Be ready when the next ad drops."
+                : "Prove attention. Earn rewards."}
+          </div>
         </div>
       </aside>
 

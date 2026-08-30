@@ -60,6 +60,17 @@ export interface ClearBurst {
   burstId: number;
 }
 
+/** Latest bid settlement — clear / threshold miss / generation fail. */
+export interface SettlementFlash {
+  kind: "cleared" | "uncleared" | "failed";
+  bidId: string;
+  /** Gross cleared, or amount returned on miss/fail. */
+  amountUsd: number;
+  listenerPoolUsd?: number;
+  platformRevenueUsd?: number;
+  flashId: number;
+}
+
 export interface OutbidFlash {
   slot: number;
   displacedBrandId: string;
@@ -91,6 +102,8 @@ export interface StreamState {
   playingTier?: ProductionTier;
   /** Most recent clear; UI animates a burst when `burstId` changes. */
   lastClear?: ClearBurst;
+  /** Most recent settlement outcome for brand / listen feedback. */
+  lastSettlement?: SettlementFlash;
   /** Most recent outbid; UI flashes when `flashId` changes. */
   lastOutbid?: OutbidFlash;
 }
@@ -267,6 +280,14 @@ export function reduceStreamEvent(
           platformRevenueUsd: event.platformRevenueUsd,
           burstId: (prev.lastClear?.burstId ?? 0) + 1,
         },
+        lastSettlement: {
+          kind: "cleared",
+          bidId: event.bidId,
+          amountUsd: event.grossAmountUsd,
+          listenerPoolUsd: event.listenerPoolUsd,
+          platformRevenueUsd: event.platformRevenueUsd,
+          flashId: (prev.lastSettlement?.flashId ?? 0) + 1,
+        },
         nowPlaying:
           prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
         playingTier: undefined,
@@ -275,9 +296,15 @@ export function reduceStreamEvent(
       };
 
     case "bid.uncleared":
-      // Threshold missed; nothing to project beyond clearing the attention state.
+      // Threshold missed — return spend and clear attention window.
       return {
         ...next,
+        lastSettlement: {
+          kind: "uncleared",
+          bidId: event.bidId,
+          amountUsd: event.returnedAmountUsd,
+          flashId: (prev.lastSettlement?.flashId ?? 0) + 1,
+        },
         nowPlaying:
           prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
         playingTier: undefined,
@@ -288,6 +315,12 @@ export function reduceStreamEvent(
     case "bid.failed":
       return {
         ...next,
+        lastSettlement: {
+          kind: "failed",
+          bidId: event.bidId,
+          amountUsd: event.returnedAmountUsd,
+          flashId: (prev.lastSettlement?.flashId ?? 0) + 1,
+        },
         generation:
           prev.generation?.segmentId === event.segmentId
             ? undefined

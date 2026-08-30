@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { continuumBlurb, continuumChapter } from "@/lib/continuum";
 import type {
   BrandSummary,
   GenerationStage,
@@ -88,10 +89,11 @@ function EmptyMarket() {
         <span style={styles.emptyTitleOutline}>STREAM</span>
       </motion.h1>
       <div style={styles.emptySub}>
-        Attention is moving. The next brand can own the moment.
+        Attention is moving. Scan the QR to join — the next brand can own the
+        moment.
       </div>
       <div style={styles.emptyPulse}>
-        <i className="empty-pulse__dot" /> Market open
+        <i className="empty-pulse__dot" /> Market open · waiting for bids
       </div>
     </motion.div>
   );
@@ -185,7 +187,8 @@ function PlayingLabels({
       >
         {brand?.name ?? "Free Ad"}
       </motion.div>
-      <div style={styles.adSegment}>segment {segment.id}</div>
+      <div style={styles.adChapter}>{continuumChapter(segment, brand)}</div>
+      <div style={styles.adBlurb}>{continuumBlurb(segment)}</div>
       {startedAt && (
         <div style={styles.adTime}>
           live · {new Date(startedAt).toLocaleTimeString()}
@@ -344,13 +347,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#fff",
     textShadow: "0 6px 40px rgba(0,0,0,0.5)",
   },
-  adSegment: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 8,
-    fontVariantNumeric: "tabular-nums",
+  adChapter: {
+    marginTop: 12,
+    fontSize: "clamp(13px, 1.6vw, 18px)",
+    fontWeight: 800,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: "var(--slop-yellow)",
   },
-  adTime: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4 },
+  adBlurb: {
+    maxWidth: 520,
+    margin: "10px auto 0",
+    fontSize: "clamp(14px, 1.5vw, 18px)",
+    fontWeight: 650,
+    lineHeight: 1.35,
+    color: "rgba(255,255,255,0.7)",
+  },
+  adTime: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 8 },
   challenge: {
     position: "absolute",
     bottom: 24,

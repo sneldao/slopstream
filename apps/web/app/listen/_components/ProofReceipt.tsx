@@ -15,7 +15,7 @@ import type { AttentionProofReceipt, BrandSummary } from "@slopstream/shared";
  *  3. Proof hash types in character by character.
  *  4. Estimated reward amount counts up for a verified proof.
  *  5. Verifier provenance appears with a faint glow.
- *  6. Card holds for 3s, then fades out.
+ *  6. Card holds ~10s (or until dismiss) so it can be read / shared.
  */
 export function ProofReceipt({
   receipt,
@@ -29,6 +29,8 @@ export function ProofReceipt({
   const [visible, setVisible] = useState(true);
   const [typedHash, setTypedHash] = useState("");
   const [reward, setReward] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [shareHint, setShareHint] = useState<string | null>(null);
   const isVerified = receipt.verified;
   const verifierLabel =
     receipt.verifierMode === "midnight"
@@ -36,6 +38,14 @@ export function ProofReceipt({
       : receipt.verifierMode === "stub"
         ? "VERIFIED IN DEMO MODE"
         : "VERIFIER PROVENANCE UNAVAILABLE";
+
+  const shareText = isVerified
+    ? `Attention verified on Slopstream for ${brand?.name ?? receipt.brandId}. Proof ${receipt.proofId}${
+        receipt.estimatedRewardUsd
+          ? ` · ~$${receipt.estimatedRewardUsd.toFixed(2)} pending pool close`
+          : ""
+      }`
+    : `Attention check missed on Slopstream. Stay for the next one.`;
 
   // Proof hash types in character by character.
   useEffect(() => {
@@ -65,14 +75,46 @@ export function ProofReceipt({
     requestAnimationFrame(animate);
   }, [receipt.estimatedRewardUsd]);
 
-  // Auto-dismiss after 3.5s.
+  // Hold longer so people can read / share; still auto-dismiss.
   useEffect(() => {
     const t = setTimeout(() => {
       setVisible(false);
       setTimeout(onDismiss, 400);
-    }, 3500);
+    }, 10000);
     return () => clearTimeout(t);
   }, [onDismiss]);
+
+  const copyProof = async () => {
+    try {
+      await navigator.clipboard.writeText(receipt.proofId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setShareHint("Copy unavailable");
+    }
+  };
+
+  const shareReceipt = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Slopstream proof",
+          text: shareText,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(shareText);
+      setShareHint("Copied share text");
+      setTimeout(() => setShareHint(null), 1600);
+    } catch {
+      // User cancelled share — ignore.
+    }
+  };
+
+  const dismiss = () => {
+    setVisible(false);
+    setTimeout(onDismiss, 400);
+  };
 
   return (
     <AnimatePresence>
@@ -194,9 +236,37 @@ export function ProofReceipt({
             >
               {verifierLabel}
             </motion.div>
-            <button style={styles.closeButton} onClick={onDismiss}>
-              Close receipt
-            </button>
+
+            {!isVerified && (
+              <p style={styles.stayHint}>
+                Stay for the next check — the stream keeps paying attention.
+              </p>
+            )}
+
+            <div style={styles.actions}>
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={() => void copyProof()}
+              >
+                {copied ? "Copied proof" : "Copy proof id"}
+              </button>
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={() => void shareReceipt()}
+              >
+                Share
+              </button>
+              <button
+                type="button"
+                style={styles.closeButton}
+                onClick={dismiss}
+              >
+                Close
+              </button>
+            </div>
+            {shareHint && <div style={styles.shareHint}>{shareHint}</div>}
           </motion.div>
         </motion.div>
       )}
@@ -324,8 +394,32 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 14,
     textShadow: "0 0 12px rgba(99,102,241,0.4)",
   },
+  stayHint: {
+    margin: "10px 0 0",
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: 650,
+    lineHeight: 1.35,
+    color: "rgba(16,16,20,0.68)",
+  },
+  actions: {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 14,
+    width: "100%",
+  },
+  secondaryButton: {
+    border: "1px solid var(--slop-ink)",
+    borderRadius: 999,
+    padding: "10px 14px",
+    background: "transparent",
+    color: "var(--slop-ink)",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
   closeButton: {
-    marginTop: 8,
     border: 0,
     borderRadius: 999,
     padding: "10px 16px",
@@ -333,5 +427,11 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--slop-cream)",
     fontWeight: 700,
     cursor: "pointer",
+  },
+  shareHint: {
+    marginTop: 8,
+    fontSize: 11,
+    fontWeight: 700,
+    color: "rgba(16,16,20,0.55)",
   },
 };

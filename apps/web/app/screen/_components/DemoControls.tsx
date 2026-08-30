@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 /**
  * Demo controls — play/pause/restart/step plus the current scene label and
- * progress. On-stage these are the operator's rehearsal tools; in a live run
- * they're hidden and the WebSocket drives the state.
+ * progress. Theater mode (`?theater=1` or `t`) hides the bar for audience
+ * runs; Space / → / R still work.
  */
 export function DemoControls({
   playing,
@@ -24,7 +26,44 @@ export function DemoControls({
   onRestart: () => void;
   onStep: () => void;
 }) {
+  const [theater, setTheater] = useState(false);
   const progress = totalSteps > 0 ? stepIndex / totalSteps : 0;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("theater") === "1") setTheater(true);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === " " || e.key === "k") {
+        e.preventDefault();
+        onToggle();
+      } else if (e.key === "ArrowRight" || e.key === "n") {
+        e.preventDefault();
+        onStep();
+      } else if (e.key === "r") {
+        e.preventDefault();
+        onRestart();
+      } else if (e.key === "t") {
+        e.preventDefault();
+        setTheater((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onToggle, onStep, onRestart]);
+
+  if (theater) {
+    return (
+      <div style={styles.theaterHint} aria-hidden="true">
+        Theater · Space / → / R · press T to show controls
+      </div>
+    );
+  }
+
   return (
     <div style={styles.wrap}>
       <div style={styles.bar}>
@@ -40,6 +79,14 @@ export function DemoControls({
         </button>
         <button style={styles.btn} onClick={onRestart} aria-label="Restart">
           ⟳
+        </button>
+        <button
+          style={styles.btn}
+          onClick={() => setTheater(true)}
+          aria-label="Enter theater mode"
+          title="Hide controls (T)"
+        >
+          ◻
         </button>
         <div style={styles.label}>
           {label ?? (finished ? "Demo complete" : "Live")}
@@ -68,6 +115,20 @@ const styles: Record<string, React.CSSProperties> = {
     transform: "translateX(-50%)",
     zIndex: 100,
   },
+  theaterHint: {
+    position: "fixed",
+    bottom: 10,
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: 100,
+    opacity: 0.35,
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    pointerEvents: "none",
+  },
   bar: {
     display: "flex",
     alignItems: "center",
@@ -81,10 +142,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
   },
   btn: {
-    background: "var(--slop-yellow)",
-    border: "1px solid var(--slop-yellow)",
-    color: "var(--slop-ink)",
-    borderRadius: 999,
+    background: "rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    color: "#fff",
+    borderRadius: 8,
     width: 30,
     height: 30,
     cursor: "pointer",

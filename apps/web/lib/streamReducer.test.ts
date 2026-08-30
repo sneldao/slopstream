@@ -52,5 +52,25 @@ describe("streamReducer live lifecycle", () => {
     expect(state.nowPlaying).toBeNull();
     expect(state.attention).toBeUndefined();
     expect(state.lastClear?.grossAmountUsd).toBe(10);
+    expect(state.lastSettlement).toMatchObject({
+      kind: "cleared",
+      amountUsd: 10,
+      listenerPoolUsd: 8,
+    });
+  });
+
+  it("records returned spend when a bid misses the threshold", () => {
+    const state = reduceStreamEvent(snapshotToState(snapshot), {
+      type: "bid.uncleared",
+      bidId: "bid_1",
+      segmentId: "seg_1",
+      returnedAmountUsd: 10,
+    });
+
+    expect(state.nowPlaying).toBeNull();
+    expect(state.lastSettlement).toMatchObject({
+      kind: "uncleared",
+      amountUsd: 10,
+    });
   });
 });

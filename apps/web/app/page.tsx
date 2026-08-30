@@ -94,6 +94,12 @@ export default function Home() {
         <span>Proof is the receipt.</span>
         <span>Everybody gets paid.</span>
       </footer>
+
+      <p className="home-operator">
+        Demo tip: open <a href="/screen">Screen</a> on the projector,{" "}
+        <a href="/listen">Listen</a> on a phone, <a href="/brand">Brand</a> on a
+        laptop.
+      </p>
     </main>
   );
 }

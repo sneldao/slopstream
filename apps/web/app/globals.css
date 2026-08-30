@@ -99,6 +99,204 @@ a {
   content: "";
 }
 
+/* Shared surface chrome — bridges cream home identity into dark arenas. */
+.slop-wordmark-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid rgba(16, 16, 20, 0.18);
+  border-radius: 999px;
+  background: var(--slop-cream);
+  color: var(--slop-ink);
+  font-family: var(--slop-display);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0 rgba(16, 16, 20, 0.18);
+}
+
+.slop-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(8, 8, 18, 0.55);
+  color: rgba(255, 253, 246, 0.72);
+  backdrop-filter: blur(12px);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.slop-role-badge span:first-child {
+  color: var(--slop-yellow);
+}
+
+.slop-surface-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.slop-surface-header__brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.slop-surface-header__sub {
+  width: 100%;
+  color: rgba(255, 253, 246, 0.48);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.slop-surface-header__trail {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.slop-value-prop {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(8, 8, 18, 0.5);
+  backdrop-filter: blur(12px);
+  color: rgba(255, 253, 246, 0.72);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.slop-hud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(8, 8, 18, 0.58);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 253, 246, 0.78);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.slop-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(8, 8, 18, 0.58);
+  backdrop-filter: blur(16px);
+}
+
+.slop-meter__bar {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.slop-meter__fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.slop-coach {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 228, 94, 0.35);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--slop-cream) 92%, transparent);
+  color: var(--slop-ink);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+.slop-coach__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.slop-coach__top strong {
+  font-family: var(--slop-display);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.slop-coach__dismiss {
+  border: 1px solid var(--slop-ink);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: var(--slop-yellow);
+  color: var(--slop-ink);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.slop-coach__steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.slop-surface-shell {
+  position: relative;
+  min-height: 100svh;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow: hidden;
+}
+
+.slop-join-pulse {
+  animation: slop-join-pulse 1.4s ease-in-out infinite;
+  box-shadow:
+    0 0 0 0 rgba(255, 228, 94, 0.45),
+    0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes slop-join-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(255, 228, 94, 0.4),
+      0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(255, 228, 94, 0),
+      0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+}
+
 .empty-pulse__dot {
   width: 7px;
   height: 7px;
@@ -428,6 +626,21 @@ a {
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.home-operator {
+  position: relative;
+  z-index: 4;
+  margin: 0;
+  padding: 0 clamp(20px, 4vw, 64px) 28px;
+  color: rgba(16, 16, 20, 0.58);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.home-operator a {
+  color: var(--slop-ink);
 }
 
 @media (max-width: 900px) {

@@ -15,6 +15,9 @@ import { ChallengeCard } from "./_components/ChallengeCard";
 import { ProofReceipt } from "./_components/ProofReceipt";
 import { requestJson } from "@/lib/liveApi";
 import { SphereField } from "../_components/SphereField";
+import { SurfaceHeader } from "../_components/SurfaceHeader";
+import { FirstRunCoach } from "../_components/FirstRunCoach";
+import { continuumBlurb, continuumChapter } from "@/lib/continuum";
 
 /**
  * The listener experience — a game show on a phone. Full-bleed audio-
@@ -29,7 +32,10 @@ export default function ListenPage() {
   const audioUrl = state.nowPlaying?.assetUrl?.match(/\.(mp3|wav|ogg)$/i)
     ? state.nowPlaying.assetUrl
     : undefined;
-  const { signalRef, unlock } = useAudioSignal(!!state.nowPlaying, audioUrl);
+  const { signalRef, unlock, muted, toggleMute } = useAudioSignal(
+    !!state.nowPlaying,
+    audioUrl,
+  );
   const { play } = useSoundDesign();
   const [joined, setJoined] = useState(false);
   const [receipt, setReceipt] = useState<AttentionProofReceipt | null>(null);
@@ -174,7 +180,7 @@ export default function ListenPage() {
   };
 
   return (
-    <main className="listen-shell" style={styles.main}>
+    <main className="listen-shell slop-surface-shell" style={styles.main}>
       {/* Full-bleed audio-reactive background */}
       <FullBleedVisualizer
         signalRef={signalRef}
@@ -197,29 +203,53 @@ export default function ListenPage() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
             >
-              {/* Floating header — wordmark links home */}
-              <header style={styles.header}>
-                <div style={styles.headerBrand}>
-                  <a className="slop-wordmark" href="/" style={styles.logo}>
-                    SLOPSTREAM
-                  </a>
-                  <span style={styles.channel}>Listener channel</span>
-                </div>
-                <motion.div
-                  style={styles.balancePill}
-                  key={balance}
-                  initial={{ scale: 1.2 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 14 }}
-                >
-                  <span style={styles.balanceLabel}>Balance</span>
-                  <span style={styles.balanceAmount}>
-                    ${balance.toFixed(2)}
-                  </span>
-                </motion.div>
-              </header>
+              {/* Floating header — cream chip + role badge */}
+              <SurfaceHeader
+                role="02"
+                subtitle="Listener channel"
+                trailing={
+                  <>
+                    <button
+                      type="button"
+                      className="slop-hud-pill"
+                      onClick={toggleMute}
+                      aria-pressed={muted}
+                      aria-label={muted ? "Unmute stream" : "Mute stream"}
+                    >
+                      {muted ? "Muted" : "Sound on"}
+                    </button>
+                    <motion.div
+                      style={styles.balancePill}
+                      key={balance}
+                      initial={{ scale: 1.2 }}
+                      animate={{ scale: 1 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 14,
+                      }}
+                      aria-live="polite"
+                    >
+                      <span style={styles.balanceLabel}>Balance</span>
+                      <span style={styles.balanceAmount}>
+                        ${balance.toFixed(2)}
+                      </span>
+                    </motion.div>
+                  </>
+                }
+              />
 
-              <p style={styles.valueProp}>
+              <FirstRunCoach
+                storageKey="slopstream.coach.listen.v1"
+                title="How you earn"
+                steps={[
+                  "Listen while the ad plays",
+                  "Answer the quick attention check",
+                  "Verified attention funds listener rewards",
+                ]}
+              />
+
+              <p className="slop-value-prop">
                 Answer quick checks while ads play — listener rewards funded by
                 verified attention.
               </p>
@@ -245,6 +275,16 @@ export default function ListenPage() {
                 <div style={{ ...styles.brandName, color: brandColor }}>
                   {activeBrand?.name ?? "Open Stream"}
                 </div>
+                {state.nowPlaying && (
+                  <>
+                    <div style={styles.chapter}>
+                      {continuumChapter(state.nowPlaying, activeBrand)}
+                    </div>
+                    <div style={styles.blurb}>
+                      {continuumBlurb(state.nowPlaying)}
+                    </div>
+                  </>
+                )}
                 <div style={styles.nowPlayingRule} />
               </motion.div>
 
@@ -255,10 +295,24 @@ export default function ListenPage() {
                 signalRef={signalRef}
               />
 
+              <div className="slop-meter" style={styles.poolCard}>
+                <div style={styles.meterLabel}>Listener reward pool</div>
+                <div style={styles.poolAmount} aria-live="polite">
+                  ${state.listenerRewardsUsd.toFixed(2)}
+                </div>
+                <div style={styles.meterHint}>
+                  {state.lastClear
+                    ? `Last clear unlocked $${state.lastClear.listenerPoolUsd.toFixed(2)} for listeners (80%).`
+                    : attention
+                      ? "When the meter fills, this segment’s rewards unlock."
+                      : "Rewards unlock when verified attention clears a segment."}
+                </div>
+              </div>
+
               {/* Live attention meter — liquid fill */}
               {attention && (
                 <motion.div
-                  style={styles.meter}
+                  className="slop-meter"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
@@ -276,10 +330,10 @@ export default function ListenPage() {
                     </span>
                     <span style={styles.meterDim}> verified</span>
                   </div>
-                  <div style={styles.meterBar}>
+                  <div className="slop-meter__bar">
                     <motion.div
+                      className="slop-meter__fill"
                       style={{
-                        ...styles.meterFill,
                         background:
                           attention.verifiedCount >= attention.threshold
                             ? "linear-gradient(90deg, #ffe066, #ff9d4a)"
@@ -320,7 +374,7 @@ export default function ListenPage() {
               )}
 
               {/* Today's verified — drifting at the bottom */}
-              <div style={styles.todayRow}>
+              <div style={styles.todayRow} aria-live="polite">
                 <span style={styles.todayLabel}>
                   Today&apos;s verified attention
                 </span>
@@ -620,6 +674,29 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     letterSpacing: 1.8,
     textTransform: "uppercase",
+  },
+  chapter: {
+    marginTop: 10,
+    color: "var(--slop-yellow)",
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
+  blurb: {
+    maxWidth: "34ch",
+    margin: "8px auto 0",
+    color: "rgba(255,253,246,0.62)",
+    fontSize: 13,
+    fontWeight: 650,
+    lineHeight: 1.35,
+  },
+  poolCard: { gap: 6 },
+  poolAmount: {
+    fontSize: 28,
+    fontWeight: 900,
+    color: "var(--slop-yellow)",
+    fontVariantNumeric: "tabular-nums",
   },
   valueProp: {
     margin: 0,

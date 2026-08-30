@@ -8,6 +8,9 @@ import { useStream } from "@/lib/useStream";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { requestJson } from "@/lib/liveApi";
 import { SphereField } from "../_components/SphereField";
+import { SurfaceHeader } from "../_components/SurfaceHeader";
+import { FirstRunCoach } from "../_components/FirstRunCoach";
+import { tierForAmount, tierMin } from "@/lib/tierForAmount";
 
 /**
  * The brand bidding console — live auction pressure, not form-filling.
@@ -25,7 +28,6 @@ export default function BrandPage() {
 
   const [balance, setBalance] = useState(500);
   const [bidAmount, setBidAmount] = useState(27);
-  const [selectedTier, setSelectedTier] = useState<ProductionTier>("video");
   const [outbidAlert, setOutbidAlert] = useState(false);
   const [lastOutbidFlashId, setLastOutbidFlashId] = useState<
     number | undefined
@@ -81,6 +83,8 @@ export default function BrandPage() {
   const winningBid = state.leaderboard[0];
   const winningAmount = winningBid?.amountUsd ?? 0;
   const iAmWinning = winningBid?.brandId === brandId;
+  const unlockedTier = tierForAmount(bidAmount);
+  const beatAmount = Math.max(winningAmount + 1, tierMin("audio"));
 
   const audience = Math.max(state.listeners, 1);
   const threshold =
@@ -125,7 +129,7 @@ export default function BrandPage() {
   };
 
   return (
-    <main className="brand-shell" style={styles.main}>
+    <main className="brand-shell slop-surface-shell" style={styles.main}>
       {/* Ambient brand glow — the console breathes with the brand's identity. */}
       <AmbientGlow
         color={myBrand?.primaryColor ?? "#1e6fff"}
@@ -155,18 +159,13 @@ export default function BrandPage() {
           )}
         </AnimatePresence>
 
-        <header style={styles.header}>
-          <div>
-            <a className="slop-wordmark" href="/" style={styles.logo}>
-              SLOPSTREAM
-            </a>
-            <div style={styles.consoleSub}>The auction cockpit</div>
-          </div>
-          <div style={styles.headerStatus}>
-            <span style={styles.consoleLabel}>BRAND CONSOLE</span>
+        <SurfaceHeader
+          role="03"
+          subtitle="The auction cockpit"
+          trailing={
             <span
+              className="slop-hud-pill"
               style={{
-                ...styles.networkStatus,
                 color:
                   mode === "demo" || connectionStatus === "connected"
                     ? "var(--slop-lime)"
@@ -180,13 +179,49 @@ export default function BrandPage() {
                   ? "Market live"
                   : "Market offline"}
             </span>
-          </div>
-        </header>
+          }
+        />
 
-        <p style={styles.valueProp}>
+        <FirstRunCoach
+          storageKey="slopstream.coach.brand.v1"
+          title="How bidding works"
+          steps={[
+            "Raise your bid to own the next slot",
+            "Winning amount unlocks production quality",
+            "You pay when verified attention clears — not for empty airtime",
+          ]}
+        />
+
+        <p className="slop-value-prop">
           Bid for the next moment. You pay for verified attention — not empty
           impressions.
         </p>
+
+        <AnimatePresence>
+          {state.lastSettlement && (
+            <motion.div
+              key={state.lastSettlement.flashId}
+              role="status"
+              aria-live="polite"
+              style={{
+                ...styles.settlementBanner,
+                borderColor:
+                  state.lastSettlement.kind === "cleared"
+                    ? "rgba(74,222,128,0.45)"
+                    : "rgba(255,138,30,0.45)",
+              }}
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              {state.lastSettlement.kind === "cleared"
+                ? `Cleared — $${state.lastSettlement.amountUsd.toFixed(2)} paid. Listeners share $${(state.lastSettlement.listenerPoolUsd ?? 0).toFixed(2)}.`
+                : state.lastSettlement.kind === "uncleared"
+                  ? `Threshold missed — $${state.lastSettlement.amountUsd.toFixed(2)} returned.`
+                  : `Generation failed — $${state.lastSettlement.amountUsd.toFixed(2)} returned.`}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="brand-console-grid">
           <section style={styles.overviewColumn}>
@@ -333,6 +368,41 @@ export default function BrandPage() {
                     : `INCREASE TO $${bidAmount}`}
               </motion.button>
 
+              <button
+                type="button"
+                style={styles.beatButton}
+                disabled={beatAmount > balance || bidSubmitting}
+                onClick={() => {
+                  setBidAmount(beatAmount);
+                  void (async () => {
+                    if (beatAmount > balance || bidSubmitting) return;
+                    setBidError(null);
+                    setBidSubmitting(true);
+                    try {
+                      if (mode === "live") {
+                        if (!demoBrandToken) {
+                          throw new Error("Missing local demo brand token.");
+                        }
+                        const result = await placeBidLive(
+                          beatAmount,
+                          demoBrandToken,
+                        );
+                        setBalance(result.balance.availableUsd);
+                      }
+                      play("bid");
+                      setBidPlaced(true);
+                      setTimeout(() => setBidPlaced(false), 2000);
+                    } catch (error) {
+                      setBidError(errorMessage(error));
+                    } finally {
+                      setBidSubmitting(false);
+                    }
+                  })();
+                }}
+              >
+                Beat by $1 → ${beatAmount}
+              </button>
+
               {bidError && (
                 <div role="alert" style={styles.bidError}>
                   {bidError}
@@ -357,12 +427,15 @@ export default function BrandPage() {
               </AnimatePresence>
             </motion.div>
 
-            {/* Production tiers — tactile chips */}
+            {/* Production tiers — auto from bid amount */}
             <div style={styles.tierSection}>
               <div style={styles.tierLabel}>PRODUCTION TIER</div>
               <p style={styles.tierHint}>
-                Your winning bid amount sets production quality automatically.
-                Preview the tiers below.
+                Your bid unlocks{" "}
+                <strong style={{ color: TIER_COLORS[unlockedTier] }}>
+                  {TIER_LABELS[unlockedTier]}
+                </strong>
+                . Tap a tier to jump to its minimum bid.
               </p>
               <div style={styles.tierGrid}>
                 {(Object.keys(TIER_BID_THRESHOLDS_USD) as ProductionTier[]).map(
@@ -373,10 +446,11 @@ export default function BrandPage() {
                       range.max === null
                         ? `$${range.min}+`
                         : `$${range.min}–$${range.max}`;
-                    const isSelected = selectedTier === tier;
+                    const isSelected = unlockedTier === tier;
                     return (
                       <motion.button
                         key={tier}
+                        type="button"
                         style={{
                           ...styles.tierChip,
                           borderColor: isSelected
@@ -391,7 +465,7 @@ export default function BrandPage() {
                         }}
                         whileTap={{ scale: 0.95 }}
                         whileHover={{ scale: 1.03 }}
-                        onClick={() => setSelectedTier(tier)}
+                        onClick={() => setBidAmount(tierMin(tier))}
                       >
                         <span
                           style={{
@@ -1031,6 +1105,26 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     letterSpacing: 1,
     cursor: "pointer",
+  },
+  beatButton: {
+    border: "1px solid rgba(255,255,255,0.2)",
+    borderRadius: 999,
+    padding: "12px 16px",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+  settlementBanner: {
+    padding: "12px 14px",
+    border: "1px solid",
+    borderRadius: 14,
+    background: "rgba(8,8,18,0.72)",
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1.35,
   },
   bidConfirmed: {
     fontSize: 14,

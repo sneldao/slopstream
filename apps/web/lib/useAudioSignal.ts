@@ -53,12 +53,19 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
   const lastBeatRef = useRef(0);
   const beatEnergyRef = useRef(0);
   const [ready, setReady] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
 
   // Web Audio nodes for real audio analysis.
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const freqDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+
+  useEffect(() => {
+    mutedRef.current = muted;
+    if (audioElRef.current) audioElRef.current.muted = muted;
+  }, [muted]);
 
   // Set up real audio when an audioUrl is provided.
   useEffect(() => {
@@ -82,6 +89,7 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
     audio.src = audioUrl;
     audio.crossOrigin = "anonymous";
     audio.loop = false;
+    audio.muted = mutedRef.current;
     audioElRef.current = audio;
 
     // Create AudioContext + AnalyserNode.
@@ -231,5 +239,9 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
     }
   }, []);
 
-  return { signalRef, ready, unlock };
+  const toggleMute = useCallback(() => {
+    setMuted((m) => !m);
+  }, []);
+
+  return { signalRef, ready, unlock, muted, toggleMute, setMuted };
 }
