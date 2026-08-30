@@ -3,7 +3,12 @@ import type { Server } from "node:http";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createStubGenerator, generate } from "./generator.js";
+import {
+  createStubGenerator,
+  generate,
+  InMemoryGenerationJobStore,
+  MAX_COMPLETED_GENERATIONS,
+} from "./generator.js";
 import { createGeneratorServer } from "./server.js";
 
 const request = {
@@ -55,6 +60,25 @@ describe("stub generator", () => {
 
     expect(result.assetUrl).toContain("stub-audio.mp3");
     expect(result.visualMetadata).toBeUndefined();
+  });
+
+  it("evicts the oldest completed generations beyond the in-memory cap", async () => {
+    const store = new InMemoryGenerationJobStore();
+    const result = generate(request);
+
+    for (let i = 0; i < MAX_COMPLETED_GENERATIONS + 1; i += 1) {
+      await store.put(`segment:${i}`, {
+        fingerprint: `fingerprint:${i}`,
+        result,
+      });
+    }
+
+    await expect(store.get("segment:0")).resolves.toBeUndefined();
+    await expect(
+      store.get(`segment:${MAX_COMPLETED_GENERATIONS}`),
+    ).resolves.toMatchObject({
+      fingerprint: `fingerprint:${MAX_COMPLETED_GENERATIONS}`,
+    });
   });
 });
 

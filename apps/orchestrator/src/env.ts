@@ -24,6 +24,9 @@ export interface OrchestratorEnv {
   eventsPollMs: number;
   /** Delay between generation.progress stage beats (ms). */
   genStageDelayMs: number;
+  /** Timeout for a single generator request (ms) — generation can run for
+   *  minutes, so this is generous. */
+  generationTimeoutMs: number;
   /** Parallel.ai API key for the cold-start company scraper. When unset the
    *  scraper is disabled (the stream falls back to the demo fixture). */
   parallelApiKey: string;
@@ -82,6 +85,10 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): OrchestratorEnv {
     genStageDelayMs: positive(
       "GEN_STAGE_DELAY_MS",
       num(env.GEN_STAGE_DELAY_MS, 700),
+    ),
+    generationTimeoutMs: positive(
+      "GENERATION_TIMEOUT_MS",
+      num(env.GENERATION_TIMEOUT_MS, 180_000),
     ),
     parallelApiKey: env.PARALLEL_API_KEY?.trim() ?? "",
     scraperPollMs: positive(

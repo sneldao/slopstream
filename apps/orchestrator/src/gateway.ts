@@ -63,7 +63,24 @@ export class Gateway {
     this.getMetrics = options.getMetrics;
 
     this.server = createServer((req, res) => {
-      void this.handleHttp(req, res);
+      // Never let one broken request (aborted body, dead socket) take down
+      // the whole gateway: handleHttp rejections are logged, and a 500 is
+      // attempted only if the response is still writable.
+      void this.handleHttp(req, res).catch((error: unknown) => {
+        console.warn(
+          `[gateway] request ${req.method ?? "?"} ${req.url ?? "/"} failed:`,
+          error,
+        );
+        if (!res.headersSent && !res.writableEnded) {
+          this.safeWrite(res, () => {
+            res.writeHead(500, {
+              ...CORS_HEADERS,
+              "content-type": "application/json",
+            });
+            res.end(JSON.stringify({ error: "internal error" }));
+          });
+        }
+      });
     });
 
     // Accept any path: clients connect to ws://host:port with no suffix.
@@ -226,21 +243,41 @@ export class Gateway {
     const chunks: Buffer[] = [];
     let size = 0;
     let tooLarge = false;
-    for await (const chunk of req) {
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      size += buffer.length;
-      if (size > MAX_PROXY_BODY_BYTES) {
-        tooLarge = true;
-      } else {
-        chunks.push(buffer);
+    try {
+      for await (const chunk of req) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        size += buffer.length;
+        if (size > MAX_PROXY_BODY_BYTES) {
+          tooLarge = true;
+        } else {
+          chunks.push(buffer);
+        }
       }
+    } catch {
+      // The client aborted the request or disconnected mid-body. If we can
+      // still answer, report the broken body; otherwise the client is gone
+      // — there is nothing left to write to.
+      if (!res.headersSent) {
+        this.safeWrite(res, () => {
+          res.writeHead(502, {
+            ...CORS_HEADERS,
+            "content-type": "application/json",
+          });
+          res.end(JSON.stringify({ error: "request body unavailable" }));
+        });
+      } else {
+        res.destroy();
+      }
+      return;
     }
     if (tooLarge) {
-      res.writeHead(413, {
-        ...CORS_HEADERS,
-        "content-type": "application/json",
+      this.safeWrite(res, () => {
+        res.writeHead(413, {
+          ...CORS_HEADERS,
+          "content-type": "application/json",
+        });
+        res.end(JSON.stringify({ error: "payload too large" }));
       });
-      res.end(JSON.stringify({ error: "payload too large" }));
       return;
     }
     const body = Buffer.concat(chunks);
@@ -266,14 +303,29 @@ export class Gateway {
       const contentType = upstream.headers.get("content-type");
       if (contentType) responseHeaders["content-type"] = contentType;
       const responseBody = Buffer.from(await upstream.arrayBuffer());
-      res.writeHead(upstream.status, responseHeaders);
-      res.end(responseBody);
-    } catch {
-      res.writeHead(502, {
-        ...CORS_HEADERS,
-        "content-type": "application/json",
+      this.safeWrite(res, () => {
+        res.writeHead(upstream.status, responseHeaders);
+        res.end(responseBody);
       });
-      res.end(JSON.stringify({ error: "upstream unavailable" }));
+    } catch {
+      this.safeWrite(res, () => {
+        res.writeHead(502, {
+          ...CORS_HEADERS,
+          "content-type": "application/json",
+        });
+        res.end(JSON.stringify({ error: "upstream unavailable" }));
+      });
+    }
+  }
+
+  /** Response writes to a client that disconnected mid-request throw
+   *  EPIPE/ECONNRESET; swallow those so a dead socket cannot reject out of
+   *  handleHttp. */
+  private safeWrite(res: ServerResponse, write: () => void): void {
+    try {
+      write();
+    } catch (error) {
+      console.warn("[gateway] response write to a dead socket:", error);
     }
   }
 }

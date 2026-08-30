@@ -67,6 +67,14 @@ export interface ClearingConfig {
   activeListenerWindowMs?: number;
 }
 
+/**
+ * Guess-farming lockout: a session may accumulate at most
+ * `validProofs + WRONG_ANSWER_SLACK` invalid proofs before further
+ * submissions are rejected. Attentive listeners rarely miss; a pure guesser
+ * (25–50% hit rate on multiple choice) trips the slack within a segment or two.
+ */
+export const WRONG_ANSWER_SLACK = 5;
+
 export class ClearingEngine {
   constructor(
     private readonly ledger: Ledger,
@@ -136,6 +144,13 @@ export class ClearingEngine {
     );
     assert(!already, 409, "challenge already answered by this session");
 
+    // Guess-farming lockout (see WRONG_ANSWER_SLACK).
+    assert(
+      session.invalidProofs <= session.validProofs + WRONG_ANSWER_SLACK,
+      429,
+      "too many incorrect answers; this session is locked out of earn mode",
+    );
+
     const createdAt = isoNow();
     const context: AttentionProofVerificationContext = {
       segmentStartedAt: new Date(
@@ -150,6 +165,8 @@ export class ClearingEngine {
       },
     };
     const outcome = await this.verifier.verify(submission, challenge, context);
+    if (outcome.verified) session.validProofs += 1;
+    else session.invalidProofs += 1;
     const event: AttentionEventRow = {
       id: newId("evt"),
       listenerSessionId: session.id,

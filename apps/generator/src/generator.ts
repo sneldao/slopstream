@@ -76,6 +76,14 @@ export interface GenerationJobStore {
   put(segmentId: string, completed: CompletedGeneration): Promise<void>;
 }
 
+/**
+ * Bound on completed generations held in memory. Beyond this, the oldest
+ * entry is evicted (Map keeps insertion order), so idempotent replay covers
+ * the most recent MAX_COMPLETED_GENERATIONS segments and the store cannot
+ * grow without bound.
+ */
+export const MAX_COMPLETED_GENERATIONS = 200;
+
 export class InMemoryGenerationJobStore implements GenerationJobStore {
   private readonly completedBySegmentId = new Map<
     string,
@@ -88,6 +96,14 @@ export class InMemoryGenerationJobStore implements GenerationJobStore {
 
   async put(segmentId: string, completed: CompletedGeneration): Promise<void> {
     this.completedBySegmentId.set(segmentId, completed);
+    while (this.completedBySegmentId.size > MAX_COMPLETED_GENERATIONS) {
+      const oldest = this.completedBySegmentId.keys().next().value as
+        string | undefined;
+      if (oldest === undefined) {
+        break;
+      }
+      this.completedBySegmentId.delete(oldest);
+    }
   }
 }
 

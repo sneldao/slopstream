@@ -16,6 +16,9 @@ import type {
 } from "@slopstream/shared";
 
 export const PARALLEL_SEARCH_URL = "https://api.parallel.ai/v1/search";
+/** External search API — generous but bounded; aborts surface as a normal
+ *  discovery-pass failure in runOnce's catch. */
+const SEARCH_TIMEOUT_MS = 20_000;
 
 export interface ParallelSearchResult {
   url: string;
@@ -144,6 +147,7 @@ export class CompanyScraper {
         objective: SEARCH_OBJECTIVE,
         search_queries: SEARCH_QUERIES,
       }),
+      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
     });
     if (!res.ok) {
       throw new Error(`Parallel Search responded ${res.status}`);

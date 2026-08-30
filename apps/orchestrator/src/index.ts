@@ -31,6 +31,8 @@ const api = new ApiClient(
   env.generatorBaseUrl,
   env.orchestratorApiToken,
   env.generatorApiToken,
+  fetch,
+  { generationMs: env.generationTimeoutMs },
 );
 
 // Marketplace deliveries keep their API eventId (client-side dedupe survives

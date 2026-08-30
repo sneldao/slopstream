@@ -12,7 +12,7 @@ describe("marketContextFromSnapshot", () => {
       recentSegments: [],
       upcomingSegments: [],
       brands: [],
-      leaderboard: [{ brandId: "brand_acme", amountUsd: 42, slot: 3 }],
+      leaderboard: [{ brandId: "brand_acme", amountUsd: 42 }],
       nextSlotPriceUsd: 25,
       currentAuction: { slot: 4, closesAt: new Date().toISOString() },
       listeners: 2,

@@ -63,9 +63,10 @@ function windows(
 }
 
 /**
- * Generate a segment's challenges from its transcript/metadata. The challenge
- * set and validity windows are deterministic for a given input; option order
- * is shuffled.
+ * Generate a segment's challenges from its transcript/metadata. Challenge
+ * counts and validity windows are deterministic for a given input; option
+ * order is shuffled, and the no-entity fallback answer is drawn at random so
+ * source-code knowledge never yields a guaranteed answer.
  */
 export function generateChallenges(
   ledger: Ledger,
@@ -115,7 +116,9 @@ export function generateChallenges(
   }
   if (entities.length > 1) {
     const second = entities[1];
-    const wrong = pool.find((p) => p !== second) ?? "SQLite";
+    // Must be something the ad never mentioned, or "false" would be the wrong
+    // answer — entities come first in the pool, so skip them.
+    const wrong = pool.find((p) => !entities.includes(p)) ?? "SQLite";
     push(
       "true_false",
       `True or false: the ad mentioned ${wrong}.`,
@@ -133,13 +136,19 @@ export function generateChallenges(
   }
   if (entities.length === 0) {
     // A transcript with no entities still yields one answerable challenge.
-    const [distractor] = DISTRACTORS;
+    // The answer is random so reading this source buys no certainty.
+    const fallback =
+      DISTRACTORS[Math.floor(Math.random() * DISTRACTORS.length)];
+    const others = shuffle(DISTRACTORS.filter((d) => d !== fallback)).slice(
+      0,
+      3,
+    );
     push(
       "recall",
       "What did the ad just mention?",
-      distractor,
+      fallback,
       1,
-      shuffle(DISTRACTORS.slice(0, 4)),
+      shuffle([fallback, ...others]),
     );
   }
 

@@ -1,15 +1,20 @@
+import { EventEmitter } from "node:events";
 import {
   createServer,
   type IncomingMessage,
   type Server,
   type ServerResponse,
 } from "node:http";
-import type { AddressInfo } from "node:net";
+import { connect, type AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 
-import type { StreamSnapshot, WsDelivery } from "@slopstream/shared";
+import type {
+  PublicChallenge,
+  StreamSnapshot,
+  WsDelivery,
+} from "@slopstream/shared";
 import { ApiClient } from "./apiClient.js";
 import { loadEnv, type OrchestratorEnv } from "./env.js";
 import { Gateway } from "./gateway.js";
@@ -155,11 +160,12 @@ interface FakeApi {
   auth: { last: string | undefined };
 }
 
-function createFakeApi(): FakeApi {
+function createFakeApi(options?: { failFirstFailedCall?: boolean }): FakeApi {
   const lifecycleCalls: string[] = [];
   const bodies: { path: string; body: Record<string, unknown> }[] = [];
   const auth = { last: undefined as string | undefined };
   let challengePulls = 0;
+  let failedCalls = 0;
   let auctionsFlipped = false;
   setTimeout(() => {
     auctionsFlipped = true;
@@ -254,6 +260,14 @@ function createFakeApi(): FakeApi {
         path,
         body: raw ? (JSON.parse(raw) as Record<string, unknown>) : {},
       });
+
+      if (path === "/failed") {
+        failedCalls += 1;
+        if (options?.failFirstFailedCall && failedCalls === 1) {
+          json(500, { error: "transient failure" });
+          return;
+        }
+      }
 
       if (path === "/challenges/next") {
         challengePulls += 1;
@@ -394,6 +408,96 @@ describe("gateway replay cursor", () => {
   });
 });
 
+describe("gateway aborted request body", () => {
+  it("survives a socket destroyed mid-body and keeps serving", async () => {
+    const gateway = new Gateway({
+      apiBaseUrl: "http://unused.test",
+      // Never reached: the socket dies before the body read completes.
+      fetcher: () => new Promise<Response>(() => {}),
+    });
+    const gatewayBaseUrl = await listen(gateway.server);
+    const port = Number(new URL(gatewayBaseUrl).port);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const socket = connect({ host: "127.0.0.1", port }, () => {
+          socket.write(
+            "POST /segments/seg_1/generating HTTP/1.1\r\n" +
+              "Host: 127.0.0.1\r\n" +
+              "Content-Type: application/json\r\n" +
+              "Content-Length: 100\r\n" +
+              "\r\n" +
+              '{"partial":',
+          );
+          // Kill the connection mid-body: the proxy's body iteration
+          // throws and must be caught, not crash the server.
+          socket.destroy();
+          resolve();
+        });
+        socket.on("error", reject);
+      });
+      // Give the server a beat to process the abort, then prove it is alive.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const health = await fetch(`${gatewayBaseUrl}/health`);
+      expect(health.status).toBe(200);
+      await expect(health.json()).resolves.toMatchObject({ ok: true });
+    } finally {
+      await gateway.close();
+    }
+  });
+
+  it("answers 5xx when the body stream errors mid-iteration (proxy level)", async () => {
+    const gateway = new Gateway({ apiBaseUrl: "http://unused.test" });
+    try {
+      const stream = new EventEmitter() as unknown as IncomingMessage &
+        EventEmitter;
+      stream.method = "POST";
+      stream.headers = { "content-type": "application/json" };
+      // Throw from the async iteration itself, like a client disconnect.
+      (stream as unknown as { [Symbol.asyncIterator]: unknown })[
+        Symbol.asyncIterator
+      ] = async function* () {
+        yield Buffer.from('{"partial":');
+        throw new Error("aborted");
+      };
+
+      let ended = false;
+      let endedData = "";
+      const res = {
+        headersSent: false,
+        writableEnded: false,
+        writeHead(status: number) {
+          expect(status).toBeGreaterThanOrEqual(500);
+          return this;
+        },
+        end(data?: string) {
+          ended = true;
+          endedData = data ?? "";
+          return this;
+        },
+        destroy() {},
+      } as unknown as ServerResponse;
+
+      await (
+        gateway as unknown as {
+          proxy: (
+            req: IncomingMessage,
+            res: ServerResponse,
+            url: URL,
+          ) => Promise<void>;
+        }
+      ).proxy(
+        stream as unknown as IncomingMessage,
+        res,
+        new URL("http://localhost/segments/seg_1/generating"),
+      );
+      expect(ended).toBe(true);
+      expect(endedData).toContain("error");
+    } finally {
+      await gateway.close();
+    }
+  });
+});
+
 describe("orchestrator live slice", () => {
   let fakeApi: FakeApi;
   let fakeGenerator: { server: Server; requests: unknown[] };
@@ -427,6 +531,7 @@ describe("orchestrator live slice", () => {
       auctionPollMs: 25,
       eventsPollMs: 25,
       genStageDelayMs: 5,
+      generationTimeoutMs: 180_000,
       parallelApiKey: "",
       scraperPollMs: 60_000,
       scraperMaxResults: 10,
@@ -560,6 +665,7 @@ describe("orchestrator live slice", () => {
       auctionPollMs: 25,
       eventsPollMs: 60_000,
       genStageDelayMs: 5,
+      generationTimeoutMs: 180_000,
       parallelApiKey: "",
       scraperPollMs: 60_000,
       scraperMaxResults: 10,
@@ -602,6 +708,7 @@ describe("orchestrator live slice", () => {
         auctionPollMs: 60_000,
         eventsPollMs: 60_000,
         genStageDelayMs: 5,
+        generationTimeoutMs: 180_000,
         parallelApiKey: "",
         scraperPollMs: 60_000,
         scraperMaxResults: 10,
@@ -647,5 +754,170 @@ describe("orchestrator live slice", () => {
     expect(bidRes.status).toBe(200);
     expect(fakeApi.lifecycleCalls).toContain("/generating");
     expect(fakeApi.auth.last).toBe("Bearer test-token");
+  }, 15_000);
+});
+
+// ---------------------------------------------------------------------------
+// Challenge-firing race — one fire-loop at a time, stop when playback ends
+// ---------------------------------------------------------------------------
+
+interface PlaybackLike {
+  segmentId: string;
+  startedAtMs: number;
+  durationSec: number;
+  held: PublicChallenge | null;
+  timer?: NodeJS.Timeout;
+  done: () => void;
+}
+
+function challengeFixture(id: string): PublicChallenge {
+  return {
+    id,
+    type: "recall",
+    question: `${id}?`,
+    segmentId: "seg_race",
+    validFrom: 0,
+    validUntil: 60,
+    difficulty: 1,
+  };
+}
+
+describe("scheduler challenge firing guard", () => {
+  it("runs one fire-loop at a time and stops once playback ends", async () => {
+    const firedTypes: string[] = [];
+    const gatewayStub = {
+      emit: (event: { type: string }) => {
+        firedTypes.push(event.type);
+      },
+    } as unknown as Gateway;
+
+    // Every pull takes longer than the 200ms tick — exactly the case where
+    // overlapping ticks used to spawn duplicate fire-loops.
+    let pulls = 0;
+    let releasePulls!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releasePulls = resolve;
+    });
+    const apiStub = {
+      nextChallenge: async () => {
+        pulls += 1;
+        await gate;
+        return challengeFixture(`ch_${pulls}`);
+      },
+    } as unknown as ApiClient;
+
+    const env: OrchestratorEnv = {
+      port: 0,
+      apiBaseUrl: "http://unused.test",
+      generatorBaseUrl: "http://unused.test",
+      orchestratorApiToken: "test-orchestrator-token",
+      generatorApiToken: "test-generator-token",
+      segmentPlaySec: 60,
+      auctionPollMs: 60_000,
+      eventsPollMs: 60_000,
+      genStageDelayMs: 5,
+      generationTimeoutMs: 180_000,
+      parallelApiKey: "",
+      scraperPollMs: 60_000,
+      scraperMaxResults: 10,
+    };
+    const scheduler = new SegmentScheduler({
+      env,
+      gateway: gatewayStub,
+      api: apiStub,
+    });
+    const internals = scheduler as unknown as {
+      playback: PlaybackLike | null;
+      tickPlayback: (playback: PlaybackLike) => void;
+    };
+
+    const playback: PlaybackLike = {
+      segmentId: "seg_race",
+      startedAtMs: Date.now(),
+      durationSec: 60,
+      held: challengeFixture("ch_held"),
+      done: () => {},
+    };
+    internals.playback = playback;
+
+    // Two ticks back-to-back: without the guard this spawns two fire-loops
+    // that both broadcast the held challenge.
+    internals.tickPlayback(playback);
+    internals.tickPlayback(playback);
+
+    // The window closes while the first loop is still awaiting its fetch —
+    // no further broadcasts may land after that.
+    internals.playback = null;
+    releasePulls();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(firedTypes.filter((t) => t === "challenge.fired")).toEqual([
+      "challenge.fired",
+    ]);
+    expect(pulls).toBe(1);
+    scheduler.stop();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Failed-segment retry — a failed /failed cleanup must not skip the segment
+// ---------------------------------------------------------------------------
+
+describe("failed-segment retry", () => {
+  it("retries the drive until POST /failed lands", async () => {
+    const fakeApi = createFakeApi({ failFirstFailedCall: true });
+    const fakeGenerator = createFakeGenerator();
+    const apiBaseUrl = await listen(fakeApi.server);
+    await listen(fakeGenerator.server);
+    // Dead generator: generation fails, so the drive falls back to /failed.
+    await close(fakeGenerator.server);
+
+    const env: OrchestratorEnv = {
+      port: 0,
+      apiBaseUrl,
+      generatorBaseUrl: "http://127.0.0.1:1",
+      orchestratorApiToken: "test-orchestrator-token",
+      generatorApiToken: "test-generator-token",
+      segmentPlaySec: 1,
+      auctionPollMs: 25,
+      eventsPollMs: 60_000,
+      genStageDelayMs: 5,
+      generationTimeoutMs: 180_000,
+      parallelApiKey: "",
+      scraperPollMs: 60_000,
+      scraperMaxResults: 10,
+    };
+
+    const gateway = new Gateway({ apiBaseUrl });
+    const api = new ApiClient(
+      apiBaseUrl,
+      env.generatorBaseUrl,
+      env.orchestratorApiToken,
+      env.generatorApiToken,
+    );
+    const feed = new MarketplaceFeed(api, env.eventsPollMs, () => {});
+    const scheduler = new SegmentScheduler({ env, gateway, api });
+    feed.start();
+    try {
+      await scheduler.start();
+      // First /failed 500s: the segment must stay unprocessed and the poll
+      // loop must re-drive it until /failed succeeds.
+      await waitFor(
+        () =>
+          fakeApi.lifecycleCalls.filter((path) => path === "/failed").length >=
+          2,
+        8000,
+      );
+      expect(
+        fakeApi.lifecycleCalls.filter(
+          (path) => path === "/generating" || path === "/failed",
+        ),
+      ).toEqual(["/generating", "/failed", "/generating", "/failed"]);
+    } finally {
+      scheduler.stop();
+      feed.stop();
+      await gateway.close();
+      await close(fakeApi.server);
+    }
   }, 15_000);
 });

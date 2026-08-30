@@ -196,6 +196,8 @@ export class MarketService {
       lastSeenAtMs: Date.now(),
       balanceCents: 0,
       todayVerifiedCents: 0,
+      validProofs: 0,
+      invalidProofs: 0,
     };
     this.ledger.listeners.set(session.id, session);
     this.ledger.listenerTokens.set(session.token, session.id);

@@ -17,10 +17,10 @@ function openDuring(
 }
 
 /** Run one auction to a won segment with challenges seeded from a transcript. */
-function wonSegment(h: Harness, bidUsd: number) {
-  const brand = fundedBrand(h, "A", 100);
+function wonSegment(h: Harness, bidUsd: number, slot = 1) {
+  const brand = fundedBrand(h, `A${slot}`, 100);
   h.auction.placeBid(brand, bidUsd);
-  const winner = h.auction.closeAuction(1);
+  const winner = h.auction.closeAuction(slot);
   const segment = h.ledger.segments.get(winner!.segmentId!)!;
   const challenges = generateChallenges(h.ledger, {
     segmentId: segment.id,
@@ -30,6 +30,9 @@ function wonSegment(h: Harness, bidUsd: number) {
   for (const challenge of challenges) challenge.firedAtMs = Date.now();
   return { brand, segment, winner: winner! };
 }
+
+/** Playback time inside every challenge window for a 30s/4-challenge segment. */
+const ALL_WINDOWS_AT_SEC = 17;
 
 function proofFor(
   sessionToken: string,
@@ -262,5 +265,103 @@ describe("attention window and clearing", () => {
       spentCents: 0,
     });
     expect(h.events.filter((e) => e.type === "bid.failed")).toHaveLength(1);
+  });
+
+  it("locks a session that keeps guessing wrong answers", async () => {
+    const h = setupHarness();
+    const clearing = new ClearingEngine(
+      h.ledger,
+      h.bus,
+      new StubProofVerifier(),
+      CONFIG,
+    );
+    const s1 = h.market.createListenerSession().session;
+
+    const guess = async (slot: number, count: number) => {
+      const { segment } = wonSegment(h, 25, slot);
+      openDuring(clearing, segment.id, ALL_WINDOWS_AT_SEC);
+      for (const challenge of h.ledger
+        .challengesForSegment(segment.id)
+        .slice(0, count)) {
+        await clearing.submitProof(
+          s1,
+          proofFor(
+            s1.token,
+            segment.id,
+            challenge.id,
+            "definitely wrong",
+            ALL_WINDOWS_AT_SEC,
+          ),
+        );
+      }
+    };
+
+    await guess(1, 4); // invalid = 4
+    await guess(2, 2); // invalid = 6 (the 6th still passes: 5 <= 0 + slack)
+    expect(s1.invalidProofs).toBe(6);
+
+    const { segment } = wonSegment(h, 25, 3);
+    openDuring(clearing, segment.id, ALL_WINDOWS_AT_SEC);
+    const next = h.ledger.challengesForSegment(segment.id)[0];
+    await expect(
+      clearing.submitProof(
+        s1,
+        proofFor(
+          s1.token,
+          segment.id,
+          next.id,
+          "definitely wrong",
+          ALL_WINDOWS_AT_SEC,
+        ),
+      ),
+    ).rejects.toThrow(/too many incorrect answers/);
+    // The rejected submission records nothing.
+    expect(s1.invalidProofs).toBe(6);
+  });
+
+  it("keeps an imperfect session unlocked while it still answers correctly", async () => {
+    const h = setupHarness();
+    const clearing = new ClearingEngine(
+      h.ledger,
+      h.bus,
+      new StubProofVerifier(),
+      CONFIG,
+    );
+    const s1 = h.market.createListenerSession().session;
+
+    const submit = async (
+      segmentId: string,
+      challengeId: string,
+      answer: string,
+    ) =>
+      clearing.submitProof(
+        s1,
+        proofFor(s1.token, segmentId, challengeId, answer, ALL_WINDOWS_AT_SEC),
+      );
+
+    const seg1 = wonSegment(h, 25, 1);
+    openDuring(clearing, seg1.segment.id, ALL_WINDOWS_AT_SEC);
+    for (const c of h.ledger.challengesForSegment(seg1.segment.id)) {
+      await submit(seg1.segment.id, c.id, "definitely wrong"); // invalid = 4
+    }
+
+    const seg2 = wonSegment(h, 25, 2);
+    openDuring(clearing, seg2.segment.id, ALL_WINDOWS_AT_SEC);
+    const [c0, c1, c2, c3] = h.ledger.challengesForSegment(seg2.segment.id);
+    await submit(seg2.segment.id, c0.id, "definitely wrong"); // invalid = 5
+    const recall = await submit(seg2.segment.id, c1.id, c1.answer);
+    expect(recall.verified).toBe(true); // valid = 1 restores slack
+    // Submissions 7 and 8 only pass because the correct answer moved the bar.
+    await submit(seg2.segment.id, c2.id, "definitely wrong"); // invalid = 6
+    await submit(seg2.segment.id, c3.id, "definitely wrong"); // invalid = 7
+    expect(s1.invalidProofs).toBe(7);
+    expect(s1.validProofs).toBe(1);
+
+    const seg3 = wonSegment(h, 25, 3);
+    openDuring(clearing, seg3.segment.id, ALL_WINDOWS_AT_SEC);
+    const next = h.ledger.challengesForSegment(seg3.segment.id)[0];
+    await expect(
+      submit(seg3.segment.id, next.id, "definitely wrong"),
+    ).rejects.toThrow(/too many incorrect answers/);
   });
 });

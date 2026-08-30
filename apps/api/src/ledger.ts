@@ -104,6 +104,9 @@ export interface ListenerSessionRow {
   lastSeenAtMs: number;
   balanceCents: number;
   todayVerifiedCents: number;
+  /** Lifetime proof outcomes; a lopsided ratio locks the session (anti-guessing). */
+  validProofs: number;
+  invalidProofs: number;
 }
 
 export interface AttentionEventRow {
