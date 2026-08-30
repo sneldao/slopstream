@@ -30,10 +30,10 @@ See [design-language.md](../product/design-language.md) for the full vision.
 | 1 — R3F scene shell + metaball fluid shader | Done | `Scene`, `FluidBackground`, `shaders/metaball.glsl.ts` |
 | 2 — Audio signal → shader uniforms | Done | `useAudioSignal` feeds `uAmplitude`/`uBeat`/`uBass`/`uTreble` |
 | 3 — Brand blobs with Rapier physics | Done | Kinematic bodies + manual critically-damped spring; OUTBID velocity kick; `BallCollider` |
-| 4 — The ad surface (tier evolution) | Not started | |
-| 5 — Event-driven physics + 3D threshold | Not started | OUTBID color flood + shockwave are wired (Phase 3 follow-up); 3D basin + clearing streams remain |
-| 6 — Floating HUD overlay + proof receipt | Partial | 2D HUD floats over the 3D canvas; `ProofReceipt3D` not started |
-| 7 — Quality switch + fallback | Partial | Error boundary → Canvas 2D `AmbientCanvas` fallback is wired; `dpr` capped at 1; `quality` prop exposed. Mesh fallback + capability detection not built |
+| 4 — The ad surface (tier evolution) | Done | `AdSurface` — orb (audio) / image plane / video plane; generating orb with progress rings; idle orb. Tier carried from generation → playback via `playingTier` in `StreamState` |
+| 5 — Event-driven physics + 3D threshold | Done | `ThresholdBasin` (glass cylinder fills with brand fluid, wave shader, glow on clear); `ClearingStreams` (instanced particle burst, 80/20 split to listener + platform pools); OUTBID color flood + shockwave wired (Phase 3) |
+| 6 — Floating HUD overlay + proof receipt | Done | `ProofReceipt3D` — glass card condenses from vapor on bid clear; stamp seal, count-up amounts, 80/20 split; auto-dismiss after 3.5s. `NowPlaying` stripped to text-only overlay (visuals now 3D) |
+| 7 — Quality switch + fallback | Done | `FluidBackgroundMesh` — icosphere blob fallback with additive blending; capability detection at mount (WebGL2 + `MAX_TEXTURE_IMAGE_UNITS >= 16`); error boundary → Canvas 2D `AmbientCanvas` |
 | 8 — Refine listener + brand | Not started | |
 | 9 — Generation pipeline | Not started | API keys pending |
 
@@ -56,6 +56,62 @@ See [design-language.md](../product/design-language.md) for the full vision.
   levers for the fragment-heavy metaball shader.
 - An error boundary around the R3F tree falls back to `AmbientCanvas`
   (Canvas 2D) if WebGL init or shader compile fails.
+
+### Phase 4–7 implementation notes
+
+- **AdSurface** (`AdSurface.tsx`): a tier-evolving 3D object at center stage.
+  - `audio` tier → `AudioOrb`: an icosphere with a custom shader (simplex
+    noise vertex displacement + fresnel rim + brand-color glow + audio
+    flash). Pulses scale with `smoothAmplitude` + `beat`.
+  - `audio_image` tier → `ImagePlane`: a `TextureLoader`-loaded image on a
+    plane, with the `AudioOrb` rendered behind it for ambient ripples.
+    Falls back to the orb if the texture fails (demo placeholder URLs).
+  - `video` tier → `VideoPlane`: a `VideoTexture` from a `<video>` element,
+    same behind-orb pattern. Falls back gracefully on decode error.
+  - `generating` → `GeneratingOrb`: faster pulse + expanding progress rings
+    (one per completed `GenerationStage`).
+  - `idle` → `IdleOrb`: a dim, slowly breathing orb so the scene is never
+    empty.
+  - The tier is carried from generation → playback via `playingTier` on
+    `StreamState` (the reducer now preserves `assetUrl` and `durationSeconds`
+    from `segment.ready` through `segment.playing`).
+
+- **ThresholdBasin** (`ThresholdBasin.tsx`): a glass cylinder at bottom
+  center that fills with brand-colored fluid. The fill level is
+  `verifiedCount / threshold`, smoothed via exponential approach
+  (τ ≈ 0.3s). The fluid uses a custom shader: surface waves on the top
+  (vertex displacement), color blend from secondary → primary as it fills,
+  glow + white flash when cleared. The glass is a `MeshPhysicalMaterial`
+  with `transmission` for realism.
+
+- **ClearingStreams** (`ClearingStreams.tsx`): an `InstancedMesh` of 120
+  small spheres that burst from the basin on `bid.cleared`. 80% are
+  brand-colored and arc toward the listener reward pool (left); 20% are
+  neutral gold and arc toward the platform pool (right). Each particle has
+  position, velocity, and life; gravity + drag physics; fades over ~1.6s.
+  Triggered by `burst.burstId` changing.
+
+- **ProofReceipt3D** (`ProofReceipt3D.tsx`): an HTML overlay with
+  `backdrop-filter: blur(20px)` that condenses from the center on bid
+  clear. Spring-in with blur → sharp, a rotating stamp seal, count-up
+  amounts (ease-out cubic over 800ms), 80/20 split rows, auto-dismiss
+  after 3.5s. This is the screenshot moment.
+
+- **FluidBackgroundMesh** (`FluidBackgroundMesh.tsx`): the mesh fallback
+  for weak GPUs. Six drifting icospheres with additive blending and
+  per-frame color lerp — approximates the fluid look at a fraction of the
+  GPU cost. Same audio reactivity and brand tinting as the ray-marched
+  path. Selected at mount via capability detection (WebGL2 +
+  `MAX_TEXTURE_IMAGE_UNITS >= 16`).
+
+- **NowPlaying** simplified: the 2D canvas background, receding segment
+  ghosts, and generation orb were removed — the visuals are now 3D
+  (`AdSurface`). `NowPlaying` keeps only the text labels (brand name,
+  generation stages, challenge banner) as a `pointer-events: none` HTML
+  overlay. The 2D `LiquidThreshold` and `ClearBurstFlow` were removed from
+  the page — replaced by `ThresholdBasin` + `ClearingStreams` in the 3D
+  scene. A small threshold count label (`verifiedCount / threshold`)
+  remains as HTML for legibility.
 
 ## Dependencies to install
 

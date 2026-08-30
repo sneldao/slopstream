@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type {
   BrandSummary,
@@ -9,7 +8,6 @@ import type {
   Segment,
 } from "@slopstream/shared";
 import type { GenerationState } from "@/lib/streamReducer";
-import type { AudioSignal } from "@/lib/useAudioSignal";
 
 const STAGES: { key: GenerationStage; label: string }[] = [
   { key: "script", label: "Script" },
@@ -19,12 +17,14 @@ const STAGES: { key: GenerationStage; label: string }[] = [
 ];
 
 /**
- * The now-playing area: full-screen ad while playing, the generation
- * sequence while generating, and the challenge banner overlay.
+ * The now-playing text overlay — brand name, generation stage labels, and
+ * the challenge banner. This is a thin HTML layer floating over the 3D
+ * canvas; the visual ad surface (orb / image plane / video plane) is
+ * rendered by `AdSurface` inside the 3D scene.
  *
- * The playing ad has an audio-reactive background canvas that pulses with
- * the shared audio signal — the room feels the stream. Previous segments
- * recede behind the current ad with perspective + blur (spatial depth).
+ * The 2D canvas background, receding segment ghosts, and generation orb
+ * that lived here in the first overhaul are now 3D — this component keeps
+ * only the text elements that are clearer as crisp HTML than as 3D text.
  */
 export function NowPlaying({
   nowPlaying,
@@ -32,14 +32,13 @@ export function NowPlaying({
   brand,
   generation,
   activeChallenge,
-  signalRef,
 }: {
   nowPlaying: Segment | null;
   nowPlayingStartedAt?: string;
   brand: BrandSummary | undefined;
   generation: GenerationState | undefined;
   activeChallenge: PublicChallenge | undefined;
-  signalRef: React.RefObject<AudioSignal>;
+  signalRef: React.RefObject<unknown>;
 }) {
   const primary = brand?.primaryColor;
 
@@ -47,14 +46,13 @@ export function NowPlaying({
     <div style={styles.stage}>
       <AnimatePresence mode="wait">
         {generation ? (
-          <GenerationSequence key="gen" generation={generation} brand={brand} />
+          <GenerationLabels key="gen" generation={generation} brand={brand} />
         ) : nowPlaying ? (
-          <PlayingAd
+          <PlayingLabels
             key="play"
             segment={nowPlaying}
             brand={brand}
             startedAt={nowPlayingStartedAt}
-            signalRef={signalRef}
           />
         ) : (
           <EmptyMarket key="empty" />
@@ -96,7 +94,7 @@ function EmptyMarket() {
   );
 }
 
-function GenerationSequence({
+function GenerationLabels({
   generation,
   brand,
 }: {
@@ -111,14 +109,6 @@ function GenerationSequence({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
     >
-      <motion.div
-        style={{
-          ...styles.genOrb,
-          background: `radial-gradient(circle, ${primary}, transparent 70%)`,
-        }}
-        animate={{ scale: [1, 1.15, 1], opacity: [0.6, 0.9, 0.6] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-      />
       <div style={styles.genTitle}>GENERATING AD…</div>
       <div style={styles.genBrand}>{brand?.name}</div>
       <div style={styles.genStages}>
@@ -154,170 +144,51 @@ function GenerationSequence({
   );
 }
 
-function PlayingAd({
+function PlayingLabels({
   segment,
   brand,
   startedAt,
-  signalRef,
 }: {
   segment: Segment;
   brand: BrandSummary | undefined;
   startedAt?: string;
-  signalRef: React.RefObject<AudioSignal>;
 }) {
-  const primary = brand?.primaryColor ?? "#444";
-  const secondary = brand?.secondaryColor ?? "#222";
-  const bgRef = useRef<HTMLCanvasElement>(null);
-
-  // Audio-reactive background canvas — pulses with the signal.
-  useEffect(() => {
-    const canvas = bgRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let raf = 0;
-    const render = () => {
-      const w = canvas.width;
-      const h = canvas.height;
-      const signal = signalRef.current;
-      const amp = signal.smoothAmplitude;
-      const beat = signal.beat;
-
-      ctx.clearRect(0, 0, w, h);
-
-      // Audio-reactive radial gradient — the background breathes.
-      const pulseRadius = 0.4 + amp * 0.3 + beat * 0.15;
-      const cx = w / 2;
-      const cy = h * 0.4;
-      const maxR = Math.max(w, h);
-      const grad = ctx.createRadialGradient(
-        cx,
-        cy,
-        0,
-        cx,
-        cy,
-        maxR * pulseRadius,
-      );
-      grad.addColorStop(0, hexA(primary, 0.5 + amp * 0.3));
-      grad.addColorStop(0.4, hexA(secondary, 0.3 + amp * 0.15));
-      grad.addColorStop(1, "rgba(5, 5, 15, 0.95)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-
-      // Beat ripple — expanding ring on each beat.
-      if (beat > 0.5) {
-        ctx.strokeStyle = hexA(primary, beat * 0.3);
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, maxR * 0.3 * (1 - beat), 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      raf = requestAnimationFrame(render);
-    };
-    render();
-    return () => cancelAnimationFrame(raf);
-  }, [primary, secondary, signalRef]);
-
   return (
     <motion.div
-      style={styles.ad}
+      style={styles.adContent}
       initial={{ opacity: 0, scale: 1.04 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
     >
-      <canvas ref={bgRef} width={1920} height={1080} style={styles.adCanvas} />
-
-      {segment.assetUrl && <GeneratedMedia assetUrl={segment.assetUrl} />}
-
-      {/* Spatial depth — receding previous segment ghosts. */}
-      <RecedingSegments brand={brand} />
-
-      <div style={styles.adContent}>
-        <motion.div
-          style={styles.adBadge}
-          initial={{ y: -10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          NOW PLAYING
-        </motion.div>
-        <motion.div
-          style={styles.adBrand}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{
-            delay: 0.3,
-            type: "spring",
-            stiffness: 200,
-            damping: 16,
-          }}
-        >
-          {brand?.name ?? "Free Ad"}
-        </motion.div>
-        <div style={styles.adSegment}>segment {segment.id}</div>
-        {startedAt && (
-          <div style={styles.adTime}>
-            live · {new Date(startedAt).toLocaleTimeString()}
-          </div>
-        )}
-      </div>
+      <motion.div
+        style={styles.adBadge}
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2 }}
+      >
+        NOW PLAYING
+      </motion.div>
+      <motion.div
+        style={styles.adBrand}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{
+          delay: 0.3,
+          type: "spring",
+          stiffness: 200,
+          damping: 16,
+        }}
+      >
+        {brand?.name ?? "Free Ad"}
+      </motion.div>
+      <div style={styles.adSegment}>segment {segment.id}</div>
+      {startedAt && (
+        <div style={styles.adTime}>
+          live · {new Date(startedAt).toLocaleTimeString()}
+        </div>
+      )}
     </motion.div>
-  );
-}
-
-function GeneratedMedia({ assetUrl }: { assetUrl: string }) {
-  const cleanUrl = assetUrl.split(/[?#]/)[0].toLowerCase();
-  const isAudio = /\.(mp3|wav|m4a|aac|ogg)$/.test(cleanUrl);
-  if (isAudio) {
-    return (
-      <audio
-        src={assetUrl}
-        autoPlay
-        controls
-        preload="auto"
-        style={styles.audioMedia}
-      />
-    );
-  }
-  return (
-    <video
-      src={assetUrl}
-      autoPlay
-      controls
-      playsInline
-      preload="auto"
-      style={styles.videoMedia}
-    />
-  );
-}
-
-/** Receding segment ghosts — the Continuum trail behind the current ad. */
-function RecedingSegments({ brand }: { brand: BrandSummary | undefined }) {
-  // In demo mode we don't have real previous segments, so we render
-  // abstract receding cards tinted to the brand color — the visual
-  // suggestion of depth and history. With real data these would be
-  // actual previous segment thumbnails.
-  const primary = brand?.primaryColor ?? "#333";
-  const secondary = brand?.secondaryColor ?? "#222";
-
-  return (
-    <div style={styles.receding}>
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          style={{
-            ...styles.recedingCard,
-            transform: `translateZ(${-100 - i * 80}px) scale(${1 - i * 0.1})`,
-            opacity: 0.15 - i * 0.04,
-            background: `linear-gradient(135deg, ${hexA(secondary, 0.3)}, ${hexA(primary, 0.2)})`,
-            filter: `blur(${2 + i * 2}px)`,
-          }}
-        />
-      ))}
-    </div>
   );
 }
 
@@ -353,21 +224,6 @@ function ChallengeBanner({
   );
 }
 
-function hexA(hex: string, a: number): string {
-  const h = hex.replace("#", "");
-  const full =
-    h.length === 3
-      ? h
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : h;
-  const r = parseInt(full.slice(0, 2), 16) || 255;
-  const g = parseInt(full.slice(2, 4), 16) || 255;
-  const b = parseInt(full.slice(4, 6), 16) || 255;
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
 const styles: Record<string, React.CSSProperties> = {
   stage: {
     position: "relative",
@@ -376,7 +232,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    perspective: 1000,
+    pointerEvents: "none",
   },
   empty: { textAlign: "center" },
   emptyTitle: {
@@ -399,20 +255,13 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 16,
     position: "relative",
   },
-  genOrb: {
-    position: "absolute",
-    width: 360,
-    height: 360,
-    borderRadius: "50%",
-    top: -120,
-    filter: "blur(20px)",
-  },
   genTitle: {
     fontSize: "clamp(28px, 5vw, 64px)",
     fontWeight: 900,
     letterSpacing: 4,
     color: "#fff",
     position: "relative",
+    textShadow: "0 4px 30px rgba(0,0,0,0.6)",
   },
   genBrand: {
     fontSize: "clamp(18px, 2.6vw, 32px)",
@@ -434,51 +283,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: "2px solid",
     fontWeight: 700,
     fontSize: 15,
-  },
-  ad: {
-    position: "absolute",
-    inset: 0,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    transformStyle: "preserve-3d",
-  },
-  adCanvas: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  videoMedia: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    zIndex: 1,
-  },
-  audioMedia: {
-    position: "absolute",
-    left: "50%",
-    bottom: 32,
-    transform: "translateX(-50%)",
-    width: "min(520px, 82vw)",
-    zIndex: 3,
-  },
-  receding: {
-    position: "absolute",
-    inset: 0,
-    transformStyle: "preserve-3d",
-    pointerEvents: "none",
-  },
-  recedingCard: {
-    position: "absolute",
-    inset: "10%",
-    borderRadius: 24,
-    transformStyle: "preserve-3d",
   },
   adContent: {
     position: "relative",
@@ -522,6 +326,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "18px 22px",
     zIndex: 30,
     boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    pointerEvents: "auto",
   },
   challengeHeader: {
     fontSize: 13,

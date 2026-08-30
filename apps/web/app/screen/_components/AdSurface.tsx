@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useMemo, useEffect, useState } from "react";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { AudioSignal } from "@/lib/useAudioSignal";
 import type { GenerationState } from "@/lib/streamReducer";
@@ -72,7 +72,6 @@ export function AdSurface({
           signalRef={signalRef}
         />
       )}
-      {(mode === "audio" || mode === "generating") && null}
       {mode === "audio" && (
         <AudioOrb
           color={color}

@@ -8,12 +8,11 @@ import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { NowPlaying } from "./_components/NowPlaying";
-import { LiquidThreshold } from "./_components/LiquidThreshold";
 import { StatsFooter } from "./_components/StatsFooter";
 import { OutbidFlashOverlay } from "./_components/OutbidFlash";
-import { ClearBurstFlow } from "./_components/ClearBurstFlow";
 import { BlobChip } from "./_components/SoftBlob";
 import { DemoControls } from "./_components/DemoControls";
+import { ProofReceipt3D } from "./_components/ProofReceipt3D";
 
 // 3D scene — loaded client-only to avoid SSR issues with WebGL.
 const Scene = dynamic(
@@ -94,8 +93,9 @@ export default function ScreenPage() {
 
   return (
     <main style={styles.main}>
-      {/* The living fluid — 3D ray-marched metaball shader + brand blobs.
-          The fluid tint follows the bid leader so OUTBID floods the palette. */}
+      {/* The 3D fluid world — metaball shader, brand blobs, ad surface,
+          threshold basin, clearing streams. The fluid tint follows the bid
+          leader so OUTBID floods the palette. */}
       <Scene
         signalRef={signalRef}
         colorA={fluidBrand?.primaryColor ?? "#1a1a3e"}
@@ -106,6 +106,14 @@ export default function ScreenPage() {
         outbidFlashId={state.lastOutbid?.flashId ?? 0}
         outbidDisplacedBrandId={state.lastOutbid?.displacedBrandId}
         outbidNewBrandId={state.lastOutbid?.newBrandId}
+        // Ad surface (Phase 4)
+        segment={state.nowPlaying}
+        generation={state.generation}
+        playingTier={state.playingTier}
+        // Threshold basin (Phase 5)
+        attention={state.attention}
+        // Clearing streams (Phase 5)
+        lastClear={state.lastClear}
         // Canvas 2D fallback palette (used only if WebGL fails).
         fallbackBrandColor={activeBrand?.primaryColor ?? "#1a1a3e"}
         fallbackSecondaryColor={activeBrand?.secondaryColor ?? "#0b0b1a"}
@@ -114,7 +122,8 @@ export default function ScreenPage() {
         fallbackBurstToColor={burstToColor}
       />
 
-      {/* Full-bleed now-playing — the stage takes the whole screen. */}
+      {/* Text overlay — brand name, generation stages, challenge banner.
+          The visual ad surface is now 3D (AdSurface inside Scene). */}
       <div style={styles.stage}>
         <NowPlaying
           nowPlaying={state.nowPlaying}
@@ -128,8 +137,14 @@ export default function ScreenPage() {
           flash={state.lastOutbid}
           brandById={state.brandById}
         />
-        <ClearBurstFlow burst={state.lastClear} brand={activeBrand} />
       </div>
+
+      {/* Proof receipt — the calm center. Condenses from vapor on bid clear. */}
+      <ProofReceipt3D
+        burst={state.lastClear}
+        brandName={activeBrand?.name}
+        brandColor={activeBrand?.primaryColor}
+      />
 
       {/* Floating header — minimal, top-left. */}
       <motion.header
@@ -202,16 +217,24 @@ export default function ScreenPage() {
         </div>
       </aside>
 
-      {/* Floating attention threshold — bottom-left, over the canvas. */}
+      {/* Attention threshold text — the 3D basin shows the visual fill;
+          this small label shows the numbers. */}
       {state.attention && (
         <motion.div
-          style={styles.thresholdFloat}
-          initial={{ opacity: 0, y: 30 }}
+          style={styles.thresholdLabel}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 30 }}
+          exit={{ opacity: 0, y: 20 }}
           transition={{ type: "spring", stiffness: 200, damping: 22 }}
         >
-          <LiquidThreshold attention={state.attention} signalRef={signalRef} />
+          <span style={styles.thresholdCount}>
+            {state.attention.verifiedCount}
+          </span>
+          <span style={styles.thresholdSlash}> / </span>
+          <span style={styles.thresholdTarget}>
+            {state.attention.threshold}
+          </span>
+          <span style={styles.thresholdLabel2}> verified</span>
         </motion.div>
       )}
 
@@ -253,6 +276,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: "absolute",
     inset: 0,
     zIndex: 1,
+    pointerEvents: "none",
   },
   header: {
     position: "fixed",
@@ -308,12 +332,42 @@ const styles: Record<string, React.CSSProperties> = {
     fontStyle: "italic",
     padding: 12,
   },
-  thresholdFloat: {
+  thresholdLabel: {
     position: "fixed",
-    bottom: "clamp(60px, 10vh, 100px)",
-    left: "clamp(16px, 3vw, 40px)",
+    bottom: "clamp(80px, 14vh, 130px)",
+    left: "50%",
+    transform: "translateX(-50%)",
     zIndex: 10,
-    width: 300,
+    display: "flex",
+    alignItems: "baseline",
+    gap: 2,
+    padding: "6px 16px",
+    borderRadius: 999,
+    background: "rgba(5,5,15,0.6)",
+    backdropFilter: "blur(8px)",
+    border: "1px solid rgba(255,255,255,0.12)",
+  },
+  thresholdCount: {
+    fontSize: 22,
+    fontWeight: 900,
+    color: "#fff",
+    fontVariantNumeric: "tabular-nums",
+  },
+  thresholdSlash: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.4)",
+  },
+  thresholdTarget: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "rgba(255,255,255,0.6)",
+    fontVariantNumeric: "tabular-nums",
+  },
+  thresholdLabel2: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--platform-text-dim)",
+    marginLeft: 4,
   },
   statsFloat: {
     position: "fixed",

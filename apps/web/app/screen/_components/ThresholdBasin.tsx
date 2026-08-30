@@ -73,8 +73,9 @@ export function ThresholdBasin({
       mat.uniforms.uTime.value = (performance.now() - startTime.current) / 1000;
       mat.uniforms.uAmplitude.value = signal.smoothAmplitude;
       mat.uniforms.uFill.value = fillRef.current;
+      const clearedTarget = isCleared ? 1 : 0;
       mat.uniforms.uCleared.value +=
-        (isCleared ? 1 : 0 - mat.uniforms.uCleared.value) * k;
+        (clearedTarget - mat.uniforms.uCleared.value) * k;
       mat.uniforms.uColor.value.lerp(new THREE.Color(color), k);
       mat.uniforms.uColorB.value.lerp(new THREE.Color(secondaryColor), k);
     }

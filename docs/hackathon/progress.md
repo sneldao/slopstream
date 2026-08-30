@@ -340,16 +340,18 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 
 ### Lane 3: next steps
 
-1. **3D visual overhaul — Phases 4–9.** Phases 1–3 are live (ray-marched
+1. **3D visual overhaul — Phases 8–9.** Phases 1–7 are live (ray-marched
    metaball fluid shader, audio → uniforms, Rapier physics brand blobs with
    a manual critically-damped spring, OUTBID color flood + velocity kick,
-   error boundary → Canvas 2D fallback, `dpr` capped at 1). Remaining:
-   ad surface tier evolution (Phase 4), 3D threshold basin + clearing
-   streams (Phase 5), `ProofReceipt3D` (Phase 6), mesh fallback +
-   capability detection (Phase 7), listener/brand refinement (Phase 8),
-   generation pipeline (Phase 9). See
+   error boundary → Canvas 2D fallback, `dpr` capped at 1; tier-evolving
+   ad surface with orb/image/video planes and a generating orb with
+   progress rings; 3D glass threshold basin with wave shader + glow on
+   clear; instanced clearing streams with 80/20 split; `ProofReceipt3D`
+   glass card condensing from vapor; mesh fallback + capability
+   detection). Remaining: listener/brand refinement (Phase 8), generation
+   pipeline (Phase 9). See
    [3D overhaul plan](./3d-overhaul-plan.md) for the status table and
-   Phase 3 implementation notes.
+   Phase 4–7 implementation notes.
 2. ~~Wire the orchestrator~~ — done (gateway + feed + scheduler, see
    implemented). Follow-ups: Redis subscription as an optional fast path
    (polling stays as the correctness layer), and durable state if more than
@@ -395,11 +397,13 @@ Two full paths, sharing the exact same UI code:
 - **Demo mode (the insurance policy)** — the demo-mode harness drives all
   three surfaces end-to-end with no backend:
 
-- Big screen plays the 8-scene fixture with all signature visuals (2D
-  version — audio-reactive ambient canvas, soft-body blob leaderboard, liquid
-  threshold, flowing clearing streams, synthesized sound design). The 3D
-  fluid world overhaul is the next priority (see
-  [3D overhaul plan](./3d-overhaul-plan.md)).
+- Big screen plays the 8-scene fixture as a 3D fluid world — ray-marched
+  metaball background, Rapier physics brand blobs, tier-evolving ad surface
+  (orb / image plane / video plane), 3D glass threshold basin that fills
+  with brand fluid, instanced clearing streams with 80/20 split, glass
+  proof receipt condensing from vapor, synthesized sound design. Falls back
+  to mesh-based fluid on weak GPUs, and to Canvas 2D if WebGL is
+  unavailable.
 - Listener client renders challenges + proof receipts from canned data.
 - Brand console shows live auction pressure from the fixture.
 
