@@ -13,15 +13,19 @@ outlines, and a playful physical quality. `/screen` expands that DNA into the
 
 Three rules govern every surface:
 
-1. **Content is the spectacle.** Images, video, voice-led editorial cards and typography are the central visual material. Effects must reveal content, never bury it.
-2. **Every moment leaves a trace.** Completed segments become archive objects. The audience should see a history accumulating, not a succession of disposable full-screen ads.
+1. **Audio + video are the message.** Voiceover and motion picture carry the ad. Readable copy on the Continuum is UI chrome only (join, earn, theater) — never a substitute for generated media.
+2. **Every moment leaves a trace.** Completed segments become archive **frames** (image or video thumbnails), not text summaries. The audience should see a visual history accumulating.
 3. **Rewards are invited, not imposed.** Listening is always passive by default. Earn Mode is a deliberate listener choice, and public displays never reveal a challenge question or answer.
+
+A fourth implementation rule follows from the first:
+
+1. **Product placement, not copy walls.** No AI-generated headlines in the portal or archive. If generation fails, show brand colour and motion — not a typographic poster of the brand name.
 
 ### UI hierarchy (phase 1)
 
 | Priority | Layer | Role |
 | --- | --- | --- |
-| 1 | Focus portal + archive | What is playing and the world it leaves behind |
+| 1 | Focus portal + archive | Playing video/image; archive as visual memory |
 | 2 | Anticipation | Coming-up queue, generation assembly |
 | 3 | Join / earn | QR, threshold progress — invited, not loud |
 | 4 | Market chrome | Leaderboard, next-slot price — `/brand` and non-theater overlays |
@@ -113,8 +117,8 @@ continuous drift and ripple loops.
 
 ## Implementation guardrails
 
-- Keep active video to one central surface. History uses images or editorial
-  card treatments, not many concurrent video decoders.
+- **Default to video (or image + audio) for big-screen segments.** Audio-only tiers are a fallback for cost constraints, not the Continuum ideal; when audio-only plays, the portal shows abstract colour/motion — not editorial typography.
+- Keep active video to one central surface. History uses image or muted video thumbnails, not text cards.
 - `recentSegments` is snapshot-backed, newest-first, and capped at eight. It
   makes reconnect recovery visual as well as functional.
 - `upcomingSegments` is a small snapshot-backed queue, not a promise of a

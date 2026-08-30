@@ -78,7 +78,7 @@ Slopstream:
 
 That's the interesting part of the 80% idea. The listener is no longer merely the product — they're a participant in the marketplace.
 
-**But the hook that gets anyone to care in the first place is not the marketplace.** It is The Continuum: infinite, evolving, AI-generated ad fiction that is genuinely fun to leave on.
+**But the hook that gets anyone to care in the first place is not the marketplace.** It is The Continuum: infinite, evolving, AI-generated ad fiction delivered as **short audio–video beats** — voice carries the line, picture carries the placement, minimal on-screen text.
 
 ## Positioning
 

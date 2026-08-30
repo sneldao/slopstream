@@ -1102,13 +1102,42 @@ main.has-dock {
 
 .continuum-portal__editorial,
 .continuum-portal__generating,
-.continuum-portal__open {
+.continuum-portal__open,
+.continuum-portal__placement {
   position: absolute;
   inset: 0;
   display: flex;
   padding: clamp(30px, 5vw, 76px);
   justify-content: center;
   flex-direction: column;
+}
+
+.continuum-portal__placement {
+  padding: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.continuum-portal__placement::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 30% 20%,
+    rgba(255, 255, 255, 0.12),
+    transparent 55%
+  );
+  animation: continuum-placement-shimmer 6s ease-in-out infinite alternate;
+}
+
+@keyframes continuum-placement-shimmer {
+  0% {
+    opacity: 0.35;
+  }
+
+  100% {
+    opacity: 0.85;
+  }
 }
 
 .continuum-portal__editorial {
@@ -1343,7 +1372,8 @@ main.has-dock {
   animation: continuum-memory-drift 18s ease-in-out infinite alternate;
 }
 
-.continuum-memory > span {
+.continuum-memory > span,
+.continuum-memory__index {
   position: absolute;
   top: 18px;
   left: 20px;
@@ -1351,29 +1381,21 @@ main.has-dock {
   font-size: 8px;
   font-weight: 900;
   letter-spacing: 0.16em;
+  opacity: 0.45;
 }
 
-.continuum-memory strong {
-  position: relative;
-  z-index: 2;
-  max-width: 8ch;
-  font-family: var(--slop-display);
-  font-size: clamp(34px, 4vw, 64px);
-  letter-spacing: -0.05em;
-  line-height: 0.82;
-  text-transform: uppercase;
+.continuum-memory__swatch {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--memory-a) 88%, white),
+    var(--memory-b)
+  );
 }
 
-.continuum-memory small {
-  position: relative;
-  z-index: 2;
-  max-width: 28ch;
-  margin-top: 14px;
-  font-size: 10px;
-  font-weight: 750;
-}
-
-.continuum-memory img {
+.continuum-memory img,
+.continuum-memory video {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1381,7 +1403,8 @@ main.has-dock {
   object-fit: cover;
 }
 
-.continuum-memory:has(img)::after {
+.continuum-memory:has(img)::after,
+.continuum-memory:has(video)::after {
   position: absolute;
   inset: 55% 0 0;
   background: linear-gradient(transparent, rgba(16, 16, 20, 0.68));

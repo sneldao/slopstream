@@ -139,10 +139,9 @@ Each generation receives:
 
 The generator deterministically selects a **creative format** per segment
 (FNV-1a hash of the segment ID — see [content.md](../product/content.md#creative-format-rotation)).
-The format drives the script template, the ElevenLabs voice ID, and the visual
-style hint in image/video prompts. Eight formats rotate across comedy, anthem,
-radio, infomercial, intimate, hype, documentary, and news tones so consecutive
-ads feel varied without requiring an LLM call.
+Image and video prompts enforce **product placement**: cinematic visuals with
+**no readable generated text**; voiceover carries the script. The big screen
+never duplicates the transcript as typography.
 
 When Daytona is used, the sandbox is destroyed after its validated output is
 published. This retains the isolation rationale for generated or

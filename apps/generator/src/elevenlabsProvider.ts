@@ -415,11 +415,13 @@ function imagePromptFor(
   const continuity = continuityClause(request.continuityImageUrl);
   const market = marketPromptClause(request.marketContext);
   return (
-    `A striking advertisement image for ${brand}. ${brief}. ` +
+    `Cinematic product-placement still for ${brand}. ${brief}. ` +
     `Visual style: ${format.imageStyle}. ` +
-    `The mood is ${format.tone} and matches this voiceover: "${transcript.slice(0, 100)}...". ` +
+    `Mood: ${format.tone}, matching this voiceover (do not render as text): "${transcript.slice(0, 100)}...". ` +
     `${continuity}${market}` +
-    `16:9 aspect ratio, high quality, attention-grabbing composition.`
+    `Show the product, character, or world — not a poster. ` +
+    `16:9, high quality, shallow depth of field. ` +
+    `No readable text, no logos, no subtitles, no UI chrome, no watermarks.`
   );
 }
 
@@ -434,16 +436,14 @@ function videoPromptFor(
   const continuity = continuityClause(request.continuityImageUrl);
   const market = marketPromptClause(request.marketContext);
   return (
-    `A dynamic 4-to-8-second motion-design advertisement for ${brand}. ${brief}. ` +
-    `Visual style: ${format.imageStyle}. The tone is ${format.tone}. ` +
-    `Open on a hero frame that evolves from this still: ${heroImageUrl}. ` +
+    `A dynamic 4-to-8-second product-placement motion ad for ${brand}. ${brief}. ` +
+    `Visual style: ${format.imageStyle}. Tone: ${format.tone}. ` +
+    `Evolve from this hero frame: ${heroImageUrl}. ` +
     `${continuity}${market}` +
-    `Match Slopstream's live UI world: midnight-blue liquid data, electric violet and cyan ` +
-    `particles, glowing auction bids, a threshold basin filling with verified attention, ` +
-    `a brief QR-code pulse, then a clean proof signal resolving into a confident brand lockup. ` +
-    `Use a fast but readable camera push, fluid transitions, crisp high-contrast lighting, ` +
-    `and intentional visual hierarchy. No readable generated text, no fake logos, no clutter. ` +
-    `Voiceover context: "${transcript.slice(0, 150)}..."`
+    `Camera: slow push or orbit, fluid transitions, cinematic lighting. ` +
+    `The story is told by picture and motion — voiceover carries the words (do not show them). ` +
+    `No readable text, no fake logos, no subtitles, no dashboards, no QR codes, no clutter. ` +
+    `Voiceover context (audio only): "${transcript.slice(0, 150)}..."`
   );
 }
 

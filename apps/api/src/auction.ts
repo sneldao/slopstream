@@ -416,7 +416,7 @@ export class AuctionEngine {
               segmentId: freeSegment.id,
               companyName: company?.name ?? "a startup",
               brief: freeSegment.brief,
-              tier: "audio_image" as ProductionTier,
+              tier: "video" as ProductionTier,
               segmentStatus: freeSegment.status,
             };
           })(),

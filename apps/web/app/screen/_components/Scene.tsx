@@ -385,8 +385,8 @@ function ActivePortal({
           <MediaAsset segment={segment} brand={brand} />
         ) : generation ? (
           <div className="continuum-portal__generating">
-            <span>ASSEMBLING</span>
-            <strong>{brand?.name ?? "THE NEXT MOMENT"}</strong>
+            <span className="continuum-portal__pulse" aria-hidden />
+            <small>Assembling next beat</small>
             <div>
               {["SCRIPT", "VOICE", "IMAGE", "VIDEO"].map((label, index) => (
                 <i
@@ -433,14 +433,12 @@ function MediaAsset({
   if (!segment.assetUrl || failed || mediaType === "audio") {
     return (
       <div
-        className="continuum-portal__editorial"
+        className="continuum-portal__placement"
         style={{
           background: `linear-gradient(135deg, ${brand?.primaryColor ?? "#45a7ff"}, ${brand?.secondaryColor ?? "#b8ff65"})`,
         }}
-      >
-        <span>NOW PLAYING</span>
-        <strong>{brand?.name ?? FREE_BRAND_SUMMARY.name}</strong>
-      </div>
+        aria-hidden
+      />
     );
   }
 
@@ -495,16 +493,17 @@ function ArchiveCard({
         } as CSSProperties
       }
     >
-      <span>ARCHIVE {String(index + 1).padStart(2, "0")}</span>
+      <span className="continuum-memory__index" aria-hidden>
+        {String(index + 1).padStart(2, "0")}
+      </span>
       {item.assetUrl && continuumAssetType(item.assetUrl) === "image" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.assetUrl} alt="" />
+      ) : item.assetUrl && continuumAssetType(item.assetUrl) === "video" ? (
+        <video src={item.assetUrl} muted loop playsInline aria-hidden />
       ) : (
-        <strong>{item.brandName}</strong>
+        <div className="continuum-memory__swatch" aria-hidden />
       )}
-      <small>
-        {(item.summary || item.brandName).split(/\s+/).slice(0, 8).join(" ")}
-      </small>
     </div>
   );
 }

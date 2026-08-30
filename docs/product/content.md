@@ -4,11 +4,27 @@
 
 Slopstream is not "an auction that sometimes plays ads." It is **an infinite AI ad universe** that should be:
 
-- **Free** — the stream runs on Continuum filler (fictional brands, scraped startups, running arcs) without waiting for bids
+- **Free** — the stream runs on Continuum filler without waiting for bids
 - **Immersive** — archive memory, visual continuity, and a world that accumulates on screen
 - **Fun** — format rotation, absurd story escalation, ads people actually want to hear
+- **Audio + video first** — voice and motion carry the story; the screen is product placement, not a copy wall
 
-The attention marketplace and brand bids are **phase two and three** (see [overview](overview.md#phased-rollout)). Engineering may still schedule segments through auctions today; product and creative investment should treat the free Continuum as the main event.
+The attention marketplace is **phase two and three** (see [overview](overview.md#phased-rollout)). Engineering may still schedule segments through auctions today; product and creative investment should treat the free Continuum as the main event.
+
+### Product placement, not generated copy
+
+Readable AI text on the backdrop or in the ad frame **cheapens the experience**. It reads as slop, not premium media.
+
+| Do | Don't |
+| --- | --- |
+| Cinematic visuals that *show* the product, world, or character | Headlines, taglines, or summaries rendered as on-screen typography |
+| Voiceover (TTS) as the primary message channel | Duplicating the script as giant portal text |
+| Brand colour and motion as subtle placement | AI-generated logos, fake UI chrome, or marketplace HUD inside the ad |
+| Archive cards as **thumbnails** of what played | Archive cards as text summaries of what the model said |
+
+**The USP is synchronized audio + video** — a short film beat with a voice, not a radio ad with subtitles. Challenges and earn mode can test recall of what was *heard* or *seen*; the public screen should not spoil that by plastering transcript fragments on the Continuum.
+
+Generator prompts must enforce: no readable text, no fake logos, no clutter in image/video outputs. The big screen falls back to colour fields and media loops — never to brand-name posters — when assets are missing.
 
 ## The infinite ad: The Continuum
 

@@ -49,7 +49,7 @@ LIVE SLOPSTREAM
 └──────────────────────────────────────────────┘
 ```
 
-The screen is an autonomous media field. The current asset occupies a framed central portal; the eight most recent completed segments persist through the stream snapshot and appear as colourful archive cards after refresh or reconnect. One or two generated/ready segments can appear as a quiet **Coming up** cue, so the stream has anticipation as well as memory. Oversized type, dotted routes and homepage-style spheres provide depth. A stable segment ID selects one of five composition recipes — editorial, orbit, cascade, constellation or cinema — so the world varies without changing randomly on reload. The camera motion is slow by default and reacts subtly to pointer/audio input. The HUD leaderboard remains a readable market layer, while bid changes and clears create ripples through the world. Generated assets can be images, video, audio-led editorial cards or typography; the composition should never depend on one orb treatment.
+The screen is an autonomous media field. The current asset occupies a framed central portal; the eight most recent completed segments persist through the stream snapshot and appear as **visual** archive cards (thumbnails, not copy). One or two generated/ready segments can appear as a quiet **Coming up** cue. Oversized type and spheres provide **environment** depth — they are not the ad. Generated assets should be **video or image**; voice is heard, not read on screen.
 
 When a brand gets outbid, the screen's color **washes** from the old leader's palette to the new leader's, the displaced chip wobbles and drops, the new leader's chip swells and glows, and a splash particle effect ripples outward:
 
