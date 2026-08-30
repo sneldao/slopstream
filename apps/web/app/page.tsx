@@ -1,6 +1,13 @@
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 import { SphereField } from "./_components/SphereField";
 import { SurfaceNav } from "./_components/SurfaceNav";
+
+export const metadata: Metadata = {
+  title: "Slopstream — the live attention market",
+  description:
+    "Brands bid for verified attention. Listeners earn from the cleared spend. The world's first live attention market.",
+};
 
 const SURFACES = [
   {
