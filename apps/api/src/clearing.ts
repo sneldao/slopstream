@@ -64,6 +64,7 @@ export function distributeCents(
 export interface ClearingConfig {
   listenerPct: number;
   platformPct: number;
+  activeListenerWindowMs?: number;
 }
 
 export class ClearingEngine {
@@ -78,10 +79,22 @@ export class ClearingEngine {
   openWindow(segmentId: string, nowMs: number): SegmentRow {
     const segment = this.ledger.segments.get(segmentId);
     assert(segment, 404, `unknown segment ${segmentId}`);
+    if (
+      segment.status === "playing" &&
+      segment.windowOpenedAtMs !== undefined
+    ) {
+      return segment;
+    }
+    assert(
+      segment.status === "ready" || segment.status === "queued",
+      409,
+      `segment cannot start from ${segment.status}`,
+    );
+    assert(!segment.windowClosed, 409, "segment window is already closed");
     segment.status = "playing";
     segment.windowOpenedAtMs = nowMs;
     if (segment.requiredEvents === undefined) {
-      const listenerCount = Math.max(this.ledger.listeners.size, 1);
+      const listenerCount = Math.max(this.activeListenerCount(nowMs), 1);
       segment.requiredEvents = Math.max(
         1,
         Math.ceil(segment.thresholdFraction * listenerCount),
@@ -107,6 +120,14 @@ export class ClearingEngine {
     );
     const segment = this.ledger.segments.get(submission.segmentId);
     assert(segment, 404, `unknown segment ${submission.segmentId}`);
+    assert(
+      segment.status === "playing" && segment.windowOpenedAtMs !== undefined,
+      409,
+      "segment attention window is not open",
+    );
+    assert(!segment.windowClosed, 409, "segment attention window is closed");
+    assert(challenge.firedAtMs !== undefined, 409, "challenge has not fired");
+    session.lastSeenAtMs = Date.now();
 
     // Non-replayable: one event per listener per challenge.
     const already = [...this.ledger.attentionEvents.values()].find(
@@ -152,7 +173,7 @@ export class ClearingEngine {
         type: "attention.verified",
         segmentId: segment.id,
         verifiedCount: validCount,
-        total: Math.max(this.ledger.listeners.size, 1),
+        total: Math.max(this.activeListenerCount(), 1),
         threshold: segment.requiredEvents ?? 0,
       });
     }
@@ -197,7 +218,16 @@ export class ClearingEngine {
   closeWindow(segmentId: string): { cleared: boolean; poolId?: string } {
     const segment = this.ledger.segments.get(segmentId);
     assert(segment, 404, `unknown segment ${segmentId}`);
-    assert(!segment.windowClosed, 409, "window already closed");
+    if (segment.windowClosed) {
+      const bid = segment.bidId
+        ? this.ledger.bids.get(segment.bidId)
+        : undefined;
+      const pool = bid
+        ? [...this.ledger.rewardPools.values()].find((p) => p.bidId === bid.id)
+        : undefined;
+      return { cleared: bid?.status === "cleared", poolId: pool?.id };
+    }
+    assert(segment.status === "playing", 409, "segment is not playing");
     segment.windowClosed = true;
     segment.status = "done";
 
@@ -326,10 +356,20 @@ export class ClearingEngine {
   failSegment(segmentId: string): void {
     const segment = this.ledger.segments.get(segmentId);
     assert(segment, 404, `unknown segment ${segmentId}`);
+    if (segment.status === "failed") return;
+    assert(
+      !segment.windowClosed &&
+        (segment.status === "queued" ||
+          segment.status === "generating" ||
+          segment.status === "ready"),
+      409,
+      `segment cannot fail from ${segment.status}`,
+    );
     segment.status = "failed";
     segment.windowClosed = true;
     const bid = segment.bidId ? this.ledger.bids.get(segment.bidId) : undefined;
     if (!bid) return;
+    assert(bid.status === "won", 409, `bid cannot fail from ${bid.status}`);
     const balance = this.ledger.balances.get(bid.brandId);
     if (balance) {
       balance.reservedCents -= bid.amountCents;
@@ -360,6 +400,13 @@ export class ClearingEngine {
       if (event.result === "valid") total++;
     }
     return total;
+  }
+
+  activeListenerCount(nowMs: number = Date.now()): number {
+    return this.ledger.activeListenerCount(
+      nowMs,
+      this.config.activeListenerWindowMs ?? 120_000,
+    );
   }
 
   /** For tests/top-ups: expose usdToCents without re-importing. */

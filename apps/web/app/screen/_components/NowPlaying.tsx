@@ -230,6 +230,8 @@ function PlayingAd({
     >
       <canvas ref={bgRef} width={1920} height={1080} style={styles.adCanvas} />
 
+      {segment.assetUrl && <GeneratedMedia assetUrl={segment.assetUrl} />}
+
       {/* Spatial depth — receding previous segment ghosts. */}
       <RecedingSegments brand={brand} />
 
@@ -263,6 +265,32 @@ function PlayingAd({
         )}
       </div>
     </motion.div>
+  );
+}
+
+function GeneratedMedia({ assetUrl }: { assetUrl: string }) {
+  const cleanUrl = assetUrl.split(/[?#]/)[0].toLowerCase();
+  const isAudio = /\.(mp3|wav|m4a|aac|ogg)$/.test(cleanUrl);
+  if (isAudio) {
+    return (
+      <audio
+        src={assetUrl}
+        autoPlay
+        controls
+        preload="auto"
+        style={styles.audioMedia}
+      />
+    );
+  }
+  return (
+    <video
+      src={assetUrl}
+      autoPlay
+      controls
+      playsInline
+      preload="auto"
+      style={styles.videoMedia}
+    />
   );
 }
 
@@ -423,6 +451,22 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
     height: "100%",
     objectFit: "cover",
+  },
+  videoMedia: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    zIndex: 1,
+  },
+  audioMedia: {
+    position: "absolute",
+    left: "50%",
+    bottom: 32,
+    transform: "translateX(-50%)",
+    width: "min(520px, 82vw)",
+    zIndex: 3,
   },
   receding: {
     position: "absolute",

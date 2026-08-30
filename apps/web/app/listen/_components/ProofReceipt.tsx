@@ -79,6 +79,11 @@ export function ProofReceipt({
       {visible && (
         <motion.div
           style={styles.overlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={
+            isVerified ? "Attention verified" : "Attention not verified"
+          }
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -188,6 +193,9 @@ export function ProofReceipt({
             >
               {verifierLabel}
             </motion.div>
+            <button style={styles.closeButton} onClick={onDismiss}>
+              Close receipt
+            </button>
           </motion.div>
         </motion.div>
       )}
@@ -305,5 +313,15 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#6366f1",
     marginTop: 14,
     textShadow: "0 0 12px rgba(99,102,241,0.4)",
+  },
+  closeButton: {
+    marginTop: 8,
+    border: 0,
+    borderRadius: 999,
+    padding: "8px 14px",
+    background: "rgba(0,0,0,0.08)",
+    color: "#222",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 };

@@ -89,6 +89,7 @@ describe("remote verifier integration", () => {
     challengeId = challenge.id;
     challengeAnswer = challenge.answer;
     answeredAtSec = challenge.validFrom + 1;
+    challenge.firedAtMs = Date.now();
     clearing.openWindow(segmentId, Date.now() - answeredAtSec * 1_000);
 
     const { session } = market.createListenerSession();
@@ -105,6 +106,7 @@ describe("remote verifier integration", () => {
         clearing,
         market,
         windowGraceSec: 0,
+        orchestratorApiToken: "test-orchestrator-token",
       }),
     );
     app.use(apiErrorHandler);

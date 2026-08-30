@@ -160,6 +160,7 @@ export class MarketService {
         403,
         "listener commitment does not match this session",
       );
+      resumed.lastSeenAtMs = Date.now();
       return { session: resumed, token: resumed.token, resumed: true };
     }
     const token = newToken();
@@ -168,6 +169,7 @@ export class MarketService {
       token,
       commitment: commitment ?? token,
       joinedAt: isoNow(),
+      lastSeenAtMs: Date.now(),
       balanceCents: 0,
       todayVerifiedCents: 0,
     };

@@ -1,0 +1,17 @@
+{
+  "name": "@slopstream/asset-uploader",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "generate:types": "wrangler types ./worker-configuration.d.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "deploy:dry-run": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "typescript": "5.9.3",
+    "wrangler": "4.127.1"
+  }
+}

@@ -9,7 +9,7 @@
 - [x] Brand balance + bid
 - [x] Stripe top-up _(mock — instant credit, no real Stripe)_
 - [ ] One Daytona generation pipeline _(provider/job seams + stub generator implemented; Daytona/model providers pending)_
-- [ ] Live stream _(segment-preparation handoff implemented; live scheduler/gateway still pending)_
+- [x] Live stream _(orchestrator gateway + segment scheduler implemented and verified end-to-end against all five services)_
 - [x] Live leaderboard
 - [x] Reward pool calculation
 - [x] Demo-mode harness: fixture-driven full demo sequence with no live backend, generator, or contracts (Lane 3 owns the player; Lanes 1–2 supply canned proof/clearing data)
@@ -21,7 +21,7 @@
 - [ ] AI-generated video _(stub generator only)_
 - [x] Proof receipt
 - [x] Listener reward balance
-- [ ] The Continuum continuity _(field exists in shared types; not yet wired through generation)_
+- [ ] The Continuum continuity _(partially wired: the orchestrator passes the previous segments' summaries as `GenerationRequest.previousSummaries`; the stub generator echoes them into the next transcript)_
 - [ ] Scraped startup cold start _(cross-lane: Lane 1 writes the scraper and generates the free ads → Lane 2 backend ingests companies and serves claim pages → Lane 3 inserts segments into the stream; agree on the scraped-company payload shape in `packages/shared` before any lane starts)_
 - [ ] 3D fluid world for the big screen _(see [3D overhaul plan](./3d-overhaul-plan.md) — R3F + metaball shader + Rapier physics)_
 

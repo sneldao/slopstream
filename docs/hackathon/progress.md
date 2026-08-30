@@ -155,10 +155,11 @@ live-event bus.
   carry `verifierMode` provenance from the verification result. Verified
   live against `apps/verifier` (see cross-lane table).
 - **Lifecycle event publication + grace close** (`routes.ts`) — the segment
-  lifecycle endpoints now publish `segment.generating`, `segment.ready`,
-  `segment.playing`, and `challenge.fired` on the marketplace bus, so the
-  live flow works before Lane 3's orchestrator emits on the `runtime` topic
-  (once it does, these publications come out — one emitter per event).
+  lifecycle endpoints publish `segment.generating`, `segment.ready`,
+  `segment.playing`, and `challenge.fired` on the marketplace bus, gated by
+  `PUBLISH_LIFECYCLE_EVENTS` (default on). In live mode the flag is set to
+  `0` so Lane 3's orchestrator is the sole emitter of the runtime events —
+  exactly one emitter per `WsEvent` either way.
   `POST /segments/:id/window-closed` defers the clearing evaluation by
   `WINDOW_GRACE_SEC` so in-flight proofs still land; exactly-once is
   preserved (duplicate close → 409), and `/failed` cancels a pending close.
@@ -194,9 +195,10 @@ surfaced on receipts (old #3), `activeChallenge` checks the full
 ### Lane 2: next steps
 
 1. Add Postgres adapter (post-hackathon).
-2. Remove the lifecycle-event publication from `routes.ts` once Lane 3's
-   orchestrator emits `segment.*`/`challenge.fired` on the `runtime` topic
-   (one emitter per event).
+2. Lifecycle-event publication is now flag-gated (`PUBLISH_LIFECYCLE_EVENTS`);
+   the live stack runs with it `0` so the orchestrator is the sole runtime
+   emitter. The code path can be deleted once the orchestrator is the only
+   supported live configuration.
 
 ---
 
@@ -282,15 +284,41 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
   - `useStream.ts` — unified hook picking demo vs live via
     `NEXT_PUBLIC_STREAM_MODE`. All three surfaces call this one hook.
 - **Home page** (`/`) — links to all three surfaces with descriptions.
+- **Orchestrator** (`apps/orchestrator/`) — the live brain, implemented and
+  verified end-to-end:
+  - `Gateway` — single HTTP + WS server on :4200. Owns ONE monotonic
+    sequence space: every `WsDelivery` broadcast is stamped with the
+    gateway's own sequence, and `GET /stream/snapshot` overwrites the API's
+    `asOfSequence` with it, so `useLiveStream`'s gap detection sees exactly
+    one space. Recent deliveries (ring of 256) replay on connect so late
+    joiners miss nothing. Everything else is reverse-proxied to the API
+    (method/path/query/body, `content-type` + `authorization` forwarded,
+    CORS + OPTIONS handled locally).
+  - `MarketplaceFeed` — polls `GET /events?after=<cursor>` every 750ms and
+    re-emits API deliveries (bid.*, attention.verified, clearing, reward,
+    stats) through the gateway with their original `eventId`. A backwards
+    sequence jump (API restarted) resets the cursor and replays; clients
+    dedupe by `eventId`.
+  - `SegmentScheduler` — polls `GET /auctions/current` every 2s; for the most
+    recently closed slot it drives the full lifecycle against Lane 2:
+    `/generating` → generator call (concurrent with four
+    `generation.progress` beats) → `/ready` → `/challenge-source` →
+    `/playing` → pull-ahead `challenge.fired` loop → `/window-closed`. It is
+    the sole emitter of `segment.generating`, `generation.progress`,
+    `segment.ready`, `segment.playing`, and `challenge.fired` when the API
+    runs `PUBLISH_LIFECYCLE_EVENTS=0`. Compressed playback:
+    `SEGMENT_PLAY_SEC` (default 20) is the window timeline sent to both
+    `/ready` and `/challenge-source`. On any drive failure it calls
+    `/failed` (Lane 2 refunds + emits `bid.failed`) and survives; on restart
+    it adopts an in-flight `nowPlaying` instead of re-driving settled slots.
+  - Continuity: the scheduler keeps the last ≤2 segment summaries and passes
+    them as `GenerationRequest.previousSummaries`.
+  - 8 passing Vitest tests: cursor logic, a full fake-Lane-2 + fake-generator
+    end-to-end drive through one gateway sequence space, the dead-generator
+    failure path, and proxy/auth forwarding.
 
 ### Lane 3: stubbed / not yet implemented
 
-- **Orchestrator** (`apps/orchestrator/`) — queue-of-one placeholder. No
-  HTTP/WS server, no Redis, no auction polling, no generator calls, no event
-  emission, no scheduling, no challenge timing.
-- **WebSocket gateway** — `useLiveStream` is ready to consume it, but no
-  gateway server exists yet. The live hook short-circuits when no API URL is
-  configured.
 - **Real audio** — the visualizer uses simulated amplitude; no `AnalyserNode`
   wired to a real audio stream.
 - **Live bid placement** — in live hackathon mode the brand console reads the
@@ -322,12 +350,16 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
    generation pipeline (Phase 9). See
    [3D overhaul plan](./3d-overhaul-plan.md) for the status table and
    Phase 3 implementation notes.
-2. Wire the orchestrator: HTTP/WS gateway, Redis subscription, auction
-   polling, generator calls, segment scheduling, event emission on the
-   `runtime` topic.
+2. ~~Wire the orchestrator~~ — done (gateway + feed + scheduler, see
+   implemented). Follow-ups: Redis subscription as an optional fast path
+   (polling stays as the correctness layer), and durable state if more than
+   one orchestrator instance is ever needed.
 3. Swap the visualizer's simulated amplitude for a real `AnalyserNode`.
-4. Integration test: set `NEXT_PUBLIC_STREAM_MODE=live` and verify all three
-   surfaces consume the real API + WebSocket feed.
+4. ~~Integration test: `NEXT_PUBLIC_STREAM_MODE=live`~~ — verified live:
+   with all five services running, the full loop (bid → auction close →
+   generation → playback → challenge answer → remote verification →
+   threshold clear → `bid.cleared` + 80/20 reward) runs through the gateway
+   with zero UI changes.
 5. Wire the real generation pipeline (TTS, image gen, video gen) after the 3D
    world is stable. API keys provided by the user when ready.
 
@@ -340,15 +372,28 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 | Shared types (`packages/shared`) | Frozen — all three lanes code against it                                                                                             |
 | Demo fixture → UI                | Working (Lane 3 owns player + fixture)                                                                                               |
 | Lane 2 API → Lane 1 verifier     | Working — authenticated remote handoff is covered by a real API-route → verifier HTTP integration test                               |
-| Lane 2 API → UI (live mode)      | Ready in UI (`useLiveStream`); gateway runtime is owned by Lane 3                                                                    |
-| Orchestrator → generator         | `SegmentPreparationService` is implemented; scheduler invocation remains Lane 3 work                                                 |
-| Orchestrator → Lane 2 auction    | Preparation accepts the canonical winner; auction polling/scheduling remains Lane 3 work                                             |
-| Orchestrator → WebSocket gateway | Not wired                                                                                                                            |
+| Lane 2 API → UI (live mode)      | Working — all three surfaces consume the API through the gateway's reverse proxy + WS feed                                           |
+| Orchestrator → generator         | Working — scheduler calls `POST /v1/generations` directly; generation failure → `/failed` → `bid.failed` + refund                    |
+| Orchestrator → Lane 2 auction    | Working — polls `GET /auctions/current` + `GET /auctions/:slot`, drives the full lifecycle                                           |
+| Orchestrator → WebSocket gateway | Working — same process; sole emitter of the five runtime event types when the API runs `PUBLISH_LIFECYCLE_EVENTS=0`                  |
 | Proof receipt end-to-end         | Working in live mode (server-issued stub attestation, `verifierMode` provenance on receipts); Midnight mode pending Lane 1 contracts |
 
 ## What demos today
 
-The demo-mode harness drives all three surfaces end-to-end with no backend:
+Two full paths, sharing the exact same UI code:
+
+- **Live mode (the P0 slice)** — with verifier (:4100), generator (:4300),
+  API (:4000, `PROOF_VERIFIER_MODE=remote`, `PUBLISH_LIFECYCLE_EVENTS=0`),
+  orchestrator (:4200), and web (:3000, `NEXT_PUBLIC_STREAM_MODE=live`)
+  running, the real loop plays: a brand bids from `/brand`, the auction
+  closes, the orchestrator generates through the stub generator, the ad
+  plays on `/screen` with brand tint, a listener on `/listen` answers a real
+  challenge, the proof verifies through `apps/verifier`, the attention
+  threshold clears the bid with the 80/20 reward split, and the next auction
+  opens. Kill the generator mid-flight and the bid fails gracefully with a
+  refund.
+- **Demo mode (the insurance policy)** — the demo-mode harness drives all
+  three surfaces end-to-end with no backend:
 
 - Big screen plays the 8-scene fixture with all signature visuals (2D
   version — audio-reactive ambient canvas, soft-body blob leaderboard, liquid

@@ -9,6 +9,7 @@ import {
   type Request,
   type Response,
 } from "express";
+import { timingSafeEqual } from "node:crypto";
 import type {
   AttentionProofSubmission,
   Bid,
@@ -36,6 +37,14 @@ export interface ApiDeps {
   market: MarketService;
   /** Grace after playback end before the clearing evaluation runs. */
   windowGraceSec: number;
+  /** Shared bearer credential for orchestrator-only lifecycle commands. */
+  orchestratorApiToken: string;
+  /**
+   * Publish segment.* / challenge.fired from the lifecycle endpoints.
+   * Defaults to true; set false when the Lane 3 orchestrator emits those
+   * events itself — exactly one emitter per WsEvent.
+   */
+  publishLifecycleEvents?: boolean;
 }
 
 type Handler = (req: Request, res: Response) => void | Promise<void>;
@@ -69,6 +78,22 @@ function bearerToken(req: Request): string | undefined {
   return match ? match[1].trim() : undefined;
 }
 
+function tokensEqual(received: string, expected: string): boolean {
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function requireOrchestrator(expectedToken: string, req: Request): void {
+  const token = bearerToken(req);
+  assert(token, 401, "missing orchestrator bearer token");
+  assert(
+    tokensEqual(token, expectedToken),
+    403,
+    "invalid orchestrator bearer token",
+  );
+}
+
 function requireBrand(ledger: Ledger, req: Request): BrandRow {
   const token = bearerToken(req);
   assert(token, 401, "missing bearer token");
@@ -82,6 +107,7 @@ function requireListener(ledger: Ledger, req: Request): ListenerSessionRow {
   assert(token, 401, "missing bearer token");
   const session = ledger.listenerByToken(token);
   assert(session, 403, "unknown listener token");
+  session.lastSeenAtMs = Date.now();
   return session;
 }
 
@@ -98,7 +124,16 @@ function toSharedBid(bid: BidRow): Bid {
 }
 
 export function createRouter(deps: ApiDeps): Router {
-  const { ledger, bus, auction, clearing, market, windowGraceSec } = deps;
+  const {
+    ledger,
+    bus,
+    auction,
+    clearing,
+    market,
+    windowGraceSec,
+    orchestratorApiToken,
+  } = deps;
+  const publishLifecycleEvents = deps.publishLifecycleEvents ?? true;
   const router = Router();
   // Deferred grace-period closes, keyed by segmentId, so /failed can cancel.
   const pendingCloses = new Map<string, NodeJS.Timeout>();
@@ -250,10 +285,10 @@ export function createRouter(deps: ApiDeps): Router {
   );
 
   // --------------------------- orchestrator-facing segment lifecycle (Lane 3)
-  // These endpoints persist state AND publish the corresponding runtime events
-  // so the live flow works before Lane 3's orchestrator exists. Once the
-  // orchestrator emits segment.*/challenge.fired on the runtime topic itself,
-  // the publications here must come out — exactly one emitter per WsEvent.
+  // These endpoints persist state AND (with publishLifecycleEvents on) publish
+  // the corresponding runtime events so the live flow works before Lane 3's
+  // orchestrator exists. With the flag off the orchestrator emits
+  // segment.*/challenge.fired itself — exactly one emitter per WsEvent.
   function requireSegment(req: Request) {
     const segmentId = String(req.params.segmentId);
     const segment = ledger.segments.get(segmentId);
@@ -264,18 +299,27 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/segments/:segmentId/generating",
     wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
+      assert(
+        segment.status === "queued" || segment.status === "generating",
+        409,
+        `segment cannot generate from ${segment.status}`,
+      );
+      const changed = segment.status !== "generating";
       segment.status = "generating";
       const tier: ProductionTier =
         (segment.bidId ? ledger.bids.get(segment.bidId)?.tier : undefined) ??
         "audio";
-      bus.publish({
-        type: "segment.generating",
-        segmentId: segment.id,
-        slot: segment.slot,
-        tier,
-        brandId: segment.brandId ?? "",
-      });
+      if (publishLifecycleEvents && changed) {
+        bus.publish({
+          type: "segment.generating",
+          segmentId: segment.id,
+          slot: segment.slot,
+          tier,
+          brandId: segment.brandId ?? "",
+        });
+      }
       res.json({ segmentId: segment.id, status: segment.status });
     }),
   );
@@ -283,6 +327,7 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/segments/:segmentId/ready",
     wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
       const body = req.body as {
         assetUrl?: string;
@@ -294,18 +339,39 @@ export function createRouter(deps: ApiDeps): Router {
         400,
         "assetUrl is required",
       );
+      if (segment.status === "ready") {
+        assert(
+          segment.mediaUrl === body.assetUrl &&
+            (body.summary === undefined || segment.summary === body.summary),
+          409,
+          "conflicting ready retry",
+        );
+        res.json({
+          segmentId: segment.id,
+          status: segment.status,
+          assetUrl: segment.mediaUrl,
+        });
+        return;
+      }
+      assert(
+        segment.status === "generating",
+        409,
+        `segment cannot become ready from ${segment.status}`,
+      );
       segment.mediaUrl = body.assetUrl;
       if (typeof body.durationSec === "number" && body.durationSec > 0) {
         segment.durationSec = Math.round(body.durationSec);
       }
       if (typeof body.summary === "string") segment.summary = body.summary;
       segment.status = "ready";
-      bus.publish({
-        type: "segment.ready",
-        segmentId: segment.id,
-        assetUrl: segment.mediaUrl!,
-        durationSec: segment.durationSec,
-      });
+      if (publishLifecycleEvents) {
+        bus.publish({
+          type: "segment.ready",
+          segmentId: segment.id,
+          assetUrl: segment.mediaUrl!,
+          durationSec: segment.durationSec,
+        });
+      }
       res.json({
         segmentId: segment.id,
         status: segment.status,
@@ -317,13 +383,30 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/segments/:segmentId/challenge-source",
     wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
+      assert(
+        segment.status === "ready",
+        409,
+        `challenge source cannot be added from ${segment.status}`,
+      );
       const body = req.body as Omit<ChallengeSourceCommand, "segmentId">;
       assert(
         typeof body?.transcript === "string" && body.transcript.length > 0,
         400,
         "transcript is required",
       );
+      const existing = ledger.challengesForSegment(segment.id);
+      if (existing.length > 0) {
+        res
+          .status(200)
+          .json({
+            segmentId: segment.id,
+            generated: existing.length,
+            replayed: true,
+          });
+        return;
+      }
       assert(
         typeof body?.durationSec === "number" && body.durationSec > 0,
         400,
@@ -346,12 +429,16 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/segments/:segmentId/challenges/next",
     wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
+      assert(segment.status === "playing", 409, "segment is not playing");
       const challenge = nextUnfired(ledger, segment.id);
       assert(challenge, 404, "no unfired challenges remain for this segment");
       challenge.firedAtMs = Date.now();
       const publicChallenge = toPublic(challenge);
-      bus.publish({ type: "challenge.fired", challenge: publicChallenge });
+      if (publishLifecycleEvents) {
+        bus.publish({ type: "challenge.fired", challenge: publicChallenge });
+      }
       res.json({ challenge: publicChallenge });
     }),
   );
@@ -360,15 +447,18 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/segments/:segmentId/playing",
     wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
       const opened = clearing.openWindow(segment.id, Date.now());
       const startedAt = new Date(opened.windowOpenedAtMs!).toISOString();
-      bus.publish({
-        type: "segment.playing",
-        segmentId: opened.id,
-        brandId: segment.brandId ?? "",
-        startedAt,
-      });
+      if (publishLifecycleEvents) {
+        bus.publish({
+          type: "segment.playing",
+          segmentId: opened.id,
+          brandId: segment.brandId ?? "",
+          startedAt,
+        });
+      }
       res.json({
         segmentId: opened.id,
         startedAt,
@@ -383,13 +473,27 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/segments/:segmentId/window-closed",
     wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
-      assert(!segment.windowClosed, 409, "window already closed");
-      assert(
-        segment.windowClosingAtMs === undefined,
-        409,
-        "window close already scheduled",
-      );
+      if (segment.windowClosed) {
+        res.json({
+          segmentId: segment.id,
+          ...clearing.closeWindow(segment.id),
+        });
+        return;
+      }
+      if (segment.windowClosingAtMs !== undefined) {
+        res.json({
+          segmentId: segment.id,
+          closing: true,
+          graceSec: Math.max(
+            (segment.windowClosingAtMs - Date.now()) / 1000,
+            0,
+          ),
+          replayed: true,
+        });
+        return;
+      }
       if (windowGraceSec <= 0) {
         res.json({
           segmentId: segment.id,
@@ -416,6 +520,7 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/segments/:segmentId/failed",
     wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
       const pending = pendingCloses.get(segment.id);
       if (pending) {
@@ -455,6 +560,7 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/auctions/current/close",
     wrap((_req, res) => {
+      requireOrchestrator(orchestratorApiToken, _req);
       const open = auction.openAuction();
       assert(open, 409, "no open auction");
       const winner = auction.closeAuction(open.slot);

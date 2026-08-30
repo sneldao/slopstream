@@ -6,15 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@react-three/drei": "10.7.8",
     "@react-three/fiber": "9.7.0",
     "@react-three/postprocessing": "3.1.1",
     "@react-three/rapier": "2.2.0",
     "@slopstream/shared": "workspace:*",
     "framer-motion": "^11.15.0",
     "next": "^15.5.4",
+    "qrcode.react": "4.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "three": "0.185.1"
@@ -24,6 +27,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@types/three": "0.185.4",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "3.2.7"
   }
 }

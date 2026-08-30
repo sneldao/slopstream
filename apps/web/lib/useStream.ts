@@ -46,7 +46,7 @@ export function useStream(): UseStreamResult {
   // state. The unused hook's timers are harmless in demo mode; in live mode
   // the demo player runs but its state is ignored.
   const demo = useDemoPlayer(DEMO_FIXTURE);
-  const live = useLiveStream();
+  const live = useLiveStream(mode === "live");
 
   const state = mode === "live" ? live : demo.state;
   return { state, mode, demo };

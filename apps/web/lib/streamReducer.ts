@@ -45,6 +45,10 @@ export interface GenerationState {
   doneStages: GenerationStage[];
   /** All stages complete; asset ready, waiting to play. */
   ready: boolean;
+  /** Asset URL from `segment.ready` — carried into the playing segment. */
+  assetUrl?: string;
+  /** Duration from `segment.ready` — carried into the playing segment. */
+  durationSeconds?: number;
 }
 
 export interface ClearBurst {
@@ -82,6 +86,9 @@ export interface StreamState {
   activeChallenge?: PublicChallenge;
   attention?: AttentionState;
   generation?: GenerationState;
+  /** Tier of the currently-playing segment (carried from generation). The
+   *  3D AdSurface uses this to pick orb vs image plane vs video plane. */
+  playingTier?: ProductionTier;
   /** Most recent clear; UI animates a burst when `burstId` changes. */
   lastClear?: ClearBurst;
   /** Most recent outbid; UI flashes when `flashId` changes. */
@@ -127,6 +134,14 @@ export function reduceStreamEvent(
   if (sequence !== undefined) next = { ...next, asOfSequence: sequence };
 
   switch (event.type) {
+    case "auction.opened":
+      return {
+        ...next,
+        currentAuction: { slot: event.slot, closesAt: event.closesAt },
+        nextSlotPriceUsd: event.nextSlotPriceUsd,
+        leaderboard: [],
+      };
+
     case "bid.placed":
       // Leaderboard is updated separately via `leaderboard.updated`; nothing
       // to project here.
@@ -188,6 +203,8 @@ export function reduceStreamEvent(
           ...prev.generation,
           ready: true,
           doneStages: ALL_STAGES.slice(),
+          assetUrl: event.assetUrl,
+          durationSeconds: event.durationSec,
         },
       };
     }
@@ -201,14 +218,18 @@ export function reduceStreamEvent(
               id: event.segmentId,
               slot: gen?.slot ?? 0,
               brandId: event.brandId,
-              durationSeconds: 0,
+              durationSeconds: gen?.durationSeconds ?? 0,
               summary: "",
               status: "playing",
+              ...(gen?.assetUrl ? { assetUrl: gen.assetUrl } : {}),
             };
       return {
         ...next,
         nowPlaying: segment,
         nowPlayingStartedAt: event.startedAt,
+        // Carry the tier from generation into playback so the 3D AdSurface
+        // knows whether to render an orb, image plane, or video plane.
+        playingTier: gen?.tier,
         // Clear generation once playing; keep threshold from snapshot if present.
         generation: undefined,
         attention: prev.nowPlayingAttentionThreshold
@@ -246,11 +267,37 @@ export function reduceStreamEvent(
           platformRevenueUsd: event.platformRevenueUsd,
           burstId: (prev.lastClear?.burstId ?? 0) + 1,
         },
+        nowPlaying:
+          prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
+        playingTier: undefined,
+        activeChallenge: undefined,
+        attention: undefined,
       };
 
     case "bid.uncleared":
       // Threshold missed; nothing to project beyond clearing the attention state.
-      return { ...next, attention: undefined, activeChallenge: undefined };
+      return {
+        ...next,
+        nowPlaying:
+          prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
+        playingTier: undefined,
+        attention: undefined,
+        activeChallenge: undefined,
+      };
+
+    case "bid.failed":
+      return {
+        ...next,
+        generation:
+          prev.generation?.segmentId === event.segmentId
+            ? undefined
+            : prev.generation,
+        nowPlaying:
+          prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
+        playingTier: undefined,
+        attention: undefined,
+        activeChallenge: undefined,
+      };
 
     case "reward.pool.updated":
       // Pool distribution is surfaced via stats.updated; nothing extra here.

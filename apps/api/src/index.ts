@@ -27,6 +27,7 @@ const verifier = createVerifier(
 const clearing = new ClearingEngine(ledger, bus, verifier, {
   listenerPct: env.defaultListenerPct,
   platformPct: env.defaultPlatformPct,
+  activeListenerWindowMs: env.activeListenerWindowSec * 1000,
 });
 const auction = new AuctionEngine(ledger, bus, {
   auctionDurationSec: env.auctionDurationSec,
@@ -81,7 +82,7 @@ auction.ensureOpenAuction();
 const statsTimer = setInterval(() => {
   bus.publish({
     type: "stats.updated",
-    listeners: ledger.listeners.size,
+    listeners: clearing.activeListenerCount(),
     attentionProofs: clearing.totalAttentionProofs(),
     listenerRewardsUsd: centsToUsd(clearing.totalListenerRewardsCents()),
   });
@@ -109,6 +110,7 @@ app.use(
     clearing,
     market,
     windowGraceSec: env.windowGraceSec,
+    orchestratorApiToken: env.orchestratorApiToken,
     publishLifecycleEvents: env.publishLifecycleEvents,
   }),
 );

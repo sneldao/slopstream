@@ -8,9 +8,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "generate:audio": "node dist/audioCommand.js"
   },
   "dependencies": {
+    "@daytona/sdk": "0.205.0",
+    "@elevenlabs/elevenlabs-js": "2.65.0",
     "@slopstream/shared": "workspace:*"
   },
   "devDependencies": {

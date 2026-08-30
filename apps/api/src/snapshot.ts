@@ -59,7 +59,7 @@ export function composeSnapshot(
     currentAuction: open
       ? { slot: open.slot, closesAt: new Date(open.closesAtMs).toISOString() }
       : undefined,
-    listeners: ledger.listeners.size,
+    listeners: clearing.activeListenerCount(nowMs),
     attentionProofs: clearing.totalAttentionProofs(),
     listenerRewardsUsd: centsToUsd(clearing.totalListenerRewardsCents()),
     activeChallenge: activeChallenge(ledger, nowMs),

@@ -5,10 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 /**
  * The shared audio signal — the heartbeat of the living canvas.
  *
- * In live mode: connects a Web Audio `AnalyserNode` to the stream's audio
- * element and returns real frequency-amplitude data.
- *
- * In demo mode (no audio element): synthesizes an organic amplitude signal
+ * Until a shared media element is connected, synthesizes an organic amplitude signal
  * from a mix of sine waves + noise, modulated by whether a segment is
  * "playing." This gives every visual surface a real signal to react to
  * without needing actual audio.

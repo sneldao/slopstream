@@ -72,20 +72,31 @@ function gradeAnswer(
     Number.isFinite(payload.answeredAtSec)
       ? payload.answeredAtSec
       : undefined;
+  if (normalize(payload.answer) !== normalize(challenge.answer)) {
+    return { verified: false, answeredAtSec, reason: "incorrect answer" };
+  }
+  return { verified: true, answeredAtSec };
+}
+
+function serverAnswerTime(
+  context: AttentionProofVerificationContext,
+  challenge: ChallengeRow,
+): Grading {
+  const startedAtMs = Date.parse(context.segmentStartedAt);
+  const submittedAtMs = Date.parse(context.submittedAt);
+  if (!Number.isFinite(startedAtMs) || !Number.isFinite(submittedAtMs)) {
+    return { verified: false, reason: "invalid verification timestamps" };
+  }
+  const answeredAtSec = (submittedAtMs - startedAtMs) / 1_000;
   if (
-    answeredAtSec !== undefined &&
-    (answeredAtSec < challenge.validFrom ||
-      answeredAtSec > challenge.validUntil)
+    answeredAtSec < challenge.validFrom ||
+    answeredAtSec > challenge.validUntil
   ) {
     return {
       verified: false,
       answeredAtSec,
       reason: "answer outside validity window",
     };
-  }
-
-  if (normalize(payload.answer) !== normalize(challenge.answer)) {
-    return { verified: false, answeredAtSec, reason: "incorrect answer" };
   }
   return { verified: true, answeredAtSec };
 }
@@ -94,7 +105,7 @@ export class StubProofVerifier implements ProofVerifier {
   async verify(
     submission: AttentionProofSubmission,
     challenge: ChallengeRow,
-    _context: AttentionProofVerificationContext,
+    context: AttentionProofVerificationContext,
   ): Promise<VerificationOutcome> {
     const grading = gradeAnswer(submission, challenge);
     if (!grading.verified) {
@@ -105,10 +116,19 @@ export class StubProofVerifier implements ProofVerifier {
         verifierMode: "stub",
       };
     }
+    const timing = serverAnswerTime(context, challenge);
+    if (!timing.verified) {
+      return {
+        verified: false,
+        reason: timing.reason,
+        answeredAtSec: timing.answeredAtSec,
+        verifierMode: "stub",
+      };
+    }
     return {
       verified: true,
       proofId: newId("proof"),
-      answeredAtSec: grading.answeredAtSec,
+      answeredAtSec: timing.answeredAtSec,
       verifierMode: "stub",
     };
   }
@@ -170,12 +190,16 @@ export class RemoteProofVerifier implements ProofVerifier {
         verifierMode: "stub",
       };
     }
+    const timing = serverAnswerTime(context, challenge);
+    if (!timing.verified) {
+      return {
+        verified: false,
+        reason: timing.reason,
+        answeredAtSec: timing.answeredAtSec,
+        verifierMode: "stub",
+      };
+    }
 
-    const startedMs = Date.parse(context.segmentStartedAt);
-    const issuedAt =
-      grading.answeredAtSec !== undefined && Number.isFinite(startedMs)
-        ? new Date(startedMs + grading.answeredAtSec * 1_000).toISOString()
-        : context.submittedAt;
     const request: AttentionProofVerificationRequest = {
       submission: {
         ...submission,
@@ -184,7 +208,7 @@ export class RemoteProofVerifier implements ProofVerifier {
           segmentId: submission.segmentId,
           challengeId: submission.challengeId,
           nonce: randomUUID(),
-          issuedAt,
+          issuedAt: context.submittedAt,
         }),
       },
       context: {
@@ -221,7 +245,7 @@ export class RemoteProofVerifier implements ProofVerifier {
         verified: result.verified,
         proofId: result.proofId,
         reason: result.failure,
-        answeredAtSec: grading.answeredAtSec,
+        answeredAtSec: timing.answeredAtSec,
         verifierMode: result.verifierMode,
       };
     } catch {

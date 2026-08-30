@@ -7,6 +7,7 @@
   "scripts": {
     "prepare": "husky",
     "build": "pnpm -r build",
+    "test": "pnpm -r test",
     "typecheck": "pnpm --filter @slopstream/shared build && pnpm -r typecheck",
     "dev:web": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/web dev",
     "dev:api": "pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/api dev",

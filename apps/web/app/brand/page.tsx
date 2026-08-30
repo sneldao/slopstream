@@ -81,17 +81,25 @@ export default function BrandPage() {
   const winningAmount = winningBid?.amountUsd ?? 0;
   const iAmWinning = winningBid?.brandId === brandId;
 
+  const audience = Math.max(state.listeners, 1);
   const threshold =
-    state.nowPlayingAttentionThreshold ?? Math.ceil(state.listeners * 0.6);
+    state.nowPlayingAttentionThreshold ?? Math.ceil(audience * 0.6);
   const cpva = threshold > 0 ? bidAmount / threshold : 0;
 
-  const [slotSeconds, setSlotSeconds] = useState(23);
+  const [slotSeconds, setSlotSeconds] = useState(0);
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSlotSeconds((s) => (s <= 1 ? 30 : s - 1));
-    }, 1000);
+    const update = () => {
+      const closesAt = state.currentAuction?.closesAt;
+      setSlotSeconds(
+        closesAt
+          ? Math.max(Math.ceil((Date.parse(closesAt) - Date.now()) / 1000), 0)
+          : 0,
+      );
+    };
+    update();
+    const interval = setInterval(update, 250);
     return () => clearInterval(interval);
-  }, []);
+  }, [state.currentAuction?.closesAt]);
 
   const handlePlaceBid = async () => {
     if (bidAmount > balance || bidSubmitting) return;
@@ -130,6 +138,8 @@ export default function BrandPage() {
           {outbidAlert && (
             <motion.div
               key="outbid"
+              role="status"
+              aria-live="assertive"
               style={styles.outbidBanner}
               initial={{ y: -60, opacity: 0, scale: 0.9 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -177,7 +187,10 @@ export default function BrandPage() {
             label="CURRENT LISTENERS"
             value={state.listeners.toLocaleString()}
           />
-          <Stat label="CURRENT SLOT" value="#1" />
+          <Stat
+            label="CURRENT SLOT"
+            value={state.currentAuction ? `#${state.currentAuction.slot}` : "—"}
+          />
         </div>
 
         {/* Bid section — the pressure station */}
@@ -191,10 +204,13 @@ export default function BrandPage() {
           transition={{ delay: 0.2 }}
         >
           <div style={styles.bidRow}>
-            <span style={styles.bidLabel}>YOUR BID</span>
+            <label style={styles.bidLabel} htmlFor="brand-bid-amount">
+              YOUR BID
+            </label>
             <div style={styles.bidInputWrap}>
               <span style={styles.dollar}>$</span>
               <input
+                id="brand-bid-amount"
                 type="number"
                 value={bidAmount}
                 onChange={(e) => setBidAmount(Number(e.target.value))}
@@ -227,7 +243,7 @@ export default function BrandPage() {
             </span>
             <span style={styles.cpvaSub}>
               (at {state.listeners.toLocaleString()} listeners,{" "}
-              {Math.round((threshold / state.listeners) * 100)}% threshold)
+              {Math.round((threshold / audience) * 100)}% threshold)
             </span>
           </div>
 
@@ -271,7 +287,11 @@ export default function BrandPage() {
                 : `INCREASE TO $${bidAmount}`}
           </motion.button>
 
-          {bidError && <div style={styles.bidError}>{bidError}</div>}
+          {bidError && (
+            <div role="alert" style={styles.bidError}>
+              {bidError}
+            </div>
+          )}
 
           <AnimatePresence>
             {bidPlaced && (

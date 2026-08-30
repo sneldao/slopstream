@@ -89,6 +89,8 @@ export interface ListenerSessionRow {
   /** Browser-generated commitment bound once when the session is created. */
   commitment: string;
   joinedAt: string;
+  /** Last authenticated activity; used for the live audience denominator. */
+  lastSeenAtMs: number;
   balanceCents: number;
   todayVerifiedCents: number;
 }
@@ -192,5 +194,14 @@ export class Ledger {
     return [...this.challenges.values()].filter(
       (c) => c.segmentId === segmentId,
     );
+  }
+
+  activeListenerCount(nowMs: number, activeWindowMs: number): number {
+    const cutoff = nowMs - activeWindowMs;
+    let count = 0;
+    for (const listener of this.listeners.values()) {
+      if (listener.lastSeenAtMs >= cutoff) count++;
+    }
+    return count;
   }
 }

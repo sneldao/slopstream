@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useSoundDesign } from "@/lib/useSoundDesign";
@@ -24,6 +25,8 @@ export default function ScreenPage() {
   const { state, demo } = useStream();
   const { signalRef } = useAudioSignal(!!state.nowPlaying);
   const { play } = useSoundDesign();
+  const listenerUrl =
+    process.env.NEXT_PUBLIC_LISTENER_URL ?? "http://localhost:3000/listen";
 
   // Active brand drives the now-playing surface.
   const activeBrandId =
@@ -179,6 +182,26 @@ export default function ScreenPage() {
         </div>
       </motion.div>
 
+      <aside
+        style={styles.joinPanel}
+        aria-label="Join Slopstream as a listener"
+      >
+        <div style={styles.qrFrame}>
+          <QRCodeSVG
+            value={listenerUrl}
+            size={92}
+            bgColor="#ffffff"
+            fgColor="#0b0b1a"
+            level="M"
+            title="Listener join QR code"
+          />
+        </div>
+        <div>
+          <div style={styles.joinTitle}>SCAN TO JOIN</div>
+          <div style={styles.joinCopy}>Prove attention. Earn rewards.</div>
+        </div>
+      </aside>
+
       {/* Floating attention threshold — bottom-left, over the canvas. */}
       {state.attention && (
         <motion.div
@@ -298,5 +321,38 @@ const styles: Record<string, React.CSSProperties> = {
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: 10,
+  },
+  joinPanel: {
+    position: "fixed",
+    right: "clamp(16px, 3vw, 40px)",
+    bottom: "clamp(16px, 3vw, 32px)",
+    zIndex: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: 10,
+    borderRadius: 14,
+    background: "rgba(5,5,15,0.72)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid rgba(255,255,255,0.14)",
+  },
+  qrFrame: {
+    display: "flex",
+    padding: 6,
+    borderRadius: 8,
+    background: "#fff",
+  },
+  joinTitle: {
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: 2,
+    color: "#fff",
+  },
+  joinCopy: {
+    marginTop: 5,
+    maxWidth: 130,
+    fontSize: 12,
+    lineHeight: 1.35,
+    color: "var(--platform-text-dim)",
   },
 };

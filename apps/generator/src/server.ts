@@ -4,6 +4,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 
 import type {
   GenerationRequest,
@@ -11,7 +12,11 @@ import type {
   ProductionTier,
 } from "@slopstream/shared";
 
-import { createGenerationService } from "./generator.js";
+import {
+  createGenerationService,
+  type GenerationProvider,
+} from "./generator.js";
+import type { GeneratorMode } from "./daytonaProvider.js";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 const PRODUCTION_TIERS = new Set<ProductionTier>([
@@ -23,7 +28,11 @@ const PRODUCTION_TIERS = new Set<ProductionTier>([
 
 type UnknownRecord = Record<string, unknown>;
 type ErrorResponse = { error: "invalid_request" | "segment_conflict" };
-type HealthResponse = { ok: true; service: string; generatorMode: "stub" };
+type HealthResponse = {
+  ok: true;
+  service: string;
+  generatorMode: GeneratorMode;
+};
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -95,9 +104,33 @@ function sendJson(
   response.end(JSON.stringify(body));
 }
 
-/** Creates an isolated stub generation HTTP server for Lane 3 integration. */
-export function createGeneratorServer(): Server {
-  const generator = createGenerationService();
+export interface GeneratorServerOptions {
+  provider?: GenerationProvider;
+  generatorMode?: GeneratorMode;
+  /** Optional bearer required for generation calls; health remains public. */
+  apiToken?: string;
+}
+
+function hasValidBearer(
+  request: IncomingMessage,
+  expectedToken: string,
+): boolean {
+  const match = /^Bearer\s+(.+)$/i.exec(request.headers.authorization ?? "");
+  if (!match) return false;
+  const received = Buffer.from(match[1]);
+  const expected = Buffer.from(expectedToken);
+  return (
+    received.length === expected.length && timingSafeEqual(received, expected)
+  );
+}
+
+/** Creates an isolated generator HTTP server for Lane 3 integration. */
+export function createGeneratorServer({
+  provider,
+  generatorMode = "stub",
+  apiToken,
+}: GeneratorServerOptions = {}): Server {
+  const generator = createGenerationService(provider);
 
   return createServer((request, response) => {
     void (async () => {
@@ -105,12 +138,16 @@ export function createGeneratorServer(): Server {
         sendJson(response, 200, {
           ok: true,
           service: "slopstream-generator",
-          generatorMode: "stub",
+          generatorMode,
         });
         return;
       }
 
       if (request.method === "POST" && request.url === "/v1/generations") {
+        if (apiToken && !hasValidBearer(request, apiToken)) {
+          sendJson(response, 401, { error: "invalid_request" });
+          return;
+        }
         try {
           const generationRequest = parseGenerationRequest(
             await readJson(request),

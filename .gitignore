@@ -2,6 +2,8 @@ node_modules/
 .DS_Store
 .env
 .env.*
+.dev.vars
+.dev.vars.*
 # Committed templates — keep these tracked despite the .env.* rule above.
 !.env.example
 !**/.env.example

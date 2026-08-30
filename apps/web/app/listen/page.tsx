@@ -54,6 +54,33 @@ export default function ListenPage() {
       .catch((error: unknown) => setSubmissionError(errorMessage(error)));
   }, [mode]);
 
+  useEffect(() => {
+    if (mode !== "live" || !listenerIdentity) return;
+    const refresh = () => {
+      void requestJson<{ session: ListenerSession }>(
+        "/listener-sessions/me",
+        { method: "GET" },
+        listenerIdentity.token,
+      )
+        .then(({ session }) => {
+          setBalance(session.availableBalanceUsd);
+          setTodayVerified(session.todayVerifiedUsd);
+        })
+        .catch(() => {
+          // A transient heartbeat failure must not interrupt the challenge UI.
+        });
+    };
+    const interval = setInterval(refresh, 30_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [listenerIdentity, mode]);
+
   const activeBrandId =
     state.nowPlaying?.brandId ?? state.generation?.brandId ?? null;
   const activeBrand: BrandSummary | undefined = activeBrandId
@@ -259,7 +286,9 @@ export default function ListenPage() {
               </AnimatePresence>
 
               {submissionError && (
-                <div style={styles.submissionError}>{submissionError}</div>
+                <div role="alert" style={styles.submissionError}>
+                  {submissionError}
+                </div>
               )}
 
               {/* Today's verified — drifting at the bottom */}

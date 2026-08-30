@@ -8,17 +8,26 @@ import { StubProofVerifier } from "./verifier.js";
 
 const CONFIG = { listenerPct: 0.8, platformPct: 0.2 };
 
+function openDuring(
+  clearing: ClearingEngine,
+  segmentId: string,
+  atSec: number,
+): void {
+  clearing.openWindow(segmentId, Date.now() - atSec * 1_000);
+}
+
 /** Run one auction to a won segment with challenges seeded from a transcript. */
 function wonSegment(h: Harness, bidUsd: number) {
   const brand = fundedBrand(h, "A", 100);
   h.auction.placeBid(brand, bidUsd);
   const winner = h.auction.closeAuction(1);
   const segment = h.ledger.segments.get(winner!.segmentId!)!;
-  generateChallenges(h.ledger, {
+  const challenges = generateChallenges(h.ledger, {
     segmentId: segment.id,
     durationSec: 30,
     transcript: "Zephyr Quantum delivers blazing fast Pipelines",
   });
+  for (const challenge of challenges) challenge.firedAtMs = Date.now();
   return { brand, segment, winner: winner! };
 }
 
@@ -38,6 +47,29 @@ function proofFor(
 }
 
 describe("attention window and clearing", () => {
+  it("freezes the threshold from recently active listeners only", () => {
+    const h = setupHarness({ thresholdFraction: 0.75 });
+    const clearing = new ClearingEngine(
+      h.ledger,
+      h.bus,
+      new StubProofVerifier(),
+      { ...CONFIG, activeListenerWindowMs: 60_000 },
+    );
+    const { segment } = wonSegment(h, 10);
+    const now = 2_000_000_000;
+    const activeA = h.market.createListenerSession().session;
+    const activeB = h.market.createListenerSession().session;
+    const stale = h.market.createListenerSession().session;
+    activeA.lastSeenAtMs = now;
+    activeB.lastSeenAtMs = now - 30_000;
+    stale.lastSeenAtMs = now - 60_001;
+
+    clearing.openWindow(segment.id, now);
+
+    expect(segment.requiredEvents).toBe(2);
+    expect(clearing.activeListenerCount(now)).toBe(2);
+  });
+
   it("freezes required_events at window open and clears on threshold", async () => {
     const h = setupHarness();
     const clearing = new ClearingEngine(
@@ -50,17 +82,17 @@ describe("attention window and clearing", () => {
 
     const s1 = h.market.createListenerSession().session;
     const s2 = h.market.createListenerSession().session;
-    clearing.openWindow(segment.id, 2_000_000_000);
+    const challenge = h.ledger
+      .challengesForSegment(segment.id)
+      .find((c) => c.answer === "Zephyr")!;
+    const at = challenge.validFrom + 1;
+    openDuring(clearing, segment.id, at);
     expect(segment.requiredEvents).toBe(2); // ceil(0.6 × 2)
 
     // Late joiners do not move the goalposts.
     h.market.createListenerSession();
     expect(segment.requiredEvents).toBe(2);
 
-    const challenge = h.ledger
-      .challengesForSegment(segment.id)
-      .find((c) => c.answer === "Zephyr")!;
-    const at = challenge.validFrom + 1;
     const r1 = await clearing.submitProof(
       s1,
       proofFor(s1.token, segment.id, challenge.id, "Zephyr", at),
@@ -100,8 +132,12 @@ describe("attention window and clearing", () => {
       platformRevenueUsd: 5,
     });
 
-    // Clearing evaluates exactly once.
-    expect(() => clearing.closeWindow(segment.id)).toThrow();
+    // Clearing is retry-safe and evaluates exactly once.
+    expect(clearing.closeWindow(segment.id)).toEqual({
+      cleared: true,
+      poolId: result.poolId,
+    });
+    expect(h.ledger.rewardPools).toHaveLength(1);
   });
 
   it("records invalid answers without clearing", async () => {
@@ -114,8 +150,8 @@ describe("attention window and clearing", () => {
     );
     const { brand, segment } = wonSegment(h, 25);
     const s1 = h.market.createListenerSession().session;
-    clearing.openWindow(segment.id, 2_000_000_000);
     const challenge = h.ledger.challengesForSegment(segment.id)[0];
+    openDuring(clearing, segment.id, challenge.validFrom + 1);
     const receipt = await clearing.submitProof(
       s1,
       proofFor(
@@ -154,10 +190,10 @@ describe("attention window and clearing", () => {
     );
     const { segment } = wonSegment(h, 25);
     const s1 = h.market.createListenerSession().session;
-    clearing.openWindow(segment.id, 2_000_000_000);
     const challenge = h.ledger
       .challengesForSegment(segment.id)
       .find((c) => c.answer === "Zephyr")!;
+    openDuring(clearing, segment.id, challenge.validFrom + 1);
     const sub = proofFor(
       s1.token,
       segment.id,
@@ -181,10 +217,10 @@ describe("attention window and clearing", () => {
     );
     const { segment } = wonSegment(h, 25);
     const s1 = h.market.createListenerSession().session;
-    clearing.openWindow(segment.id, 2_000_000_000);
     const challenge = h.ledger
       .challengesForSegment(segment.id)
       .find((c) => c.answer === "Zephyr")!;
+    openDuring(clearing, segment.id, challenge.validUntil + 5);
     const receipt = await clearing.submitProof(
       s1,
       proofFor(
@@ -192,7 +228,7 @@ describe("attention window and clearing", () => {
         segment.id,
         challenge.id,
         "Zephyr",
-        challenge.validUntil + 5,
+        challenge.validFrom + 1,
       ),
     );
     expect(receipt.verified).toBe(false);
@@ -217,5 +253,14 @@ describe("attention window and clearing", () => {
     });
     expect(h.events.some((e) => e.type === "bid.failed")).toBe(true);
     expect(h.events.some((e) => e.type === "bid.uncleared")).toBe(false);
+
+    // A retried failure notification is a no-op, not a second refund.
+    clearing.failSegment(segment.id);
+    expect(h.ledger.balances.get(brand.id)).toMatchObject({
+      availableCents: 10000,
+      reservedCents: 0,
+      spentCents: 0,
+    });
+    expect(h.events.filter((e) => e.type === "bid.failed")).toHaveLength(1);
   });
 });

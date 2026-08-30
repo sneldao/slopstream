@@ -88,6 +88,12 @@ export class AuctionEngine {
       closesAtMs: this.now() + this.opts.auctionDurationSec * 1000,
     };
     this.ledger.auctions.set(slot, auction);
+    this.bus.publish({
+      type: "auction.opened",
+      slot,
+      closesAt: new Date(auction.closesAtMs).toISOString(),
+      nextSlotPriceUsd: centsToUsd(auction.openingCents),
+    });
     this.scheduleClose(auction);
     return auction;
   }
@@ -316,6 +322,9 @@ export class AuctionEngine {
     const winnerBrand = winnerBid
       ? this.ledger.brands.get(winnerBid.brandId)
       : undefined;
+    const winnerSegment = winnerBid?.segmentId
+      ? this.ledger.segments.get(winnerBid.segmentId)
+      : undefined;
     return {
       slot: auction.slot,
       status: auction.status,
@@ -337,6 +346,7 @@ export class AuctionEngine {
             tier: winnerBid.tier,
             brief: winnerBrand?.brief ?? "",
             segmentId: winnerBid.segmentId ?? "",
+            segmentStatus: winnerSegment?.status,
           }
         : undefined,
     };

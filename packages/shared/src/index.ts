@@ -302,6 +302,12 @@ export interface LeaderboardEntry {
 
 export type WsEvent =
   | {
+      type: "auction.opened";
+      slot: number;
+      closesAt: string;
+      nextSlotPriceUsd: number;
+    }
+  | {
       type: "bid.placed";
       bidId: string;
       brandId: string;
@@ -594,6 +600,8 @@ export interface AuctionState {
     /** The queued segment realizing this slot — the orchestrator drives its
      *  lifecycle (generating/ready/playing/window-closed) against this id. */
     segmentId: string;
+    /** Persisted lifecycle state used by a restarting orchestrator. */
+    segmentStatus?: SegmentStatus;
   };
 }
 

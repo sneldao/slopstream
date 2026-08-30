@@ -110,4 +110,25 @@ describe("generator HTTP boundary", () => {
       error: "segment_conflict",
     });
   });
+
+  it("protects generation work when a service token is configured", async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+    server = createGeneratorServer({ apiToken: "generator-secret" });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const { port } = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${port}`;
+
+    expect((await postGeneration(request)).status).toBe(401);
+    const authorized = await fetch(`${baseUrl}/v1/generations`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer generator-secret",
+      },
+      body: JSON.stringify(request),
+    });
+    expect(authorized.status).toBe(201);
+  });
 });

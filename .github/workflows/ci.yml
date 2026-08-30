@@ -37,6 +37,12 @@ jobs:
       - name: Typecheck all packages
         run: pnpm -r typecheck
 
+      - name: Test all packages
+        run: pnpm test
+
+      - name: Build production artifacts
+        run: pnpm build
+
       # Mirror the local pre-commit formatting hooks in CI (check-only:
       # CI cannot --write). See .lintstagedrc.json and .husky/pre-commit.
       - name: Prettier (check)

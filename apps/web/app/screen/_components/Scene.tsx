@@ -1,13 +1,27 @@
 "use client";
 
-import { Component, type ReactNode } from "react";
+import { Component, useState, useEffect, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { FluidBackground } from "./FluidBackground";
+import { FluidBackgroundMesh } from "./FluidBackgroundMesh";
 import { BrandBlobField } from "./BrandBlobField";
+import { AdSurface } from "./AdSurface";
+import { ThresholdBasin } from "./ThresholdBasin";
+import { ClearingStreams } from "./ClearingStreams";
 import { AmbientCanvas } from "./AmbientCanvas";
 import type { AudioSignal } from "@/lib/useAudioSignal";
-import type { LeaderboardEntry, BrandSummary } from "@slopstream/shared";
+import type {
+  LeaderboardEntry,
+  BrandSummary,
+  ProductionTier,
+  Segment,
+} from "@slopstream/shared";
+import type {
+  GenerationState,
+  AttentionState,
+  ClearBurst,
+} from "@/lib/streamReducer";
 
 interface SceneProps {
   signalRef: React.RefObject<AudioSignal>;
@@ -16,13 +30,21 @@ interface SceneProps {
   shockwaveKey: number;
   /** Fluid shader quality 0..1 (controls march steps + metaball count). */
   quality?: number;
-  // Brand blobs (Phase 3)
+  // Brand blobs
   leaderboard: LeaderboardEntry[];
   brandById: Record<string, BrandSummary>;
   outbidFlashId: number;
   outbidDisplacedBrandId?: string;
   outbidNewBrandId?: string;
-  /** Brand palette for the Canvas 2D fallback. */
+  // Ad surface (Phase 4)
+  segment: Segment | null;
+  generation: GenerationState | undefined;
+  playingTier: ProductionTier | undefined;
+  // Threshold basin (Phase 5)
+  attention: AttentionState | undefined;
+  // Clearing streams (Phase 5)
+  lastClear: ClearBurst | undefined;
+  // Brand palette for the Canvas 2D fallback.
   fallbackBrandColor: string;
   fallbackSecondaryColor: string;
   fallbackBurstKey: number;
@@ -35,21 +57,15 @@ interface SceneErrorState {
 }
 
 /**
- * The 3D scene — a full-viewport R3F Canvas rendering the fluid background
- * and brand blobs.
+ * The 3D scene — a full-viewport R3F Canvas rendering the fluid background,
+ * brand blobs, the ad surface, the threshold basin, and clearing streams.
  *
- * The fluid is a ray-marched metaball shader (Phase 1). Brand blobs are
- * kinematic Rapier rigid bodies with organic distorted meshes (Phase 3). The
- * leader is at center, largest, glowing; others recede behind into the fluid.
+ * Capability detection at mount selects between the ray-marched metaball
+ * shader (primary, WebGL2) and the mesh-based fallback (FluidBackgroundMesh,
+ * weaker GPUs). If WebGL entirely fails, the error boundary falls back to
+ * the Canvas 2D `AmbientCanvas`.
  *
- * Must be loaded with `dynamic(() => import(...), { ssr: false })` to avoid
- * Next.js SSR issues with WebGL.
- *
- * Wrapped in an error boundary: if WebGL initialization or the R3F tree
- * throws (e.g. no WebGL2 context, shader compile failure on a weak GPU),
- * the scene degrades to the existing Canvas 2D `AmbientCanvas` so the demo
- * never shows a blank screen. This is the Phase 7 fallback path, wired early
- * for demo safety.
+ * Must be loaded with `dynamic(() => import(...), { ssr: false })`.
  */
 export function Scene(props: SceneProps) {
   return (
@@ -59,18 +75,30 @@ export function Scene(props: SceneProps) {
   );
 }
 
-function SceneInner({
-  signalRef,
-  colorA,
-  colorB,
-  shockwaveKey,
-  quality = 1.0,
-  leaderboard,
-  brandById,
-  outbidFlashId,
-  outbidDisplacedBrandId,
-  outbidNewBrandId,
-}: SceneProps) {
+function SceneInner(props: SceneProps) {
+  const [useShader, setUseShader] = useState<boolean | null>(null);
+
+  // Capability detection — check for WebGL2 and a reasonable texture unit
+  // count. If WebGL2 is unavailable, fall back to the mesh path.
+  useEffect(() => {
+    try {
+      const testCanvas = document.createElement("canvas");
+      const gl2 = testCanvas.getContext("webgl2");
+      if (!gl2) {
+        setUseShader(false);
+        return;
+      }
+      const units = gl2.getParameter(gl2.MAX_TEXTURE_IMAGE_UNITS);
+      // Below 16 units → very weak GPU; use mesh fallback.
+      setUseShader(units >= 16);
+    } catch {
+      setUseShader(false);
+    }
+  }, []);
+
+  // Still detecting — render nothing (the canvas mounts after detection).
+  if (useShader === null) return null;
+
   return (
     <Canvas
       gl={{
@@ -78,30 +106,67 @@ function SceneInner({
         alpha: false,
         powerPreference: "high-performance",
       }}
-      // Cap dpr at 1 for the demo — the metaball shader is fragment-heavy
-      // (up to 64 march steps × 8 balls × 4 normal taps per fragment) and
-      // rendering at >1 dpr on a retina/integrated GPU will not hold 60fps.
-      // Visual fidelity at dpr 1 is still strong; this is the single most
-      // effective demo-safety lever.
       dpr={[1, 1]}
       camera={{ position: [0, 0, 3], fov: 60, near: 0.1, far: 20 }}
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
     >
-      <FluidBackground
-        signalRef={signalRef}
-        colorA={colorA}
-        colorB={colorB}
-        shockwaveKey={shockwaveKey}
-        quality={quality}
-      />
+      {/* Lighting for the glass basin (MeshPhysicalMaterial needs it). */}
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[2, 3, 2]} intensity={0.6} />
+      <pointLight position={[-2, -1, 1]} intensity={0.3} color={props.colorA} />
+
+      {/* Fluid background — ray-marched or mesh fallback. */}
+      {useShader ? (
+        <FluidBackground
+          signalRef={props.signalRef}
+          colorA={props.colorA}
+          colorB={props.colorB}
+          shockwaveKey={props.shockwaveKey}
+          quality={props.quality}
+        />
+      ) : (
+        <FluidBackgroundMesh
+          signalRef={props.signalRef}
+          colorA={props.colorA}
+          colorB={props.colorB}
+          shockwaveKey={props.shockwaveKey}
+          quality={props.quality}
+        />
+      )}
+
+      {/* Brand blobs — kinematic Rapier bodies. */}
       <BrandBlobField
-        leaderboard={leaderboard}
-        brandById={brandById}
-        outbidFlashId={outbidFlashId}
-        outbidDisplacedBrandId={outbidDisplacedBrandId}
-        outbidNewBrandId={outbidNewBrandId}
-        signalRef={signalRef}
+        leaderboard={props.leaderboard}
+        brandById={props.brandById}
+        outbidFlashId={props.outbidFlashId}
+        outbidDisplacedBrandId={props.outbidDisplacedBrandId}
+        outbidNewBrandId={props.outbidNewBrandId}
+        signalRef={props.signalRef}
       />
+
+      {/* Ad surface — the 3D stage (orb / image plane / video plane). */}
+      <AdSurface
+        segment={props.segment}
+        generation={props.generation}
+        playingTier={props.playingTier}
+        color={props.colorA}
+        secondaryColor={props.colorB}
+        signalRef={props.signalRef}
+      />
+
+      {/* Threshold basin — 3D glass container that fills with brand fluid. */}
+      {props.attention && (
+        <ThresholdBasin
+          attention={props.attention}
+          color={props.colorA}
+          secondaryColor={props.colorB}
+          signalRef={props.signalRef}
+        />
+      )}
+
+      {/* Clearing streams — particle burst on bid clear (80/20 split). */}
+      <ClearingStreams burst={props.lastClear} color={props.colorA} />
+
       <EffectComposer>
         <Bloom
           intensity={0.4}
@@ -114,11 +179,6 @@ function SceneInner({
   );
 }
 
-/**
- * Canvas 2D fallback — the existing AmbientCanvas particle layer. Shown when
- * the 3D scene fails to initialize. Shares the same audio signal and brand
- * palette so the room still feels alive.
- */
 function SceneFallback({
   signalRef,
   fallbackBrandColor,
