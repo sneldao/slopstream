@@ -7,6 +7,8 @@ import { TIER_BID_THRESHOLDS_USD } from "@slopstream/shared";
 import { useStream } from "@/lib/useStream";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { requestJson } from "@/lib/liveApi";
+import { hexA } from "@/lib/color";
+import { errorMessage } from "@/lib/errors";
 import { SphereField } from "../_components/SphereField";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
@@ -32,9 +34,9 @@ export default function BrandPage() {
   const [balance, setBalance] = useState(500);
   const [bidAmount, setBidAmount] = useState(27);
   const [outbidAlert, setOutbidAlert] = useState(false);
-  const [lastOutbidFlashId, setLastOutbidFlashId] = useState<
-    number | undefined
-  >(undefined);
+  // The last flash id lives in a ref: putting it in state (and deps) made the
+  // effect re-run, clearing the dismiss timeout before it could ever fire.
+  const lastOutbidFlashIdRef = useRef<number | undefined>(undefined);
   const [bidPlaced, setBidPlaced] = useState(false);
   const [bidError, setBidError] = useState<string | null>(null);
   const [bidSubmitting, setBidSubmitting] = useState(false);
@@ -55,9 +57,33 @@ export default function BrandPage() {
         setBalance(nextBalance.availableUsd);
       })
       .catch((error: unknown) => {
-        setBidError(errorMessage(error));
+        setBidError(errorMessage(error, "Unable to load balance."));
       });
   }, [demoBrandToken, mode]);
+
+  // Keep the balance in sync with the stream: settlements (bid.cleared /
+  // bid.uncleared / bid.failed) change what this brand has available, so
+  // refetch the authoritative balance whenever a new one lands.
+  const lastSettlementFlashIdRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const settlement = state.lastSettlement;
+    if (!settlement || settlement.flashId === lastSettlementFlashIdRef.current)
+      return;
+    lastSettlementFlashIdRef.current = settlement.flashId;
+    if (mode !== "live" || !demoBrandToken) return;
+    void requestJson<BrandBalanceResponse>(
+      "/brands/me/balance",
+      { method: "GET" },
+      demoBrandToken,
+    )
+      .then(({ brand, balance: nextBalance }) => {
+        setBrandId(brand.id);
+        setBalance(nextBalance.availableUsd);
+      })
+      .catch(() => {
+        // A transient balance refresh must not interrupt the console.
+      });
+  }, [state.lastSettlement, mode, demoBrandToken]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -70,8 +96,8 @@ export default function BrandPage() {
   // OUTBID detection with sound + haptic.
   useEffect(() => {
     const flash = state.lastOutbid;
-    if (!flash || flash.flashId === lastOutbidFlashId) return;
-    setLastOutbidFlashId(flash.flashId);
+    if (!flash || flash.flashId === lastOutbidFlashIdRef.current) return;
+    lastOutbidFlashIdRef.current = flash.flashId;
     if (flash.displacedBrandId === brandId) {
       setOutbidAlert(true);
       play("outbid");
@@ -81,7 +107,7 @@ export default function BrandPage() {
       const t = setTimeout(() => setOutbidAlert(false), 3000);
       return () => clearTimeout(t);
     }
-  }, [state.lastOutbid, lastOutbidFlashId, brandId, play]);
+  }, [state.lastOutbid, brandId, play]);
 
   const winningBid = state.leaderboard[0];
   const winningAmount = winningBid?.amountUsd ?? 0;
@@ -109,8 +135,9 @@ export default function BrandPage() {
     return () => clearInterval(interval);
   }, [state.currentAuction?.closesAt]);
 
-  const handlePlaceBid = async () => {
-    if (bidAmount > balance || bidSubmitting) return;
+  const handlePlaceBid = async (amountOverride?: number) => {
+    const amount = amountOverride ?? bidAmount;
+    if (amount > balance || bidSubmitting) return;
     setBidError(null);
     setBidSubmitting(true);
     try {
@@ -118,14 +145,14 @@ export default function BrandPage() {
         if (!demoBrandToken) {
           throw new Error("Missing local demo brand token.");
         }
-        const result = await placeBidLive(bidAmount, demoBrandToken);
+        const result = await placeBidLive(amount, demoBrandToken);
         setBalance(result.balance.availableUsd);
       }
       play("bid");
       setBidPlaced(true);
       setTimeout(() => setBidPlaced(false), 2000);
     } catch (error) {
-      setBidError(errorMessage(error));
+      setBidError(errorMessage(error, "Unable to place bid."));
     } finally {
       setBidSubmitting(false);
     }
@@ -378,30 +405,7 @@ export default function BrandPage() {
                 disabled={beatAmount > balance || bidSubmitting}
                 onClick={() => {
                   setBidAmount(beatAmount);
-                  void (async () => {
-                    if (beatAmount > balance || bidSubmitting) return;
-                    setBidError(null);
-                    setBidSubmitting(true);
-                    try {
-                      if (mode === "live") {
-                        if (!demoBrandToken) {
-                          throw new Error("Missing local demo brand token.");
-                        }
-                        const result = await placeBidLive(
-                          beatAmount,
-                          demoBrandToken,
-                        );
-                        setBalance(result.balance.availableUsd);
-                      }
-                      play("bid");
-                      setBidPlaced(true);
-                      setTimeout(() => setBidPlaced(false), 2000);
-                    } catch (error) {
-                      setBidError(errorMessage(error));
-                    } finally {
-                      setBidSubmitting(false);
-                    }
-                  })();
+                  void handlePlaceBid(beatAmount);
                 }}
               >
                 Beat by $1 → ${beatAmount}
@@ -812,21 +816,6 @@ function WorldPreview({
   );
 }
 
-function hexA(hex: string, a: number): string {
-  const h = hex.replace("#", "");
-  const full =
-    h.length === 3
-      ? h
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : h;
-  const r = parseInt(full.slice(0, 2), 16) || 255;
-  const g = parseInt(full.slice(2, 4), 16) || 255;
-  const b = parseInt(full.slice(4, 6), 16) || 255;
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
 interface BrandBalanceResponse {
   brand: BrandSummary;
   balance: { availableUsd: number };
@@ -834,10 +823,6 @@ interface BrandBalanceResponse {
 
 interface PlaceBidResponse {
   balance: { availableUsd: number };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unable to place bid.";
 }
 
 async function placeBidLive(

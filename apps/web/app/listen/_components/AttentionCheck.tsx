@@ -37,13 +37,35 @@ export function AttentionCheck({
   challenge,
   brandColor,
   onAnswer,
+  nowPlayingStartedAt,
 }: {
   challenge: PublicChallenge;
   brandColor: string;
   onAnswer: (answer: string) => void;
+  /**
+   * ISO timestamp the current segment started playing. `validFrom`/`validUntil`
+   * are seconds-from-segment-start, so a late joiner must subtract the elapsed
+   * playback time or they see the full window instead of what's left. When
+   * absent, fall back to counting the whole window down from mount.
+   */
+  nowPlayingStartedAt?: string;
 }) {
   const windowSec = challenge.validUntil - challenge.validFrom;
-  const [remaining, setRemaining] = useState(windowSec);
+  const startedAtMs = nowPlayingStartedAt
+    ? Date.parse(nowPlayingStartedAt)
+    : Number.NaN;
+  const hasClock = Number.isFinite(startedAtMs);
+
+  // Remaining time from the real playback clock, clamped to the window so the
+  // bar never overflows for an (edge-case) early render.
+  const remainingFromClock = () => {
+    const elapsed = (Date.now() - startedAtMs) / 1000;
+    return Math.max(0, Math.min(challenge.validUntil - elapsed, windowSec));
+  };
+
+  const [remaining, setRemaining] = useState(() =>
+    hasClock ? remainingFromClock() : windowSec,
+  );
   const [picked, setPicked] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -57,14 +79,18 @@ export function AttentionCheck({
   }, []);
 
   useEffect(() => {
-    const start = Date.now();
+    const mount = Date.now();
     const interval = setInterval(() => {
-      const left = Math.max(windowSec - (Date.now() - start) / 1000, 0);
+      const left = hasClock
+        ? remainingFromClock()
+        : Math.max(windowSec - (Date.now() - mount) / 1000, 0);
       setRemaining(left);
       if (left <= 0) clearInterval(interval);
     }, 100);
     return () => clearInterval(interval);
-  }, [windowSec]);
+    // remainingFromClock reads only stable inputs (challenge, startedAtMs).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowSec, hasClock, startedAtMs, challenge.validUntil]);
 
   const fractionLeft = windowSec > 0 ? remaining / windowSec : 0;
   const expired = remaining <= 0;

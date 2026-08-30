@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getStreamMode } from "@/lib/streamMode";
+import { errorMessage } from "@/lib/errors";
 
 /**
  * Stub payout sheet — pending vs available, then cash out.
@@ -20,9 +22,15 @@ export function PayoutSheet({
   onRequest: () => void | Promise<void>;
 }) {
   const [done, setDone] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) setDone(false);
+    if (!open) {
+      setDone(false);
+      setError(null);
+      setRequesting(false);
+    }
   }, [open]);
 
   const canCashOut = availableUsd > 0;
@@ -65,24 +73,44 @@ export function PayoutSheet({
 
             {done ? (
               <p className="slop-payout-sheet__done" role="status">
-                Requested — demo holds funds locally.
+                {getStreamMode() === "demo"
+                  ? "Requested — demo holds funds locally."
+                  : "Requested — payout submitted."}
               </p>
             ) : (
               <button
                 type="button"
                 className="slop-payout-sheet__cta"
-                disabled={!canCashOut}
+                disabled={!canCashOut || requesting}
                 onClick={() => {
+                  setError(null);
+                  setRequesting(true);
                   void (async () => {
-                    await onRequest();
-                    setDone(true);
+                    try {
+                      await onRequest();
+                      setDone(true);
+                    } catch (err: unknown) {
+                      // Handled here so a failed payout never becomes an
+                      // unhandled promise rejection.
+                      setError(errorMessage(err, "Unable to request payout."));
+                    } finally {
+                      setRequesting(false);
+                    }
                   })();
                 }}
               >
-                {canCashOut
-                  ? `Request $${availableUsd.toFixed(2)}`
-                  : "Nothing available yet"}
+                {requesting
+                  ? "Requesting…"
+                  : canCashOut
+                    ? `Request $${availableUsd.toFixed(2)}`
+                    : "Nothing available yet"}
               </button>
+            )}
+
+            {error && (
+              <p className="slop-payout-sheet__error" role="alert">
+                {error}
+              </p>
             )}
 
             <button

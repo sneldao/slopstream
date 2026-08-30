@@ -17,7 +17,7 @@ export default defineConfig({
   },
   test: {
     include: ["**/*.test.ts", "**/*.test.tsx"],
-    exclude: ["node_modules/**", ".next/**", "app/screen/_prototype-3d/**"],
+    exclude: ["node_modules/**", ".next/**"],
     // Node, not jsdom: jsdom is not a dependency. Component tests render with
     // `react-dom/server`, which asserts markup and semantics without a DOM.
     // Anything needing real events or layout would need jsdom added first.

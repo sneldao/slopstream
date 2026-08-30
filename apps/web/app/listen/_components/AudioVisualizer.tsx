@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import type { AudioSignal } from "@/lib/useAudioSignal";
+import { hexA } from "@/lib/color";
 
 /**
  * Audio-reactive visualizer — a pulsing blob that breathes with the shared
@@ -92,21 +93,6 @@ export function AudioVisualizer({
       />
     </div>
   );
-}
-
-function hexA(hex: string, a: number): string {
-  const h = hex.replace("#", "");
-  const full =
-    h.length === 3
-      ? h
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : h;
-  const r = parseInt(full.slice(0, 2), 16) || 255;
-  const g = parseInt(full.slice(2, 4), 16) || 255;
-  const b = parseInt(full.slice(4, 6), 16) || 255;
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
 const styles: Record<string, React.CSSProperties> = {

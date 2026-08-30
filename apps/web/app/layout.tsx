@@ -1,14 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { MotionProvider } from "./_components/MotionProvider";
+import { siteUrl } from "@/lib/siteUrl";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const baseUrl = siteUrl();
 const title = "Slopstream — the live attention market";
 const description =
   "Brands bid for verified attention. Listeners earn from the cleared spend. The world's first live attention market.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(baseUrl),
   title: {
     default: title,
     template: "%s · Slopstream",
@@ -27,12 +28,9 @@ export const metadata: Metadata = {
   authors: [{ name: "Slopstream" }],
   creator: "Slopstream",
   manifest: "/manifest.webmanifest",
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
-    url: siteUrl,
+    url: baseUrl,
     siteName: "Slopstream",
     title,
     description,

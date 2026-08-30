@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type {
   AttentionProofReceipt,
@@ -15,6 +15,9 @@ import { AudioVisualizer } from "./_components/AudioVisualizer";
 import { AttentionCheck } from "./_components/AttentionCheck";
 import { ProofReceipt } from "./_components/ProofReceipt";
 import { requestJson } from "@/lib/liveApi";
+import { hexA } from "@/lib/color";
+import { errorMessage } from "@/lib/errors";
+import { expectedDemoAnswer } from "@/lib/demoFixture";
 import { SphereField } from "../_components/SphereField";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
@@ -41,8 +44,11 @@ export default function ListenPage() {
   const { play } = useSoundDesign();
   const [joined, setJoined] = useState(false);
   const [receipt, setReceipt] = useState<AttentionProofReceipt | null>(null);
-  const [availableUsd, setAvailableUsd] = useState(0);
-  const [pendingUsd, setPendingUsd] = useState(0);
+  // One object so pending -> available moves are a single pure update. Two
+  // separate states forced a setAvailableUsd call inside a setPendingUsd
+  // updater, which StrictMode double-invokes.
+  const [balances, setBalances] = useState({ availableUsd: 0, pendingUsd: 0 });
+  const { availableUsd, pendingUsd } = balances;
   const [todayVerified, setTodayVerified] = useState(0);
   const [earnMode, setEarnMode] = useState(false);
   const [payoutOpen, setPayoutOpen] = useState(false);
@@ -52,10 +58,16 @@ export default function ListenPage() {
   const lastClearBurstId = useRef(0);
 
   const applySession = (session: ListenerSession) => {
-    setAvailableUsd(session.availableBalanceUsd);
-    setPendingUsd(session.pendingBalanceUsd);
+    setBalances({
+      availableUsd: session.availableBalanceUsd,
+      pendingUsd: session.pendingBalanceUsd,
+    });
     setTodayVerified(session.todayVerifiedUsd);
   };
+
+  // Stable identity: ProofReceipt's auto-dismiss timer depends on this, and an
+  // inline arrow would reset that timer on every parent render.
+  const dismissReceipt = useCallback(() => setReceipt(null), []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -83,7 +95,9 @@ export default function ListenPage() {
         setListenerIdentity({ token: nextToken, commitment });
         applySession(session);
       })
-      .catch((error: unknown) => setSubmissionError(errorMessage(error)));
+      .catch((error: unknown) =>
+        setSubmissionError(errorMessage(error, "Unable to submit proof.")),
+      );
   }, [mode]);
 
   useEffect(() => {
@@ -151,11 +165,11 @@ export default function ListenPage() {
         });
       return;
     }
-    setPendingUsd((pending) => {
-      if (pending <= 0) return 0;
-      setAvailableUsd((avail) => avail + pending);
-      return 0;
-    });
+    setBalances((b) => ({
+      availableUsd:
+        b.pendingUsd > 0 ? b.availableUsd + b.pendingUsd : b.availableUsd,
+      pendingUsd: 0,
+    }));
   }, [state.lastClear, mode, listenerIdentity]);
 
   const handleJoin = () => {
@@ -204,12 +218,17 @@ export default function ListenPage() {
           applySession(session);
           if (nextReceipt.verified) play("proof");
         })
-        .catch((error: unknown) => setSubmissionError(errorMessage(error)));
+        .catch((error: unknown) =>
+          setSubmissionError(errorMessage(error, "Unable to submit proof.")),
+        );
       return;
     }
 
-    const correct = challenge.options?.[1] ?? answer;
-    const verified = answer === correct;
+    // Demo grading is fixture-driven: the expected answer lives next to the
+    // fixture steps (DEMO_CHALLENGE_ANSWERS), not in option order. Challenges
+    // without a mapped answer verify by design — the demo never blocks the arc.
+    const expected = expectedDemoAnswer(challenge.id);
+    const verified = expected === undefined || answer === expected;
     const estimatedReward = verified ? 0.37 : undefined;
     setReceipt({
       proofId: `0x${Math.random().toString(16).slice(2, 10)}`,
@@ -224,7 +243,10 @@ export default function ListenPage() {
     });
     if (verified) {
       play("proof");
-      setPendingUsd((p) => p + (estimatedReward ?? 0));
+      setBalances((b) => ({
+        ...b,
+        pendingUsd: b.pendingUsd + (estimatedReward ?? 0),
+      }));
       setTodayVerified((t) => t + (estimatedReward ?? 0));
     }
   };
@@ -457,6 +479,9 @@ export default function ListenPage() {
             challenge={challenge}
             brandColor={brandColor}
             onAnswer={handleAnswer}
+            nowPlayingStartedAt={
+              mode === "live" ? state.nowPlayingStartedAt : undefined
+            }
           />
         )}
       </AnimatePresence>
@@ -465,7 +490,7 @@ export default function ListenPage() {
         <ProofReceipt
           receipt={receipt}
           brand={activeBrand}
-          onDismiss={() => setReceipt(null)}
+          onDismiss={dismissReceipt}
         />
       )}
 
@@ -475,24 +500,22 @@ export default function ListenPage() {
         pendingUsd={pendingUsd}
         onClose={() => setPayoutOpen(false)}
         onRequest={async () => {
-          try {
-            if (mode === "live" && listenerIdentity) {
-              const { session } = await requestJson<{
-                receipt: PayoutReceipt;
-                session: ListenerSession;
-              }>(
-                "/listener-sessions/me/payout-request",
-                { method: "POST", body: JSON.stringify({}) },
-                listenerIdentity.token,
-              );
-              applySession(session);
-              return;
-            }
-            setAvailableUsd(0);
-          } catch (error: unknown) {
-            setSubmissionError(errorMessage(error));
-            throw error;
+          // No try/catch-rethrow here: PayoutSheet awaits this and renders its
+          // own error state on rejection, so nothing becomes an unhandled
+          // promise rejection.
+          if (mode === "live" && listenerIdentity) {
+            const { session } = await requestJson<{
+              receipt: PayoutReceipt;
+              session: ListenerSession;
+            }>(
+              "/listener-sessions/me/payout-request",
+              { method: "POST", body: JSON.stringify({}) },
+              listenerIdentity.token,
+            );
+            applySession(session);
+            return;
           }
+          setBalances((b) => ({ ...b, availableUsd: 0 }));
         }}
       />
     </main>
@@ -601,21 +624,6 @@ function JoinSplash({ onJoin }: { onJoin: () => void }) {
   );
 }
 
-function hexA(hex: string, a: number): string {
-  const h = hex.replace("#", "");
-  const full =
-    h.length === 3
-      ? h
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : h;
-  const r = parseInt(full.slice(0, 2), 16) || 255;
-  const g = parseInt(full.slice(2, 4), 16) || 255;
-  const b = parseInt(full.slice(4, 6), 16) || 255;
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
 const LISTENER_TOKEN_KEY = "slopstream.listener-token";
 const EARN_MODE_KEY = "slopstream.listener.earn-mode.v1";
 const LISTENER_COMMITMENT_KEY = "slopstream.listener-commitment";
@@ -639,10 +647,6 @@ function readOrCreateCommitment(): string {
       : `listener:${Math.random().toString(36).slice(2)}:${Date.now()}`;
   window.sessionStorage.setItem(LISTENER_COMMITMENT_KEY, commitment);
   return commitment;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unable to submit proof.";
 }
 
 async function submitProofLive(

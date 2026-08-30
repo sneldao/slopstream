@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { AttentionProofReceipt, BrandSummary } from "@slopstream/shared";
 
@@ -31,6 +31,16 @@ export function ProofReceipt({
   const [reward, setReward] = useState(0);
   const [copied, setCopied] = useState(false);
   const [shareHint, setShareHint] = useState<string | null>(null);
+  // The dismiss timer must not depend on the parent's inline onDismiss arrow:
+  // every parent re-render would restart it, and since the next challenge is
+  // gated on this receipt being gone, challenges stop appearing on busy
+  // streams. Keep the latest callback in a ref; run timers off stable values.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+  const dismissTimeoutRef = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(dismissTimeoutRef.current), []);
   const isVerified = receipt.verified;
   const verifierLabel =
     receipt.verifierMode === "midnight"
@@ -77,12 +87,16 @@ export function ProofReceipt({
 
   // Hold longer so people can read / share; still auto-dismiss.
   useEffect(() => {
-    const t = setTimeout(() => {
+    const t = window.setTimeout(() => {
       setVisible(false);
-      setTimeout(onDismiss, 400);
+      window.clearTimeout(dismissTimeoutRef.current);
+      dismissTimeoutRef.current = window.setTimeout(
+        () => onDismissRef.current(),
+        400,
+      );
     }, 10000);
-    return () => clearTimeout(t);
-  }, [onDismiss]);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const copyProof = async () => {
     try {
@@ -113,7 +127,11 @@ export function ProofReceipt({
 
   const dismiss = () => {
     setVisible(false);
-    setTimeout(onDismiss, 400);
+    window.clearTimeout(dismissTimeoutRef.current);
+    dismissTimeoutRef.current = window.setTimeout(
+      () => onDismissRef.current(),
+      400,
+    );
   };
 
   return (

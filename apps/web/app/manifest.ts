@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { siteUrl } from "@/lib/siteUrl";
 
 /**
  * Web app manifest — lets the three surfaces be installed as PWA shortcuts
@@ -6,7 +7,7 @@ import type { MetadataRoute } from "next";
  * standalone display mode (no browser chrome on the projector).
  */
 export default function manifest(): MetadataRoute.Manifest {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const baseUrl = siteUrl();
 
   return {
     name: "Slopstream",

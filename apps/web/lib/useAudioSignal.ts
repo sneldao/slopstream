@@ -112,13 +112,29 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
       analyserRef.current = null;
     }
 
-    // Attempt to play (may require user interaction in some browsers).
+    // Attempt to start. Autoplay policy usually blocks this because each new
+    // audioUrl creates a fresh AudioContext outside a user gesture (the
+    // join-time unlock only covers the first one).
+    if (ctx.state === "suspended") void ctx.resume();
     audio.play().catch(() => {
-      // Autoplay blocked — the signal stays at 0 until user interaction.
-      // The synthesized fallback still provides a signal if active=true.
+      // Autoplay blocked — stays silent until the pointerdown retry below.
     });
 
+    // Retry on any pointerdown until the first successful resume, so audio
+    // keeps surviving ad changes on mobile. The listener is lightweight and
+    // removed as soon as both the context and the element are running (and
+    // always on cleanup).
+    const onPointerDown = () => {
+      if (ctx.state === "suspended") void ctx.resume();
+      if (audio.paused) void audio.play().catch(() => {});
+      if (ctx.state !== "suspended" && !audio.paused) {
+        document.removeEventListener("pointerdown", onPointerDown);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+
     return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
       audio.pause();
       audio.src = "";
       audioElRef.current = null;
@@ -241,6 +257,12 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
 
   const toggleMute = useCallback(() => {
     setMuted((m) => !m);
+    // The mute control is a user gesture, so it can also unlock audio that
+    // started suspended (new AudioContexts created outside a gesture).
+    const ctx = audioCtxRef.current;
+    if (ctx && ctx.state === "suspended") void ctx.resume();
+    const audio = audioElRef.current;
+    if (audio && audio.paused) void audio.play().catch(() => {});
   }, []);
 
   return { signalRef, ready, unlock, muted, toggleMute, setMuted };

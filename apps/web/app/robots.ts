@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { siteUrl } from "@/lib/siteUrl";
 
 /**
  * robots.txt — allow all crawlers, point them at the sitemap.
@@ -6,7 +7,7 @@ import type { MetadataRoute } from "next";
  * there are no private routes to disallow.
  */
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const baseUrl = siteUrl();
 
   return {
     rules: {

@@ -459,6 +459,15 @@ a {
   font-weight: 700 !important;
 }
 
+.slop-payout-sheet__error {
+  margin: 0 0 8px !important;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.14);
+  color: #b91c1c !important;
+  font-weight: 700 !important;
+}
+
 .screen-continuum-shell.is-theater .slop-nav,
 .screen-continuum-shell.is-theater .screen-leaderboard,
 .screen-continuum-shell.is-theater .screen-stats,

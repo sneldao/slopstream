@@ -395,3 +395,19 @@ export const DEMO_FIXTURE: DemoFixture = {
     ),
   ],
 };
+
+// ---------------------------------------------------------------------------
+// Expected answers — demo grading is fixture-driven.
+// Maps the challenge(s) fired above to their scripted correct answer so the
+// listener demo grading path is explicit instead of assuming the correct
+// option sits at index 1. Challenges without a mapped answer verify by
+// design — the demo never blocks the arc.
+// ---------------------------------------------------------------------------
+
+export const DEMO_CHALLENGE_ANSWERS: Record<string, string> = {
+  chal_392_1: "Postgres",
+};
+
+export function expectedDemoAnswer(challengeId: string): string | undefined {
+  return DEMO_CHALLENGE_ANSWERS[challengeId];
+}

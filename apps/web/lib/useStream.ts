@@ -26,12 +26,11 @@ import { DEMO_FIXTURE } from "./demoFixture";
  * env-var change with no code edits. See docs/technical/backend.md "Live
  * event contract".
  */
-export type StreamMode = "demo" | "live";
+import { getStreamMode } from "./streamMode";
+import type { StreamMode } from "./streamMode";
 
-export function getStreamMode(): StreamMode {
-  const raw = process.env.NEXT_PUBLIC_STREAM_MODE;
-  return raw === "live" ? "live" : "demo";
-}
+export { getStreamMode };
+export type { StreamMode };
 
 export interface UseStreamResult {
   state: StreamState;
