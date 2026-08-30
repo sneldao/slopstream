@@ -3,8 +3,7 @@
  *
  * This is the single client-side projection of the public `WsEvent` stream
  * into UI state. The live WebSocket client applies events through this reducer.
- * WebSocket client use it unchanged: the only difference is the event
- * source. See docs/technical/backend.md "Live event contract".
+ * See docs/technical/backend.md "Live event contract".
  *
  * Invariants:
  *  - Pure: no side effects, no timers, no I/O. Deterministic given inputs.

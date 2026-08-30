@@ -30,9 +30,9 @@ export function ScreenCrossLink({
   if (!label) return null;
 
   return (
-    <a className="slop-crosslink" href="/screen">
+    <a className="slop-crosslink" href="/">
       <span>{label}</span>
-      <strong>Open Screen</strong>
+      <strong>Watch live</strong>
       <span aria-hidden>↗</span>
     </a>
   );

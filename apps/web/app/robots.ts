@@ -3,7 +3,7 @@ import { siteUrl } from "@/lib/siteUrl";
 
 /**
  * robots.txt — allow all crawlers, point them at the sitemap.
- * The three surfaces (/screen, /listen, /brand) are all indexable;
+ * The three surfaces (/, /listen, /brand) are all indexable;
  * there are no private routes to disallow.
  */
 export default function robots(): MetadataRoute.Robots {

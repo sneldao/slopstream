@@ -2,7 +2,7 @@
 
 Slopstream has three main surfaces: the big screen (the centerpiece), the listener client, and the brand bidding console. Plus one signature artifact: the proof receipt.
 
-**Phase 1 priority:** make `/screen` an irresistible Continuum experience. The brand console and marketplace loop matter for phase 3 demos; they should not dominate how we evaluate day-to-day product quality.
+**Phase 1 priority:** make `/` an irresistible Continuum experience. The brand console and marketplace loop matter for phase 3 demos; they should not dominate how we evaluate day-to-day product quality.
 
 The full visual and interaction design language — the living canvas aesthetic, audio-reactive backgrounds, fluid event reactions, per-brand color palettes, and the pragmatic build stack — is in [design-language.md](design-language.md). This document specifies _what_ is on each surface; the design language specifies _how it behaves_.
 

@@ -109,7 +109,7 @@ This gives you a clean ledger with fresh $500 balances for the recording.
 
 ### 5. Browser setup for recording
 
-- **Tab 1 (big screen)**: `http://localhost:3000/screen` — fullscreen, 1920×1080
+- **Tab 1 (big screen)**: `http://localhost:3000/` — fullscreen, 1920×1080
 - **Tab 2 (listener)**: `http://localhost:3000/listen` — phone-sized window (375×812)
 - **Tab 3 (brand console)**: `http://localhost:3000/brand` — phone-sized window (375×812)
 - Screen recording: OBS / QuickTime / Loom — capture the big screen tab

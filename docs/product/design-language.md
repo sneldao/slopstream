@@ -8,7 +8,7 @@ The attention marketplace exists, but **content is the spectacle** — bids and 
 
 The homepage supplies the product's visual DNA: a warm cream ground, dense
 ink-black typography, glossy coral/blue/lime/yellow/violet spheres, hard
-outlines, and a playful physical quality. `/screen` expands that DNA into the
+outlines, and a playful physical quality. `/` expands that DNA into the
 **Continuum** rather than switching to a separate dark or sci-fi identity.
 
 Three rules govern every surface:
@@ -43,7 +43,7 @@ The big screen is an autonomous media field with six layers:
 | Focus | A central media portal for the current playing or generating segment. |
 | Anticipation | The one or two generated/ready segments next in the queue, presented as a quiet “Coming up” cue. |
 | Depth | Glossy spheres, oversized type and dotted routes; pointer and audio add subtle parallax. |
-| Market chrome | Live bids, QR join, aggregate proof progress and the receipt. **Lowest priority on `/screen` in phase 1** — hide in theater mode for content-first demos. |
+| Market chrome | Live bids, QR join, aggregate proof progress and the receipt. **Lowest priority on `/` in phase 1** — hide in theater mode for content-first demos. |
 
 ### Scene recipes
 
@@ -82,7 +82,7 @@ plan](../technical/interactive-creative.md).
 
 ### Theater mode
 
-`/screen?theater=1`, or the `T` key, hides navigation, stats and the
+`/?theater=1`, or the `T` key, hides navigation, stats and the
 leaderboard while retaining the QR join prompt. This is the presentation and
 projection mode: content remains primary, but joining is never blocked.
 

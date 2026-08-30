@@ -34,4 +34,4 @@ on presentation hardware, and more coherent with the rest of the product.
 
 The associated prototype components remain in the repository for reference and
 may be selectively mined for future material effects. They are not imported by
-the current `/screen` scene.
+the current home (`/`) scene.

@@ -4,10 +4,14 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 const NAV = [
-  { href: "/screen", label: "Watch" },
+  { href: "/", label: "Watch" },
   { href: "/listen", label: "Listen" },
   { href: "/brand", label: "Brand" },
 ] as const;
+
+function isNavActive(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 /**
  * Shared navigation across product surfaces.
@@ -35,7 +39,7 @@ export function SurfaceNav({
 
   if (hidden) return null;
 
-  const isHome = pathname.startsWith("/screen");
+  const isHome = pathname === "/";
 
   return (
     <>
@@ -56,7 +60,7 @@ export function SurfaceNav({
               Slopstream
             </span>
           ) : (
-            <a className="slop-wordmark-chip" href="/screen" aria-label="Watch">
+            <a className="slop-wordmark-chip" href="/" aria-label="Watch">
               Slopstream
             </a>
           )}
@@ -68,7 +72,7 @@ export function SurfaceNav({
         {variant !== "spectacle" ? (
           <nav className="slop-nav__switcher" aria-label="Navigate">
             {NAV.map((item) => {
-              const active = pathname.startsWith(item.href);
+              const active = isNavActive(pathname, item.href);
               return (
                 <a
                   key={item.href}
@@ -96,7 +100,7 @@ export function SurfaceNav({
       {showDock ? (
         <nav className="slop-dock" aria-label="Navigate">
           {NAV.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active = isNavActive(pathname, item.href);
             return (
               <a
                 key={item.href}

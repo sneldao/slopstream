@@ -5,7 +5,7 @@ implemented, what's stubbed, known inconsistencies, and next steps.
 
 ## Current experience baseline (2026-08-30)
 
-**Product direction (2026-08-30):** Phase 1 north star is the free Continuum — immersive, unbroken, enjoyable — not the auction marketplace. Recent plumbing: overdue auction sweep, demo scraped seed, scheduler prefetch. **Launch simplification (2026-08-30):** removed web demo mode (`demoFixture`, `NEXT_PUBLIC_STREAM_MODE`); `/` redirects to `/screen`; all surfaces use the live gateway only.
+**Product direction (2026-08-30):** Phase 1 north star is the free Continuum — immersive, unbroken, enjoyable — not the auction marketplace. Recent plumbing: overdue auction sweep, demo scraped seed, scheduler prefetch. **Launch simplification (2026-08-30):** removed web demo mode (`demoFixture`, `NEXT_PUBLIC_STREAM_MODE`); the Continuum lives at `/` (`/screen` redirects for legacy links); all surfaces use the live gateway only.
 
 This is a chronological implementation log, so older entries below describe
 the superseded 3D fluid-world prototype. The current product baseline is the
@@ -300,7 +300,7 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
   - Listener: full-bleed audio-reactive background, sound on challenge/proof.
   - Brand: ambient brand glow canvas, sound on OUTBID/bid, particle effect
     on bid confirmation, glassmorphic cards, living leaderboard.
-- **Big screen** (`/screen`) — the living canvas (2D version):
+- **Big screen** (`/`) — the living canvas (2D version):
   - Brand-tinted radial-gradient backdrop that breathes (CSS variables set
     at runtime from the active brand).
   - OUTBID flash: full-screen color wash from displaced → new leader, splash
@@ -463,7 +463,7 @@ Two full paths, sharing the exact same UI code:
   `NEXT_PUBLIC_STREAM_MODE=live`) running, the real loop plays: a brand bids
   from `/brand`, the auction closes, the orchestrator generates through the
   ElevenLabs provider (real TTS, optional image/video), the ad plays on
-  `/screen` with brand tint, a listener on `/listen` answers a real
+  `/` with brand tint, a listener on `/listen` answers a real
   challenge, the proof verifies through `apps/verifier`, the attention
   threshold clears the bid with the 80/20 reward split, and the next auction
   opens. Kill the generator mid-flight and the bid fails gracefully with a

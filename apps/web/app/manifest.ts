@@ -31,10 +31,10 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Screen",
-        short_name: "Screen",
-        description: "The big screen — live broadcast",
-        url: `${baseUrl}/screen`,
+        name: "Watch",
+        short_name: "Watch",
+        description: "The live stream",
+        url: `${baseUrl}/`,
       },
       {
         name: "Listen",

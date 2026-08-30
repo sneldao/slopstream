@@ -1,14 +1,14 @@
 import type { MetadataRoute } from "next";
 import { siteUrl } from "@/lib/siteUrl";
 
-/** Public surfaces — `/` redirects to `/screen`. */
+/** Public surfaces — `/screen` redirects to `/`. */
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = siteUrl();
   const now = new Date();
 
   return [
     {
-      url: `${baseUrl}/screen`,
+      url: baseUrl,
       lastModified: now,
       changeFrequency: "always",
       priority: 1,
