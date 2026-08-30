@@ -22,7 +22,13 @@ import { requestJson } from "@/lib/liveApi";
  */
 export default function ListenPage() {
   const { state, mode } = useStream();
-  const { signalRef } = useAudioSignal(!!state.nowPlaying);
+  // In live mode, play real audio from the segment's asset URL so the
+  // listener actually hears the ad. In demo mode, the synthesized signal
+  // drives the visualizer.
+  const audioUrl = state.nowPlaying?.assetUrl?.match(/\.(mp3|wav|ogg)$/i)
+    ? state.nowPlaying.assetUrl
+    : undefined;
+  const { signalRef } = useAudioSignal(!!state.nowPlaying, audioUrl);
   const { play } = useSoundDesign();
   const [joined, setJoined] = useState(false);
   const [receipt, setReceipt] = useState<AttentionProofReceipt | null>(null);

@@ -58,7 +58,7 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const freqDataRef = useRef<Uint8Array | null>(null);
+  const freqDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
 
   // Set up real audio when an audioUrl is provided.
   useEffect(() => {
@@ -91,7 +91,9 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.6;
     analyserRef.current = analyser;
-    freqDataRef.current = new Uint8Array(analyser.frequencyBinCount);
+    freqDataRef.current = new Uint8Array(
+      new ArrayBuffer(analyser.frequencyBinCount),
+    ) as Uint8Array<ArrayBuffer>;
 
     try {
       const source = ctx.createMediaElementSource(audio);

@@ -45,6 +45,23 @@ context }` request.
   - `GET /health`, `POST /v1/generations`: 201 for a new canonical segment,
     200 for an identical retry, 409 for conflicting reuse of a segment ID,
     and 400 for invalid input.
+- **ElevenLabs generation provider** (`apps/generator/src/elevenlabsProvider.ts`)
+  — a full `GenerationProvider` that generates real ad content via the
+  ElevenLabs API:
+  - TTS via `textToSpeech.convert` with `eleven_v3` model (all tiers).
+  - Image generation via `flows.image` with `gemini-3-pro-image`
+    (audio_image tier).
+  - Video generation via `flows.video` with `veo-3.1-fast-generate-001`
+    (video + premium tiers).
+  - Template-based ad script generation from the brand brief (no separate
+    LLM API key needed).
+  - Assets saved locally and served by the generator's `/assets/` static
+    route (CORS-enabled).
+  - `GENERATOR_MODE=elevenlabs` activates it; lazily imported to avoid
+    loading the SDK in other modes.
+- **Static asset serving** (`apps/generator/src/server.ts`) — the generator
+  now serves generated assets at `GET /assets/:key` with correct content
+  types, CORS headers, and path traversal protection.
 - **Shared types** — `AttentionProofSubmission`,
   `AttentionProofVerificationContext`, `AttentionProofVerificationRequest`,
   `AttentionProofVerificationResult`, `AttentionProofVerificationFailure`,
@@ -60,8 +77,10 @@ context }` request.
 - **Midnight verifier mode** — type support exists in shared, but selecting it
   is intentionally rejected until a real verifier is installed.
 - **Daytona generation pipeline** — the provider/job interfaces exist, but
-  the implementation still uses `StubGenerationProvider`; no LLM/TTS/image/
-  video provider, sandbox, asset upload, or durable job store is configured.
+  the Daytona sandbox path is not yet configured. The ElevenLabs direct
+  mode (`GENERATOR_MODE=elevenlabs`) provides real TTS/image/video
+  generation without a sandbox. A durable job store (beyond
+  `InMemoryGenerationJobStore`) is not yet wired.
 - **Scraper** — no `ScrapedCompany` ingestion for free-ad cold start.
 
 ### Lane 1: known handoffs and inconsistencies

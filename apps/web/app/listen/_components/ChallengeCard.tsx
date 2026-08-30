@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PublicChallenge } from "@slopstream/shared";
 
@@ -8,6 +8,9 @@ import type { PublicChallenge } from "@slopstream/shared";
  * The challenge card — pops in with spring overshoot, haptic vibration, and a
  * countdown timer (design-language.md "Challenge appearance"). Large colorful
  * tappable buttons, not radio inputs. The listener taps an option to submit.
+ *
+ * Phase 8 refinement: subtle 3D parallax tilt on pointer move — the card
+ * feels like it floats in space, matching the 3D big screen's depth.
  */
 export function ChallengeCard({
   challenge,
@@ -23,6 +26,27 @@ export function ChallengeCard({
   );
   const [selected, setSelected] = useState<string | null>(null);
   const windowSec = challenge.validUntil - challenge.validFrom;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
+
+  // Parallax tilt — track pointer over the card and tilt up to ±6°.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const handleMove = (e: PointerEvent) => {
+      const rect = el.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width - 0.5;
+      const py = (e.clientY - rect.top) / rect.height - 0.5;
+      setTilt({ rx: -py * 6, ry: px * 6 });
+    };
+    const handleLeave = () => setTilt({ rx: 0, ry: 0 });
+    el.addEventListener("pointermove", handleMove);
+    el.addEventListener("pointerleave", handleLeave);
+    return () => {
+      el.removeEventListener("pointermove", handleMove);
+      el.removeEventListener("pointerleave", handleLeave);
+    };
+  }, []);
 
   // Countdown timer — drives the timer ring depleting visibly.
   useEffect(() => {
@@ -52,7 +76,12 @@ export function ChallengeCard({
   return (
     <AnimatePresence>
       <motion.div
-        style={styles.card}
+        ref={cardRef}
+        style={{
+          ...styles.card,
+          transform: `perspective(800px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
+          transformStyle: "preserve-3d",
+        }}
         initial={{ scale: 0.5, y: 60, opacity: 0 }}
         animate={{ scale: 1, y: 0, opacity: 1 }}
         exit={{ scale: 0.8, y: 40, opacity: 0 }}
@@ -156,6 +185,8 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: 14,
     boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    transition: "box-shadow 200ms ease",
+    willChange: "transform",
   },
   header: {
     display: "flex",

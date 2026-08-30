@@ -34,8 +34,8 @@ See [design-language.md](../product/design-language.md) for the full vision.
 | 5 — Event-driven physics + 3D threshold | Done | `ThresholdBasin` (glass cylinder fills with brand fluid, wave shader, glow on clear); `ClearingStreams` (instanced particle burst, 80/20 split to listener + platform pools); OUTBID color flood + shockwave wired (Phase 3) |
 | 6 — Floating HUD overlay + proof receipt | Done | `ProofReceipt3D` — glass card condenses from vapor on bid clear; stamp seal, count-up amounts, 80/20 split; auto-dismiss after 3.5s. `NowPlaying` stripped to text-only overlay (visuals now 3D) |
 | 7 — Quality switch + fallback | Done | `FluidBackgroundMesh` — icosphere blob fallback with additive blending; capability detection at mount (WebGL2 + `MAX_TEXTURE_IMAGE_UNITS >= 16`); error boundary → Canvas 2D `AmbientCanvas` |
-| 8 — Refine listener + brand | Not started | |
-| 9 — Generation pipeline | Not started | API keys pending |
+| 8 — Refine listener + brand | Done | Listener: real audio playback via `useAudioSignal(audioUrl)`, challenge card 3D parallax tilt. Brand: `WorldPreview` mini-canvas — a portal into the 3D big screen showing the brand's blob position in the leaderboard fluid |
+| 9 — Generation pipeline | Done | `ElevenLabsGenerationProvider` — TTS (`eleven_v3`), image gen (`gemini-3-pro-image`), video gen (`veo-3.1-fast-generate-001`). Static asset serving on the generator server (`/assets/`). `GENERATOR_MODE=elevenlabs` wired. Web client plays real audio from `assetUrl` |
 
 ### Phase 3 implementation notes
 
@@ -112,6 +112,54 @@ See [design-language.md](../product/design-language.md) for the full vision.
   the page — replaced by `ThresholdBasin` + `ClearingStreams` in the 3D
   scene. A small threshold count label (`verifiedCount / threshold`)
   remains as HTML for legibility.
+
+### Phase 8–9 implementation notes
+
+- **Listener real audio** (`useAudioSignal`): the hook now accepts an
+  optional `audioUrl` parameter. When provided (live mode with a real
+  `.mp3` asset URL), it creates a hidden `<audio>` element, connects it to
+  a Web Audio `AnalyserNode`, and drives the signal from real frequency
+  data (bass/mid/treble bins). When absent (demo mode with placeholder
+  URLs), it falls back to the synthesized signal. Both the big screen and
+  the listener screen pass `audioUrl` when the segment's `assetUrl` ends
+  in `.mp3`/`.wav`/`.ogg`.
+
+- **Challenge card parallax** (`ChallengeCard.tsx`): the card now tilts
+  up to ±6° based on pointer position, using `perspective(800px)` +
+  `rotateX`/`rotateY`. This gives the card a subtle 3D depth that matches
+  the big screen's 3D world. The tilt resets to 0 on pointer leave.
+
+- **Brand world preview** (`brand/page.tsx` → `WorldPreview`): a mini
+  Canvas 2D component that mirrors the 3D big screen's brand blob field.
+  The #1 brand is largest and centered; others recede in an arc. Each
+  blob wobbles, glows with brand colors, and the viewer's brand gets a
+  white highlight ring. This is the "portal into the big screen" — the
+  brand console feels connected to the 3D world.
+
+- **ElevenLabs generation provider** (`elevenlabsProvider.ts`): a full
+  `GenerationProvider` implementation that uses ElevenLabs APIs:
+  - **Script**: template-based ad script from the brand brief (hook →
+    body → CTA), incorporating Continuum continuity from
+    `previousSummaries`. No separate LLM API key needed.
+  - **Voice**: `textToSpeech.convert` with `eleven_v3` model for
+    expressive delivery. Output: MP3 (44100 Hz, 128 kbps).
+  - **Image** (audio_image tier): `flows.image.create` with
+    `gemini-3-pro-image` model. Polls until complete, downloads the PNG.
+  - **Video** (video/premium tiers): `flows.video.create` with
+    `veo-3.1-fast-generate-001` model. Picks the closest supported
+    duration (4/6/8s). Polls until complete, downloads the MP4.
+  - Assets are saved to `apps/generator/assets/` and served by the
+    generator's new `/assets/` static route (CORS-enabled).
+
+- **Static asset serving** (`server.ts`): the generator HTTP server now
+  serves generated assets at `GET /assets/:key` with correct content
+  types (MP3, MP4, PNG), CORS headers (`access-control-allow-origin: *`),
+  and path traversal protection. This lets the web client load textures
+  and play audio cross-origin.
+
+- **Generator mode wiring**: `GENERATOR_MODE=elevenlabs` is now a valid
+  mode alongside `stub` and `daytona`. The provider is lazily imported
+  to avoid loading the ElevenLabs SDK in stub/daytona mode.
 
 ## Dependencies to install
 

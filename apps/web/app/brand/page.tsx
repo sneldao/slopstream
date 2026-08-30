@@ -193,6 +193,15 @@ export default function BrandPage() {
           />
         </div>
 
+        {/* World preview — a mini portal into the 3D big screen showing
+            the brand's blob position in the leaderboard fluid. */}
+        <WorldPreview
+          leaderboard={state.leaderboard}
+          brandById={state.brandById}
+          myBrandId={brandId}
+          myBrandColor={myBrand?.primaryColor ?? "#1e6fff"}
+        />
+
         {/* Bid section — the pressure station */}
         <motion.div
           style={{
@@ -507,6 +516,137 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div style={styles.statBox}>
       <div style={styles.statLabel}>{label}</div>
       <div style={styles.statValue}>{value}</div>
+    </div>
+  );
+}
+
+/**
+ * World preview — a mini canvas that mirrors the 3D big screen's brand blob
+ * field. Shows the brand's position in the leaderboard as floating orbs in
+ * a fluid-like field. The #1 brand is largest and centered; others recede.
+ * This is the "portal into the big screen" from Phase 8.
+ */
+function WorldPreview({
+  leaderboard,
+  brandById,
+  myBrandId,
+  myBrandColor,
+}: {
+  leaderboard: { brandId: string; amountUsd: number }[];
+  brandById: Record<string, BrandSummary | undefined>;
+  myBrandId: string;
+  myBrandColor: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let raf = 0;
+    let phase = 0;
+
+    const render = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+      phase += 0.015;
+
+      // Dark fluid background.
+      ctx.fillStyle = "rgba(8, 8, 20, 0.9)";
+      ctx.fillRect(0, 0, w, h);
+
+      // Subtle fluid shimmer.
+      const shimmer = ctx.createRadialGradient(
+        w / 2 + Math.sin(phase) * 20,
+        h / 2 + Math.cos(phase * 0.7) * 15,
+        0,
+        w / 2,
+        h / 2,
+        w * 0.6,
+      );
+      shimmer.addColorStop(0, hexA(myBrandColor, 0.08));
+      shimmer.addColorStop(1, "rgba(8, 8, 20, 0)");
+      ctx.fillStyle = shimmer;
+      ctx.fillRect(0, 0, w, h);
+
+      // Render brand blobs — #1 is largest at center, others recede.
+      const cx = w / 2;
+      const cy = h / 2;
+      const maxR = Math.min(w, h) * 0.22;
+
+      leaderboard.forEach((entry, i) => {
+        const brand = brandById[entry.brandId];
+        const isMe = entry.brandId === myBrandId;
+        const color = brand?.primaryColor ?? "#888";
+        const secColor = brand?.secondaryColor ?? color;
+
+        // Rank 0 at center, others arranged in a receding arc.
+        const rankFactor = 1 - i * 0.2;
+        const r = maxR * Math.max(0.3, rankFactor);
+        const angle = i === 0 ? 0 : (i * Math.PI) / 3 + phase * 0.3;
+        const dist = i === 0 ? 0 : maxR * 1.5 * (0.6 + i * 0.3);
+        const bx = cx + Math.cos(angle) * dist;
+        const by = cy + Math.sin(angle) * dist * 0.5;
+
+        // Glow.
+        const glow = ctx.createRadialGradient(bx, by, 0, bx, by, r * 1.5);
+        glow.addColorStop(0, hexA(color, isMe ? 0.5 : 0.3));
+        glow.addColorStop(0.5, hexA(secColor, 0.15));
+        glow.addColorStop(1, hexA(color, 0));
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(bx, by, r * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core blob — wobbly.
+        ctx.fillStyle = hexA(color, isMe ? 0.85 : 0.5);
+        ctx.beginPath();
+        const wobble = 1 + Math.sin(phase * 2 + i) * 0.05;
+        ctx.arc(bx, by, r * wobble, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Highlight ring for "me".
+        if (isMe) {
+          ctx.strokeStyle = hexA("#fff", 0.6);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(bx, by, r * wobble + 4, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Rank label.
+        ctx.fillStyle = isMe ? "#fff" : "rgba(255,255,255,0.5)";
+        ctx.font = `${isMe ? "bold " : ""}${Math.max(10, r * 0.4)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`#${i + 1}`, bx, by);
+      });
+
+      // Empty state.
+      if (leaderboard.length === 0) {
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("The market is open", cx, cy);
+      }
+
+      raf = requestAnimationFrame(render);
+    };
+    render();
+    return () => cancelAnimationFrame(raf);
+  }, [leaderboard, brandById, myBrandId, myBrandColor]);
+
+  return (
+    <div style={styles.worldPreviewWrap}>
+      <div style={styles.tierLabel}>WORLD PREVIEW</div>
+      <canvas
+        ref={canvasRef}
+        width={520}
+        height={160}
+        style={styles.worldPreviewCanvas}
+      />
     </div>
   );
 }
@@ -834,5 +974,20 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--platform-text-dim)",
     padding: "8px 12px",
     fontStyle: "italic",
+  },
+  worldPreviewWrap: {
+    background: "rgba(255,255,255,0.04)",
+    borderRadius: 14,
+    padding: "10px 14px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    border: "1px solid rgba(255,255,255,0.06)",
+  },
+  worldPreviewCanvas: {
+    width: "100%",
+    height: 120,
+    borderRadius: 10,
+    display: "block",
   },
 };
