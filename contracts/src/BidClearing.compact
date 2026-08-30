@@ -9,10 +9,15 @@
 //
 // clearBid(
 //     bidId,
-//     attentionProof
+//     aggregateProof
 // )
 //
 // Clearing semantics: a bid does NOT clear on the first correct answer.
+// `aggregateProof` is a single proof attesting that the segment's attention
+// threshold was met across the full attention window — not one proof per
+// listener. Individual submitAttentionProof calls accumulate private state;
+// clearBid consumes the aggregate.
 // Flow: BID -> AD PLAYS -> ATTENTION WINDOW -> VALID ATTENTION EVENTS
-//       -> CLEARING -> REWARD POOL CREATED.
-// The advertiser buys a defined amount of verified attention.
+//       -> THRESHOLD MET? -> CLEARING (full bid) -> REWARD POOL CREATED.
+// If the threshold isn't met, the bid does not clear. The advertiser buys a
+// defined slot of verified attention that either clears or doesn't.

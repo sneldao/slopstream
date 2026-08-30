@@ -76,6 +76,7 @@ The core shared types live in [`packages/shared/src/index.ts`](../../packages/sh
 - **`PublicChallenge`** — same as `Challenge` minus `answer`. This is what `challenge.fired` carries over WebSocket and what the listener client renders. Lane 2 holds the full `Challenge`; the client never receives the answer.
 - **`AttentionProofSubmission`** — `{ listenerCommitment, segmentId, challengeId, resultProof }`. Submitted by Lane 3's listener client to Lane 2's API, verified by Lane 1.
 - **`AttentionProofReceipt`** — `{ proofId, segmentId, challengeId, brandId, challengeType, verified, estimatedRewardUsd?, createdAt }`. Issued by Lane 1 (via Lane 2's API), displayed by Lane 3.
+- **`DemoFixture` / `DemoStep`** — the versioned, fixture-driven demo sequence (`initialSnapshot` + ordered steps wrapping `WsDelivery`/`StreamSnapshot`). Lane 3 owns the player; Lanes 1–2 supply canned proof/clearing data. This is a cross-lane dependency, so its shape lives in `packages/shared`.
 - **REST/entity shapes** — `Bid`, `Segment`, `RewardPool`, `ListenerSession`, `ProductionTier`, `BidStatus`, `SegmentStatus`, `RewardPoolStatus`, plus the command endpoints and `GET /stream/snapshot` response (`asOfSequence`, public stream state, active `PublicChallenge`).
 - **Generation interface** — Lane 1's generator input (brand brief, production tier, previous segment summaries) → output (asset URL, transcript, visual/audio metadata). Lane 2's challenge engine consumes the transcript; Lane 3's scheduler consumes the asset. Defined in `packages/shared` before either side builds against it.
 
@@ -100,7 +101,7 @@ Before anyone writes feature code, confirm all of the following against `package
 - [ ] Private listener receipts/balances and brand account state stay on authenticated HTTPS paths; no public `WsEvent` gains private fields.
 - [ ] Redis topic names and publisher/consumer ownership are fixed (Lane 2 publishes marketplace events, Lane 3 publishes runtime events).
 - [ ] Every `WsEvent` type has exactly one authoritative emitter (see source-of-truth above).
-- [ ] A versioned demo fixture (hardcoded `WsEvent` sequence) can drive the whole UI without API or contract availability. Owner: Lane 3; Lanes 1–2 contribute canned proof/clearing data.
+- [ ] A versioned demo fixture (a shared `DemoFixture` — `initialSnapshot` + ordered `DemoStep[]` wrapping `WsDelivery`/`StreamSnapshot`) can drive the whole UI without API or contract availability. Owner: Lane 3; Lanes 1–2 contribute canned proof/clearing data.
 - [ ] The shared contract runs a typecheck in CI (`pnpm --filter @slopstream/shared build` passes).
 - [ ] `AttentionProofReceipt` is issued through Lane 2's API (Lane 1 verifies, Lane 2 stores and returns the receipt), not directly from Lane 1 to Lane 3.
 

@@ -1,0 +1,14 @@
+{
+  // Which files markdownlint-cli2 lints when invoked with no path args
+  // (e.g. `pnpm exec markdownlint-cli2` in CI). Keeps dependency and build
+  // output READMEs out of the lint set.
+  "globs": ["**/*.md"],
+  "ignores": ["**/node_modules/**", "**/dist/**", "**/.next/**"],
+  // Rule config (also read from .markdownlint.jsonc; kept here so a bare
+  // invocation is fully self-contained).
+  "config": {
+    // Long prose lines and ASCII-art diagrams are both common in these docs.
+    "MD013": false,
+    "MD033": false
+  }
+}

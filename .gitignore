@@ -2,6 +2,9 @@ node_modules/
 .DS_Store
 .env
 .env.*
+# Committed templates — keep these tracked despite the .env.* rule above.
+!.env.example
+!**/.env.example
 dist/
 .next/
 *.tsbuildinfo
