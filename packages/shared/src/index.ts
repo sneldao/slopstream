@@ -137,7 +137,8 @@ export type AttentionProofVerificationFailure =
   | "proof_marked_invalid"
   | "binding_mismatch"
   | "outside_challenge_window"
-  | "replayed_proof";
+  | "replayed_proof"
+  | "recording_failed";
 
 /** Result returned by Lane 1's verifier to Lane 2. */
 export interface AttentionProofVerificationResult {
@@ -491,7 +492,37 @@ export interface ScrapedCompany {
   description?: string;
   scrapedAt: string;
   claimed: boolean;
+  /** Set once the company has been turned into a free stream segment. */
+  usedAt?: string;
 }
+
+/** One scraped-company submission to POST /companies/scraped. */
+export interface ScrapedCompanySubmission {
+  name: string;
+  source: ScrapedCompanySource;
+  sourceUrl: string;
+  tagline?: string;
+  description?: string;
+}
+
+/** POST /companies/scraped (orchestrator bearer). */
+export interface IngestScrapedCompaniesCommand {
+  companies: ScrapedCompanySubmission[];
+}
+
+/**
+ * Pseudo-brand that represents free (scraped-company) filler segments in the
+ * marketplace UI. Free segments have `brandId = null` in the ledger but carry
+ * this id in public events so clients can resolve a palette from
+ * `snapshot.brands`. It never appears on the leaderboard (no bids).
+ */
+export const FREE_BRAND_ID = "brand_free_slopstream";
+export const FREE_BRAND_SUMMARY: BrandSummary = {
+  id: FREE_BRAND_ID,
+  name: "FREE SLOP",
+  primaryColor: "#7de3d8",
+  secondaryColor: "#b8a9f5",
+};
 
 // ---------------------------------------------------------------------------
 // Listener sessions
@@ -601,6 +632,21 @@ export interface AuctionState {
      *  lifecycle (generating/ready/playing/window-closed) against this id. */
     segmentId: string;
     /** Persisted lifecycle state used by a restarting orchestrator. */
+    segmentStatus?: SegmentStatus;
+  };
+  /**
+   * Present once the auction closed with NO winner and a scraped company was
+   * consumed for a free filler ad. The orchestrator drives the segment
+   * lifecycle exactly like a winner's segment, but no money moves and no
+   * reward pool exists (docs/product/content.md — cold-start engine).
+   */
+  freeSegment?: {
+    segmentId: string;
+    /** The scraped company the ad is generated for. */
+    companyName: string;
+    /** The generation brief built from the scraped data. */
+    brief: string;
+    tier: ProductionTier;
     segmentStatus?: SegmentStatus;
   };
 }

@@ -7,6 +7,7 @@ import type {
   GenerationRequest,
   GenerationResult,
   PublicChallenge,
+  ScrapedCompanySubmission,
   StreamSnapshot,
   WsDelivery,
 } from "@slopstream/shared";
@@ -140,6 +141,21 @@ export class ApiClient {
     } catch (error) {
       console.warn(`[api-client] /failed for ${segmentId}:`, error);
     }
+  }
+
+  // -------------------------------------------------------- scraped companies
+
+  /**
+   * Cold-start ingestion: post scraped-company submissions to Lane 2. The
+   * API dedupes by sourceUrl + (source, name) and returns counters.
+   */
+  async ingestScrapedCompanies(companies: ScrapedCompanySubmission[]): Promise<{
+    added: number;
+    duplicates: number;
+  }> {
+    const res = await this.postApiRaw("/companies/scraped", { companies });
+    if (!res.ok) throw new Error(`/companies/scraped responded ${res.status}`);
+    return (await res.json()) as { added: number; duplicates: number };
   }
 
   // --------------------------------------------------------------- generator

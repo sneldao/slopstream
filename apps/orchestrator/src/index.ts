@@ -20,6 +20,7 @@ import { ApiClient } from "./apiClient.js";
 import { loadEnv } from "./env.js";
 import { Gateway } from "./gateway.js";
 import { MarketplaceFeed } from "./marketplaceFeed.js";
+import { CompanyScraper } from "./scraper.js";
 import { SegmentScheduler } from "./scheduler.js";
 
 const env = loadEnv();
@@ -42,6 +43,26 @@ feed.start();
 const scheduler = new SegmentScheduler({ env, gateway, api });
 await scheduler.start();
 
+// Cold-start scraper: when PARALLEL_API_KEY is configured, continuously
+// discover newly launched companies and ingest them into the API's free-ad
+// queue. Without a key the stream falls back to the demo fixture.
+let scraper: CompanyScraper | undefined;
+if (env.parallelApiKey) {
+  scraper = new CompanyScraper({
+    apiKey: env.parallelApiKey,
+    maxResults: env.scraperMaxResults,
+    ingest: async (companies) => {
+      const { added, duplicates } = await api.ingestScrapedCompanies(companies);
+      console.log(
+        `[scraper] ingested ${added} companies (${duplicates} duplicates)`,
+      );
+    },
+  });
+  scraper.start(env.scraperPollMs);
+} else {
+  console.log("[scraper] PARALLEL_API_KEY not set — scraper disabled");
+}
+
 gateway.server.listen(env.port, () => {
   console.log(
     `slopstream orchestrator listening on :${env.port} (api=${env.apiBaseUrl}, generator=${env.generatorBaseUrl}, play=${env.segmentPlaySec}s)`,
@@ -52,6 +73,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     scheduler.stop();
     feed.stop();
+    scraper?.stop();
     void gateway.close().then(() => process.exit(0));
   });
 }

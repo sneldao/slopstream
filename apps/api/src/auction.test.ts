@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { OPENING_PRICE_CENTS, tierForAmount } from "./auction.js";
 import { ApiError } from "./money.js";
 import { fundedBrand, setupHarness } from "./test-harness.js";
+import { FREE_BRAND_ID } from "@slopstream/shared";
 
 describe("tierForAmount", () => {
   it("maps amounts to tier boundaries", () => {
@@ -118,7 +119,84 @@ describe("auction close", () => {
     const auction = h.auction.ensureOpenAuction();
     expect(auction.openingCents).toBe(OPENING_PRICE_CENTS);
     expect(h.auction.closeAuction(1)).toBeNull();
+
     expect(h.auction.openAuction()?.slot).toBe(2);
     expect(h.ledger.segments.size).toBe(0);
+  });
+});
+
+describe("free (scraped) segments — cold-start engine", () => {
+  it("closes a no-bid slot as a free segment when a scraped company exists", () => {
+    const h = setupHarness();
+    const { added } = h.ledger.insertScrapedCompanies([
+      {
+        name: "Acme AI",
+        source: "product_hunt",
+        sourceUrl: "https://www.producthunt.com/posts/acme",
+        tagline: "AI code review",
+      },
+    ]);
+    expect(added).toBe(1);
+
+    h.auction.ensureOpenAuction();
+    expect(h.auction.closeAuction(1)).toBeNull(); // no winner
+
+    const free = h.auction.freeSegmentForSlot(1);
+    expect(free).toBeDefined();
+    expect(free!.brandId).toBeNull();
+    expect(free!.bidId).toBeNull();
+    expect(free!.brief).toContain("Acme AI");
+    expect(free!.brief).toContain("unofficial AI-generated parody");
+
+    // The company is consumed exactly once.
+    const company = h.ledger.scrapedCompanies.get(free!.scrapedCompanyId!)!;
+    expect(company.usedAtMs).toBeDefined();
+
+    // The orchestrator read shape exposes the free segment for driving.
+    const state = h.auction.auctionState(1)!;
+    expect(state.winner).toBeUndefined();
+    expect(state.freeSegment).toMatchObject({
+      segmentId: free!.id,
+      companyName: "Acme AI",
+      tier: "audio",
+    });
+
+    // The free pseudo-brand is registered for client palette resolution.
+    expect(h.ledger.brands.has(FREE_BRAND_ID)).toBe(true);
+  });
+
+  it("a no-bid slot without scraped companies produces nothing", () => {
+    const h = setupHarness();
+    h.auction.ensureOpenAuction();
+    expect(h.auction.closeAuction(1)).toBeNull();
+    expect(h.auction.freeSegmentForSlot(1)).toBeUndefined();
+    const state = h.auction.auctionState(1)!;
+    expect(state.freeSegment).toBeUndefined();
+  });
+
+  it("dedupes scraped companies by sourceUrl and (source, name)", () => {
+    const h = setupHarness();
+    const first = h.ledger.insertScrapedCompanies([
+      {
+        name: "Acme AI",
+        source: "hacker_news",
+        sourceUrl: "https://news.ycombinator.com/item?id=1",
+      },
+    ]);
+    const second = h.ledger.insertScrapedCompanies([
+      {
+        name: "Acme AI",
+        source: "hacker_news",
+        sourceUrl: "https://news.ycombinator.com/item?id=1",
+      },
+      {
+        name: "acme ai",
+        source: "hacker_news",
+        sourceUrl: "https://news.ycombinator.com/item?id=2",
+      },
+    ]);
+    expect(first).toEqual({ added: 1, duplicates: 0 });
+    expect(second).toEqual({ added: 0, duplicates: 2 });
+    expect(h.ledger.scrapedCompanies.size).toBe(1);
   });
 });

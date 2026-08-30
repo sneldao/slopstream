@@ -395,6 +395,9 @@ describe("orchestrator live slice", () => {
       auctionPollMs: 25,
       eventsPollMs: 25,
       genStageDelayMs: 5,
+      parallelApiKey: "",
+      scraperPollMs: 60_000,
+      scraperMaxResults: 10,
     };
 
     gateway = new Gateway({ apiBaseUrl });
@@ -525,6 +528,9 @@ describe("orchestrator live slice", () => {
       auctionPollMs: 25,
       eventsPollMs: 60_000,
       genStageDelayMs: 5,
+      parallelApiKey: "",
+      scraperPollMs: 60_000,
+      scraperMaxResults: 10,
     };
 
     gateway = new Gateway({ apiBaseUrl });
@@ -564,6 +570,9 @@ describe("orchestrator live slice", () => {
         auctionPollMs: 60_000,
         eventsPollMs: 60_000,
         genStageDelayMs: 5,
+        parallelApiKey: "",
+        scraperPollMs: 60_000,
+        scraperMaxResults: 10,
       },
       gateway,
       api,

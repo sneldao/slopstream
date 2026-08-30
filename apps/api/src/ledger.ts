@@ -10,6 +10,12 @@ import type {
   RewardPoolStatus,
   SegmentStatus,
 } from "@slopstream/shared";
+import { FREE_BRAND_ID, FREE_BRAND_SUMMARY } from "@slopstream/shared";
+import { isoNow, newId } from "./ids.js";
+import type {
+  ScrapedCompanySource,
+  ScrapedCompanySubmission,
+} from "@slopstream/shared";
 
 export interface BrandRow {
   id: string;
@@ -65,6 +71,11 @@ export interface SegmentRow {
   /** Set when a grace-period close is scheduled but not yet evaluated. */
   windowClosingAtMs?: number;
   windowClosed: boolean;
+  /** Generation brief for free (scraped-company) segments; paid segments
+   *  resolve the brief from their brand at read time. */
+  brief?: string;
+  /** The scraped company this free segment was generated from. */
+  scrapedCompanyId?: string;
 }
 
 export interface ChallengeRow {
@@ -140,6 +151,19 @@ export interface AuctionRow {
   winnerBidId?: string;
 }
 
+export interface ScrapedCompanyRow {
+  id: string;
+  name: string;
+  source: ScrapedCompanySource;
+  sourceUrl: string;
+  tagline?: string;
+  description?: string;
+  scrapedAt: string;
+  claimed: boolean;
+  /** Set when the company has been turned into a free stream segment. */
+  usedAtMs?: number;
+}
+
 export class Ledger {
   readonly brands = new Map<string, BrandRow>();
   readonly brandTokens = new Map<string, string>(); // token -> brandId
@@ -153,6 +177,89 @@ export class Ledger {
   readonly rewardPools = new Map<string, RewardPoolRow>();
   readonly listenerRewards = new Map<string, ListenerRewardRow>();
   readonly auctions = new Map<number, AuctionRow>(); // by slot
+  readonly scrapedCompanies = new Map<string, ScrapedCompanyRow>();
+  /** Dedupe index: sourceUrl -> scrapedCompanyId. */
+  readonly scrapedByUrl = new Map<string, string>();
+
+  constructor() {
+    // Register the free-filler pseudo-brand so clients can resolve a palette
+    // for free segments' public events (see FREE_BRAND_ID in shared). It has
+    // no token, no balance, and never bids — it is presentation-only.
+    this.brands.set(FREE_BRAND_ID, {
+      id: FREE_BRAND_ID,
+      name: FREE_BRAND_SUMMARY.name,
+      primaryColor: FREE_BRAND_SUMMARY.primaryColor,
+      secondaryColor: FREE_BRAND_SUMMARY.secondaryColor,
+      brief: "",
+      token: "",
+      createdAt: isoNow(),
+    });
+  }
+
+  // ------------------------------------------------------- scraped companies
+
+  /**
+   * Insert scraped-company submissions, deduping by sourceUrl (and by name
+   * for the same source). Returns how many were added vs skipped.
+   */
+  insertScrapedCompanies(submissions: ScrapedCompanySubmission[]): {
+    added: number;
+    duplicates: number;
+  } {
+    let added = 0;
+    let duplicates = 0;
+    for (const sub of submissions) {
+      if (!sub?.name || !sub?.source || !sub?.sourceUrl) {
+        duplicates += 1;
+        continue;
+      }
+      const urlKey = sub.sourceUrl.trim().toLowerCase();
+      const nameKey = `${sub.source}:${sub.name.trim().toLowerCase()}`;
+      if (this.scrapedByUrl.has(urlKey)) {
+        duplicates += 1;
+        continue;
+      }
+      const existingByName = [...this.scrapedCompanies.values()].find(
+        (c) => `${c.source}:${c.name.toLowerCase()}` === nameKey,
+      );
+      if (existingByName) {
+        duplicates += 1;
+        continue;
+      }
+      const row: ScrapedCompanyRow = {
+        id: newId("scrp"),
+        name: sub.name.trim(),
+        source: sub.source,
+        sourceUrl: sub.sourceUrl.trim(),
+        ...(sub.tagline?.trim() ? { tagline: sub.tagline.trim() } : {}),
+        ...(sub.description?.trim()
+          ? { description: sub.description.trim() }
+          : {}),
+        scrapedAt: isoNow(),
+        claimed: false,
+      };
+      this.scrapedCompanies.set(row.id, row);
+      this.scrapedByUrl.set(urlKey, row.id);
+      added += 1;
+    }
+    return { added, duplicates };
+  }
+
+  /** Oldest scraped company that has not been turned into a segment yet. */
+  nextUnusedScrapedCompany(): ScrapedCompanyRow | undefined {
+    let best: ScrapedCompanyRow | undefined;
+    for (const row of this.scrapedCompanies.values()) {
+      if (row.usedAtMs === undefined) {
+        if (!best || row.scrapedAt < best.scrapedAt) best = row;
+      }
+    }
+    return best;
+  }
+
+  markScrapedCompanyUsed(id: string): void {
+    const row = this.scrapedCompanies.get(id);
+    if (row && row.usedAtMs === undefined) row.usedAtMs = Date.now();
+  }
 
   brandByToken(token: string): BrandRow | undefined {
     const id = this.brandTokens.get(token);

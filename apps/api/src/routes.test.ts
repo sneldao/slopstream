@@ -74,6 +74,56 @@ describe("HTTP authorization boundaries", () => {
     expect(harness.ledger.bids.size).toBe(0);
   });
 
+  it("scraped-company ingestion requires the orchestrator token", async () => {
+    const response = await fetch(`${baseUrl}/companies/scraped`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companies: [] }),
+    });
+    expect(response.status).toBe(401);
+  });
+
+  it("accepts scraped companies with the orchestrator token and dedupes", async () => {
+    const company = {
+      name: "Acme AI",
+      source: "hacker_news",
+      sourceUrl: "https://news.ycombinator.com/item?id=42",
+    };
+    const first = await fetch(`${baseUrl}/companies/scraped`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ORCHESTRATOR_TOKEN}`,
+      },
+      body: JSON.stringify({ companies: [company] }),
+    });
+    expect(first.status).toBe(201);
+    expect((await first.json()) as { added: number }).toEqual({
+      added: 1,
+      duplicates: 0,
+    });
+
+    // Duplicate submission is skipped.
+    const second = await fetch(`${baseUrl}/companies/scraped`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ORCHESTRATOR_TOKEN}`,
+      },
+      body: JSON.stringify({ companies: [company] }),
+    });
+    expect(((await second.json()) as { duplicates: number }).duplicates).toBe(
+      1,
+    );
+
+    const list = await fetch(`${baseUrl}/companies/scraped`, {
+      headers: { Authorization: `Bearer ${ORCHESTRATOR_TOKEN}` },
+    });
+    expect(list.ok).toBe(true);
+    const body = (await list.json()) as { companies: unknown[] };
+    expect(body.companies).toHaveLength(1);
+  });
+
   it("requires an authenticated brand to act only for itself", async () => {
     const acme = fundedBrand(harness, "Acme", 100);
     const rival = fundedBrand(harness, "Rival", 100);

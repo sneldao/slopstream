@@ -277,7 +277,9 @@ export class AuctionEngine {
     }
 
     if (!winner) {
-      // No bids: the slot still streams as a free (scraped) segment.
+      // No bids: the slot still streams as a free (scraped) segment — the
+      // cold-start engine (docs/product/content.md). No money moves.
+      this.realizeFreeSegment(auction);
       this.ensureOpenAuction();
       return null;
     }
@@ -309,6 +311,45 @@ export class AuctionEngine {
     };
     this.ledger.segments.set(segment.id, segment);
     return segment;
+  }
+
+  /**
+   * Realize a no-winner slot as a free ad generated from scraped startup
+   * data (docs/product/content.md — cold-start engine). Consumes the oldest
+   * unused scraped company; without one the slot has no content and stays
+   * empty (the demo fixture covers pre-scrape bootstrapping).
+   */
+  private realizeFreeSegment(auction: AuctionRow): void {
+    const company = this.ledger.nextUnusedScrapedCompany();
+    if (!company) return;
+
+    const descriptor = company.description ?? company.tagline ?? "";
+    const brief = [
+      `Write a short, funny AI-generated ad for ${company.name}.`,
+      descriptor ? `What they do: ${descriptor}` : "",
+      "The ad must be clearly labelled as an unofficial AI-generated parody.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const segment = this.realizeSegment(null, auction);
+    segment.brief = brief;
+    segment.scrapedCompanyId = company.id;
+    this.ledger.markScrapedCompanyUsed(company.id);
+  }
+
+  /** The free segment realized for a closed no-winner slot, if any. */
+  freeSegmentForSlot(slot: number): SegmentRow | undefined {
+    for (const segment of this.ledger.segments.values()) {
+      if (
+        segment.slot === slot &&
+        segment.bidId === null &&
+        segment.scrapedCompanyId !== undefined
+      ) {
+        return segment;
+      }
+    }
+    return undefined;
   }
 
   /** Build the AuctionState read shape the orchestrator polls. */
@@ -349,6 +390,22 @@ export class AuctionEngine {
             segmentStatus: winnerSegment?.status,
           }
         : undefined,
+      freeSegment: winnerBid
+        ? undefined
+        : (() => {
+            const freeSegment = this.freeSegmentForSlot(auction.slot);
+            if (!freeSegment?.brief) return undefined;
+            const company = freeSegment.scrapedCompanyId
+              ? this.ledger.scrapedCompanies.get(freeSegment.scrapedCompanyId)
+              : undefined;
+            return {
+              segmentId: freeSegment.id,
+              companyName: company?.name ?? "a startup",
+              brief: freeSegment.brief,
+              tier: "audio" as ProductionTier,
+              segmentStatus: freeSegment.status,
+            };
+          })(),
     };
   }
 }

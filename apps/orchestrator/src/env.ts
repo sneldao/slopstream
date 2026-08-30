@@ -24,6 +24,13 @@ export interface OrchestratorEnv {
   eventsPollMs: number;
   /** Delay between generation.progress stage beats (ms). */
   genStageDelayMs: number;
+  /** Parallel.ai API key for the cold-start company scraper. When unset the
+   *  scraper is disabled (the stream falls back to the demo fixture). */
+  parallelApiKey: string;
+  /** How often the scraper searches for newly launched companies (ms). */
+  scraperPollMs: number;
+  /** Max search results per scraper run. */
+  scraperMaxResults: number;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -75,6 +82,15 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): OrchestratorEnv {
     genStageDelayMs: positive(
       "GEN_STAGE_DELAY_MS",
       num(env.GEN_STAGE_DELAY_MS, 700),
+    ),
+    parallelApiKey: env.PARALLEL_API_KEY?.trim() ?? "",
+    scraperPollMs: positive(
+      "SCRAPER_POLL_MS",
+      num(env.SCRAPER_POLL_MS, 1_800_000),
+    ),
+    scraperMaxResults: positive(
+      "SCRAPER_MAX_RESULTS",
+      num(env.SCRAPER_MAX_RESULTS, 10),
     ),
   };
 }

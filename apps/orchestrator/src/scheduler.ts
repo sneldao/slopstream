@@ -15,13 +15,24 @@
 import type {
   AuctionState,
   GenerationStage,
+  ProductionTier,
   PublicChallenge,
 } from "@slopstream/shared";
+import { FREE_BRAND_ID } from "@slopstream/shared";
 import type { ApiClient } from "./apiClient.js";
 import type { OrchestratorEnv } from "./env.js";
 import type { Gateway } from "./gateway.js";
 
 type Winner = NonNullable<AuctionState["winner"]>;
+type FreeSegment = NonNullable<AuctionState["freeSegment"]>;
+
+interface DriveTarget {
+  segmentId: string;
+  /** Free filler segments use FREE_BRAND_ID (no real brand account). */
+  brandId: string;
+  brief: string;
+  tier: ProductionTier;
+}
 
 const GENERATION_STAGES: GenerationStage[] = [
   "script",
@@ -154,31 +165,76 @@ export class SegmentScheduler {
     for (let slot = 1; slot < this.highSlotSeen; slot++) {
       try {
         const auction = await this.api.auctionForSlot(slot);
-        if (!auction || auction.status !== "closed" || !auction.winner)
-          continue;
-        const winner = auction.winner;
-        if (this.processed.has(winner.segmentId)) continue;
-        if (
-          winner.segmentStatus === "done" ||
-          winner.segmentStatus === "failed"
-        ) {
-          this.processed.add(winner.segmentId);
-          continue;
-        }
-        if (winner.segmentStatus === "playing") {
-          if (!this.playback) await this.adoptFromSnapshot();
-          continue;
-        }
-        this.driving = true;
-        try {
-          if (winner.segmentStatus === "ready") {
-            await this.startPlayback(winner.segmentId, winner.brandId, slot);
+        if (!auction || auction.status !== "closed") continue;
+        if (auction.winner) {
+          const winner = auction.winner;
+          if (this.processed.has(winner.segmentId)) continue;
+          if (
+            winner.segmentStatus === "done" ||
+            winner.segmentStatus === "failed"
+          ) {
             this.processed.add(winner.segmentId);
-          } else {
-            await this.driveSegment(winner, slot);
+            continue;
           }
-        } finally {
-          this.driving = false;
+          if (winner.segmentStatus === "playing") {
+            if (!this.playback) await this.adoptFromSnapshot();
+            continue;
+          }
+          this.driving = true;
+          try {
+            if (winner.segmentStatus === "ready") {
+              await this.startPlayback(winner.segmentId, winner.brandId, slot);
+              this.processed.add(winner.segmentId);
+            } else {
+              await this.driveSegment(
+                {
+                  segmentId: winner.segmentId,
+                  brandId: winner.brandId,
+                  brief: winner.brief,
+                  tier: winner.tier,
+                },
+                slot,
+              );
+            }
+          } finally {
+            this.driving = false;
+          }
+        } else if (auction.freeSegment) {
+          // No winner: drive the free (scraped-company) filler segment the
+          // same way — generating → ready → playing → window-closed. No bid
+          // exists, so no money moves and no pool is ever created.
+          const free: FreeSegment = auction.freeSegment;
+          if (this.processed.has(free.segmentId)) continue;
+          if (
+            free.segmentStatus === "done" ||
+            free.segmentStatus === "failed"
+          ) {
+            this.processed.add(free.segmentId);
+            continue;
+          }
+          if (free.segmentStatus === "playing") {
+            if (!this.playback) await this.adoptFromSnapshot();
+            continue;
+          }
+          this.driving = true;
+          try {
+            if (free.segmentStatus === "ready") {
+              await this.startPlayback(free.segmentId, FREE_BRAND_ID, slot);
+              this.processed.add(free.segmentId);
+            } else {
+              await this.driveSegment(
+                {
+                  segmentId: free.segmentId,
+                  brandId: FREE_BRAND_ID,
+                  brief: free.brief,
+                  tier: free.tier,
+                },
+                slot,
+              );
+            }
+          } finally {
+            this.driving = false;
+          }
         }
       } catch {
         // Transient read failure; the next tick retries this slot.
@@ -189,12 +245,11 @@ export class SegmentScheduler {
 
   // ------------------------------------------------------------ segment drive
 
-  private async driveSegment(winner: Winner, slot: number): Promise<void> {
-    const { segmentId, brandId, brief, tier } = winner;
+  private async driveSegment(target: DriveTarget, slot: number): Promise<void> {
+    const { segmentId, brandId, brief, tier } = target;
     this.processed.add(segmentId);
-    console.log(
-      `[scheduler] slot ${slot} won by ${brandId} -> segment ${segmentId}`,
-    );
+    const label = brandId === FREE_BRAND_ID ? "free (scraped)" : brandId;
+    console.log(`[scheduler] slot ${slot} -> segment ${segmentId} (${label})`);
 
     try {
       this.gateway.emit({

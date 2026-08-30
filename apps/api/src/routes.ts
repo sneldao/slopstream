@@ -15,6 +15,7 @@ import type {
   Bid,
   ChallengeSourceCommand,
   CreateBrandCommand,
+  IngestScrapedCompaniesCommand,
   PlaceBidCommand,
   ProductionTier,
   TopUpCommand,
@@ -142,6 +143,42 @@ export function createRouter(deps: ApiDeps): Router {
   router.get("/health", (_req, res) => {
     res.json({ ok: true, service: "slopstream-api", sequence: bus.sequence });
   });
+
+  // --------------------------------------------------- scraped companies
+
+  // Cold-start ingestion (docs/product/content.md). The orchestrator's
+  // Parallel-powered scraper discovers newly launched companies and posts
+  // them here; the auction engine consumes them for free filler segments.
+  router.post(
+    "/companies/scraped",
+    wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
+      const body = req.body as IngestScrapedCompaniesCommand;
+      assert(
+        Array.isArray(body?.companies),
+        400,
+        "companies array is required",
+      );
+      assert(
+        body.companies.length > 0 && body.companies.length <= 100,
+        400,
+        "companies must contain 1–100 entries",
+      );
+      const result = ledger.insertScrapedCompanies(body.companies);
+      res.status(201).json(result);
+    }),
+  );
+
+  router.get(
+    "/companies/scraped",
+    wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
+      const unused = [...ledger.scrapedCompanies.values()]
+        .filter((c) => c.usedAtMs === undefined)
+        .sort((a, b) => a.scrapedAt.localeCompare(b.scrapedAt));
+      res.json({ companies: unused });
+    }),
+  );
 
   // ------------------------------------------------------------------ brands
   router.post(

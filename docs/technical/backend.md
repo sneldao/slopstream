@@ -117,6 +117,22 @@ Postgres is the target accounting ledger. **The current hackathon implementation
 - `reward_pools`
 - `listener_rewards`
 - `payouts`
+- `scraped_companies` — the cold-start queue (docs/product/content.md)
+
+### Cold-start scraper
+
+The orchestrator runs an optional scraper (`apps/orchestrator/src/scraper.ts`)
+backed by the [Parallel Search API](https://docs.parallel.ai) (`PARALLEL_API_KEY`;
+disabled when unset, cadence via `SCRAPER_POLL_MS`). Each discovery pass posts
+`ScrapedCompanySubmission`s to **`POST /companies/scraped`** (orchestrator
+bearer), which dedupes by `sourceUrl` and `(source, name)` into the
+`scraped_companies` queue; `GET /companies/scraped` lists the unused backlog.
+When an auction closes with **no bids**, the auction engine consumes the oldest
+unused company, realizes a free segment (`brandId = null`, brief built from the
+scraped data, tier `audio`), and exposes it as `AuctionState.freeSegment` — the
+orchestrator then drives its full lifecycle exactly like a won slot, using the
+`FREE_BRAND_ID` pseudo-brand for public events. No money moves and no reward
+pool ever exists for a free segment.
 
 The three tables the demo actually touches, beyond `reward_pools` below:
 
