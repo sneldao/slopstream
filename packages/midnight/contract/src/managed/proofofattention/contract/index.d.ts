@@ -57,6 +57,9 @@ export type Circuits<PS> = {
 export type Ledger = {
   readonly verifiedCount: bigint;
   readonly lastNullifier: Uint8Array;
+  readonly prevNullifier1: Uint8Array;
+  readonly prevNullifier2: Uint8Array;
+  readonly prevNullifier3: Uint8Array;
   readonly attentionThreshold: bigint;
   readonly thresholdMet: boolean;
   readonly owner: Uint8Array;

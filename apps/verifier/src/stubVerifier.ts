@@ -80,6 +80,14 @@ function buildProofId(payload: StubAttentionProofPayload): string {
 }
 
 /**
+ * Bound on replay-tracking nonces held in memory. Once exceeded, the oldest
+ * insertion is evicted (Set keeps insertion order), so replay protection
+ * covers the most recent MAX_TRACKED_NONCES proofs and the set cannot grow
+ * without bound.
+ */
+export const MAX_TRACKED_NONCES = 10_000;
+
+/**
  * Hackathon-only verifier. It validates that a self-reported JSON stub proof
  * is bound to the expected listener/challenge/segment, was issued/submitted in
  * the challenge window, and has not reused an in-memory nonce. It deliberately
@@ -146,6 +154,12 @@ export function createStubAttentionProofVerifier(): {
       }
 
       usedNonces.add(payload.nonce);
+      if (usedNonces.size > MAX_TRACKED_NONCES) {
+        const oldest = usedNonces.values().next().value as string | undefined;
+        if (oldest !== undefined) {
+          usedNonces.delete(oldest);
+        }
+      }
       const verifiedAt = new Date().toISOString();
 
       return {

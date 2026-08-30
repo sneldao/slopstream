@@ -17,8 +17,10 @@ Guiding principle: **Stripe moves dollars. Midnight proves facts.** These contra
 
 `ProofOfAttention.compact` is **real and deployable**: compiled with `compactc 0.31.1` (language 0.23 / runtime 0.16.0, matching the Midnight preprod testnet) into `packages/midnight/contract/src/managed/proofofattention` (TS bindings + prover/verifier keys). Design:
 
-- `submitAttentionProof(segmentId, challengeId)` — hashes an ephemeral `listenerSecret` witness with the segment and challenge IDs into a nullifier, rejects replays against `lastNullifier`, increments the public `verifiedCount`, and flips `thresholdMet` once the count reaches `attentionThreshold`. Segment/challenge binding is proven in-circuit and never disclosed on-chain; only the nullifier and counters are public.
+- `submitAttentionProof(segmentId, challengeId)` — hashes an ephemeral `listenerSecret` witness with the segment and challenge IDs into a nullifier, rejects replays against a 4-deep window of recently accepted nullifiers (`lastNullifier` + `prevNullifier1..3`), increments the public `verifiedCount`, and flips `thresholdMet` once the count reaches `attentionThreshold`. Segment/challenge binding is proven in-circuit and never disclosed on-chain; only the nullifier and counters are public. Known limitation on preprod: the circuit is not caller-gated — the backend ledger (not the on-chain counter) is authoritative for clearing; production needs verifier-key authorization.
 - `setAttentionThreshold(newThreshold)` — owner-gated via a `publicKey(sk, sequence)` derived from a private state key.
+
+Source changes must be recompiled with the pinned toolchain (`compactc 0.31.1`; the `compact` script in `packages/midnight`) and redeployed before `PROOF_OF_ATTENTION_CONTRACT_ADDRESS` consumers see them.
 
 Deploy and operate it from `packages/midnight/`: `pnpm --filter @slopstream/midnight deploy` (faucet-funds a wallet, generates dust, deploys), `state` (read the ledger), `submit-proof` (smoke-test a submission).
 

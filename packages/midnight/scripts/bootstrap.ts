@@ -19,7 +19,7 @@ export const getWalletSeed = (): string => {
   const seed = process.env.MIDNIGHT_WALLET_SEED;
   if (!seed || !/^[0-9a-fA-F]{64}$/.test(seed)) {
     throw new Error(
-      "Set MIDNIGHT_WALLET_SEED to a 64-hex-character wallet seed (the deploy script prints one).",
+      "Set MIDNIGHT_WALLET_SEED to a 64-hex-character wallet seed (the deploy script writes one to packages/midnight/.wallet-seed).",
     );
   }
   return seed;

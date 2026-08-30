@@ -3,9 +3,36 @@ import { createVerifierServer } from "./server.js";
 const configuredMode = process.env.VERIFIER_MODE ?? "stub";
 const port = Number(process.env.PORT ?? 4100);
 
+/** Demo value documented in .env.example — never accepted in production. */
+const DEMO_VERIFIER_TOKEN = "slopstream-demo-verifier-token";
+
+/**
+ * Mirrors the apps/api `serviceCredential` guard: outside dev the verify
+ * endpoint must be authenticated. In midnight mode every forged proof
+ * submits a real chain transaction and drains the verifier wallet, so an
+ * open endpoint in production is a direct fund-loss bug. Zero-config dev
+ * keeps working: an unset token leaves the endpoint open locally.
+ */
+function verifierApiToken(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const configured = env.VERIFIER_API_TOKEN?.trim();
+  if (
+    env.NODE_ENV === "production" &&
+    (!configured || configured === DEMO_VERIFIER_TOKEN)
+  ) {
+    throw new Error(
+      "VERIFIER_API_TOKEN must be set to a real secret when NODE_ENV=production; refusing to start with an open verify endpoint.",
+    );
+  }
+  return configured || undefined;
+}
+
+const apiToken = verifierApiToken();
+
 async function startStubServer(): Promise<void> {
   const server = createVerifierServer({
-    apiToken: process.env.VERIFIER_API_TOKEN || undefined,
+    apiToken,
     verifierMode: "stub",
   });
   server.listen(port, () => {
@@ -43,7 +70,7 @@ async function startMidnightServer(): Promise<void> {
   });
 
   const server = createVerifierServer({
-    apiToken: process.env.VERIFIER_API_TOKEN || undefined,
+    apiToken,
     verifier: createMidnightAttentionProofVerifier(api),
     verifierMode: "midnight",
   });

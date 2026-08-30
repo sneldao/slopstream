@@ -8,9 +8,16 @@
 // Private (never disclosed): the listener secret — an ephemeral per-listener,
 // per-segment value held only in the dApp's private state.
 //
-// Public (on the ledger): the attention nullifier (prevents replay of the
-// exact same proof), the aggregate verified attention count, and whether the
-// segment's attention threshold has been reached.
+// Public (on the ledger): the attention nullifier window (prevents replay of
+// recently consumed proofs), the aggregate verified attention count, and
+// whether the segment's attention threshold has been reached.
+//
+// Replay protection keeps the last 4 accepted nullifiers, so a proof replayed
+// within the window is rejected even when other proofs landed in between.
+// Known limitation (preprod): submitAttentionProof is not caller-gated — the
+// listener secret is the only input gate, and the verifier is the only
+// intended submitter. The backend ledger (not the on-chain counter) is
+// authoritative for clearing; production needs verifier-key authorization.
 
 pragma language_version 0.23;
 
@@ -19,9 +26,15 @@ import CompactStandardLibrary;
 // Aggregate count of valid, non-replayed attention proofs.
 export ledger verifiedCount: Counter;
 
-// Nullifier of the last accepted proof. A replayed proof reproduces the same
-// nullifier and is rejected.
+// Nullifier of the most recently accepted proof. A replayed proof reproduces
+// the same nullifier and is rejected.
 export ledger lastNullifier: Bytes<32>;
+
+// The three nullifiers accepted before lastNullifier — together a 4-deep
+// replay window, shifted on every accepted proof.
+export ledger prevNullifier1: Bytes<32>;
+export ledger prevNullifier2: Bytes<32>;
+export ledger prevNullifier3: Bytes<32>;
 
 // Minimum number of verified attention proofs for the current attention
 // window to clear.
@@ -39,6 +52,9 @@ export ledger sequence: Counter;
 constructor() {
   verifiedCount.increment(0);
   lastNullifier = pad(32, "slopstream:v1:zero");
+  prevNullifier1 = pad(32, "slopstream:v1:prev1");
+  prevNullifier2 = pad(32, "slopstream:v1:prev2");
+  prevNullifier3 = pad(32, "slopstream:v1:prev3");
   attentionThreshold = 3;
   thresholdMet = false;
   sequence.increment(1);
@@ -63,6 +79,13 @@ export circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
 export circuit submitAttentionProof(segmentId: Bytes<32>, challengeId: Bytes<32>): Bytes<32> {
   const nullifier = persistentHash<Vector<3, Bytes<32>>>([listenerSecret(), segmentId, challengeId]);
   assert(nullifier != lastNullifier, "Replayed attention proof rejected");
+  assert(nullifier != prevNullifier1, "Replayed attention proof rejected");
+  assert(nullifier != prevNullifier2, "Replayed attention proof rejected");
+  assert(nullifier != prevNullifier3, "Replayed attention proof rejected");
+  // Shift the replay window: oldest drops off, newest takes lastNullifier.
+  prevNullifier3 = prevNullifier2;
+  prevNullifier2 = prevNullifier1;
+  prevNullifier1 = lastNullifier;
   lastNullifier = disclose(nullifier);
   verifiedCount.increment(1);
   if (!thresholdMet && verifiedCount as Uint<32> >= attentionThreshold) {

@@ -109,26 +109,27 @@
       }
     },
     {
-      "name": "attentionThreshold",
+      "name": "prevNullifier1",
       "index": 2,
       "exported": true,
       "storage": "Cell",
       "type": {
-        "type-name": "Uint",
-        "maxval": 4294967295
+        "type-name": "Bytes",
+        "length": 32
       }
     },
     {
-      "name": "thresholdMet",
+      "name": "prevNullifier2",
       "index": 3,
       "exported": true,
       "storage": "Cell",
       "type": {
-        "type-name": "Boolean"
+        "type-name": "Bytes",
+        "length": 32
       }
     },
     {
-      "name": "owner",
+      "name": "prevNullifier3",
       "index": 4,
       "exported": true,
       "storage": "Cell",
@@ -138,8 +139,37 @@
       }
     },
     {
-      "name": "sequence",
+      "name": "attentionThreshold",
       "index": 5,
+      "exported": true,
+      "storage": "Cell",
+      "type": {
+        "type-name": "Uint",
+        "maxval": 4294967295
+      }
+    },
+    {
+      "name": "thresholdMet",
+      "index": 6,
+      "exported": true,
+      "storage": "Cell",
+      "type": {
+        "type-name": "Boolean"
+      }
+    },
+    {
+      "name": "owner",
+      "index": 7,
+      "exported": true,
+      "storage": "Cell",
+      "type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "sequence",
+      "index": 8,
       "exported": true,
       "storage": "Counter"
     }

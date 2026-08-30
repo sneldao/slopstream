@@ -74,6 +74,16 @@ export const buildAttentionStack = async (
 ): Promise<AttentionStack> => {
   setNetworkId(preprodEnvironment.networkId);
 
+  // The previous hardcoded fallback password was removed: it protected the
+  // LevelDB private-state/signing-key store for everyone identically. The
+  // stack refuses to start without an explicitly configured password.
+  const storagePassword = process.env.MIDNIGHT_PRIVATE_STATE_PASSWORD;
+  if (!storagePassword) {
+    throw new Error(
+      "MIDNIGHT_PRIVATE_STATE_PASSWORD must be set: it protects the LevelDB private-state and signing-key stores. There is no default.",
+    );
+  }
+
   const walletProvider = await MidnightWalletProvider.build(
     preprodEnvironment,
     walletSeed,
@@ -92,9 +102,12 @@ export const buildAttentionStack = async (
         process.env.MIDNIGHT_PRIVATE_STATE_STORE ??
         "slopstream-attention-private-state",
       signingKeyStoreName: "slopstream-attention-signing-keys",
-      privateStoragePasswordProvider: () =>
-        process.env.MIDNIGHT_PRIVATE_STATE_PASSWORD ??
-        "slopstream-hackathon-2026",
+      privateStoragePasswordProvider: () => storagePassword,
+      // SECURITY NOTE: accountId is the wallet seed itself, and the LevelDB
+      // private-state store persists account-scoped entries keyed by it.
+      // Anyone with read access to the store directory can recover the seed
+      // and control the wallet. Keep the store directory private; using a
+      // non-secret account id would be safer (not re-architected here).
       accountId: walletSeed,
     }),
     publicDataProvider: indexerPublicDataProvider(

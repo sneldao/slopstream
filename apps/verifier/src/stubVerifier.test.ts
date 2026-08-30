@@ -10,7 +10,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createVerifierServer } from "./server.js";
-import { createStubAttentionProofVerifier } from "./stubVerifier.js";
+import {
+  createStubAttentionProofVerifier,
+  MAX_TRACKED_NONCES,
+} from "./stubVerifier.js";
 
 const segmentStartedAt = "2026-08-30T12:00:00.000Z";
 const issuedAt = "2026-08-30T12:00:05.000Z";
@@ -126,6 +129,44 @@ describe("createStubAttentionProofVerifier", () => {
     expect(verifier.verify(validRequest)).toMatchObject({
       verified: false,
       failure: "replayed_proof",
+    });
+  });
+
+  it("caps replay tracking at MAX_TRACKED_NONCES with oldest-first eviction", () => {
+    const verifier = createStubAttentionProofVerifier();
+    const proofFor = (nonce: string) =>
+      request({
+        submission: {
+          resultProof: createServerStubAttentionProof({
+            listenerCommitment: "listener:one",
+            segmentId: "segment:one",
+            challengeId: "challenge:one",
+            nonce,
+            issuedAt,
+          }),
+        },
+      });
+
+    for (let i = 0; i < MAX_TRACKED_NONCES; i += 1) {
+      expect(verifier.verify(proofFor(`nonce:${i}`))).toMatchObject({
+        verified: true,
+      });
+    }
+
+    // The oldest nonce is still tracked, so its replay is rejected.
+    expect(verifier.verify(proofFor("nonce:0"))).toMatchObject({
+      verified: false,
+      failure: "replayed_proof",
+    });
+
+    // One more unique proof evicts the oldest entry (nonce:0).
+    expect(
+      verifier.verify(proofFor(`nonce:${MAX_TRACKED_NONCES}`)),
+    ).toMatchObject({
+      verified: true,
+    });
+    expect(verifier.verify(proofFor("nonce:0"))).toMatchObject({
+      verified: true,
     });
   });
 });
