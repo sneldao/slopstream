@@ -45,9 +45,35 @@ These terms are used precisely throughout the docs:
 
 In short: **one bid → one slot → one segment → N challenges → many attention events → one reward pool.**
 
-## WebSocket event contract (starter set)
+## Live event contract
 
 The live-event stream is the single integration seam between the orchestrator/backend and every screen (see [team split](../hackathon/team-split.md#the-seams-contract-first-on-day-1)). The authoritative event contract is the `WsEvent` discriminated union in [`packages/shared/src/index.ts`](../../packages/shared/src/index.ts) — this table mirrors it. When the two disagree, the shared types win.
+
+### Commands and snapshots use HTTPS
+
+The WebSocket is a **server-to-client projection**, not a mutation API. Clients use authenticated HTTPS endpoints for every state-changing or private operation:
+
+| Operation | Transport | Result |
+| --- | --- | --- |
+| Create/resume a listener session | `POST /listener-sessions` | Session token / identity |
+| Place or raise a bid | `POST /bids` | Persisted bid; API later publishes `bid.*` events |
+| Top up a brand balance | `POST /top-ups` | Stripe checkout/session state |
+| Submit a challenge response | `POST /attention-proofs` | Private verification result / receipt |
+| Load or recover stream state | `GET /stream/snapshot` | Current segment, public leaderboard/stats, active `PublicChallenge`, and an `asOfSequence` |
+
+Commands are authenticated, validated, logged, and idempotent at the API boundary. The API persists the result before it publishes the corresponding marketplace event to Redis. Clients must never treat a WebSocket message as evidence that a bid, balance, proof, or reward is settled.
+
+### WebSocket projections, audiences, and reconnects
+
+The current `WsEvent` union contains only public/aggregate events: now playing, leaderboard, generation, public challenge, aggregate attention, and clearing. Listener proof receipts/balances and brand balance/campaign state are returned through authenticated HTTPS responses and snapshots for the hackathon; they are never put on the public live feed.
+
+If a later release adds a private WebSocket update, it must define a separately scoped event type, authenticate the target listener session or brand account, and authorize delivery at the gateway. Do not add a private field to a public `WsEvent`.
+
+Every gateway delivery wraps a `WsEvent` in a `WsDelivery` envelope carrying a monotonic `sequence` and opaque `eventId`. `WsDelivery` is defined in `packages/shared`, so all clients deduplicate and order deliveries against one shared shape. The sequence is transport metadata; the underlying `WsEvent` remains the business-event union described below.
+
+For the hackathon, Redis pub/sub does **not** need to become a durable replay log. On initial load or reconnect, the client fetches `GET /stream/snapshot` — a `StreamSnapshot` from `packages/shared` (`asOfSequence`, now playing, leaderboard, stats, active `PublicChallenge`) — renders that authoritative state, and records its `asOfSequence`. It applies only later events; a duplicate is ignored, and a sequence gap triggers another snapshot fetch. This makes a dropped mobile connection recoverable without making the socket itself durable.
+
+### Public event reference
 
 | Event | Emitted when | Key payload |
 | --- | --- | --- |
