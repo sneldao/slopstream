@@ -5,6 +5,9 @@ import {
   type ServerResponse,
 } from "node:http";
 import { timingSafeEqual } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
+import { join, dirname, extname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type {
   GenerationRequest,
@@ -17,6 +20,19 @@ import {
   type GenerationProvider,
 } from "./generator.js";
 import type { GeneratorMode } from "./daytonaProvider.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ASSETS_DIR = join(__dirname, "..", "assets");
+
+const CONTENT_TYPES: Record<string, string> = {
+  ".mp3": "audio/mpeg",
+  ".mp4": "video/mp4",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".webm": "video/webm",
+};
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 const PRODUCTION_TIERS = new Set<ProductionTier>([
@@ -109,6 +125,8 @@ export interface GeneratorServerOptions {
   generatorMode?: GeneratorMode;
   /** Optional bearer required for generation calls; health remains public. */
   apiToken?: string;
+  /** Directory for serving generated assets. Defaults to ../assets. */
+  assetsDir?: string;
 }
 
 function hasValidBearer(
@@ -129,6 +147,7 @@ export function createGeneratorServer({
   provider,
   generatorMode = "stub",
   apiToken,
+  assetsDir = ASSETS_DIR,
 }: GeneratorServerOptions = {}): Server {
   const generator = createGenerationService(provider);
 
@@ -140,6 +159,41 @@ export function createGeneratorServer({
           service: "slopstream-generator",
           generatorMode,
         });
+        return;
+      }
+
+      // Static asset serving — generated MP3s, PNGs, MP4s.
+      // CORS-enabled so the web client can fetch textures cross-origin.
+      if (request.method === "GET" && request.url?.startsWith("/assets/")) {
+        const key = request.url.slice("/assets/".length);
+        // Prevent path traversal: reject keys with .. or slashes that escape.
+        if (key.includes("..") || key.includes("/")) {
+          response.writeHead(403);
+          response.end();
+          return;
+        }
+        const filePath = join(assetsDir, key);
+        try {
+          const stats = await stat(filePath);
+          if (!stats.isFile()) {
+            response.writeHead(404);
+            response.end();
+            return;
+          }
+          const ext = extname(filePath).toLowerCase();
+          const contentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
+          const data = await readFile(filePath);
+          response.writeHead(200, {
+            "content-type": contentType,
+            "content-length": data.length,
+            "access-control-allow-origin": "*",
+            "cache-control": "public, max-age=3600",
+          });
+          response.end(data);
+        } catch {
+          response.writeHead(404);
+          response.end();
+        }
         return;
       }
 

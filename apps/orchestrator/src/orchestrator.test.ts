@@ -11,7 +11,7 @@ import WebSocket from "ws";
 
 import type { StreamSnapshot, WsDelivery } from "@slopstream/shared";
 import { ApiClient } from "./apiClient.js";
-import type { OrchestratorEnv } from "./env.js";
+import { loadEnv, type OrchestratorEnv } from "./env.js";
 import { Gateway } from "./gateway.js";
 import { MarketplaceFeed, resolveBatch } from "./marketplaceFeed.js";
 import { SegmentScheduler } from "./scheduler.js";
@@ -45,6 +45,20 @@ function readBody(req: IncomingMessage): Promise<string> {
 // ---------------------------------------------------------------------------
 // resolveBatch — pure cursor logic
 // ---------------------------------------------------------------------------
+
+describe("orchestrator environment", () => {
+  it("requires explicit service credentials in production", () => {
+    expect(() =>
+      loadEnv({ NODE_ENV: "production" } as NodeJS.ProcessEnv),
+    ).toThrow(/ORCHESTRATOR_API_TOKEN must be set/);
+    expect(() =>
+      loadEnv({
+        NODE_ENV: "production",
+        ORCHESTRATOR_API_TOKEN: "orchestrator-secret",
+      } as NodeJS.ProcessEnv),
+    ).toThrow(/GENERATOR_API_TOKEN must be set/);
+  });
+});
 
 describe("resolveBatch cursor logic", () => {
   it("forwards past the cursor", () => {
@@ -312,6 +326,42 @@ function waitFor(predicate: () => boolean, timeoutMs: number): Promise<void> {
   });
 }
 
+describe("gateway replay cursor", () => {
+  it("replays only deliveries newer than the snapshot cursor", async () => {
+    const replayGateway = new Gateway({ apiBaseUrl: "http://unused.test" });
+    const gatewayBaseUrl = await listen(replayGateway.server);
+    replayGateway.emit({
+      type: "stats.updated",
+      listeners: 1,
+      attentionProofs: 0,
+      listenerRewardsUsd: 0,
+    });
+    replayGateway.emit({
+      type: "stats.updated",
+      listeners: 2,
+      attentionProofs: 0,
+      listenerRewardsUsd: 0,
+    });
+
+    const deliveries: WsDelivery[] = [];
+    const ws = new WebSocket(`${gatewayBaseUrl.replace("http", "ws")}?after=1`);
+    ws.on("message", (data) => {
+      deliveries.push(JSON.parse(data.toString()) as WsDelivery);
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ws.on("open", resolve);
+        ws.on("error", reject);
+      });
+      await waitFor(() => deliveries.length === 1, 1_000);
+      expect(deliveries.map((delivery) => delivery.sequence)).toEqual([2]);
+    } finally {
+      ws.close();
+      await replayGateway.close();
+    }
+  });
+});
+
 describe("orchestrator live slice", () => {
   let fakeApi: FakeApi;
   let fakeGenerator: { server: Server; requests: unknown[] };
@@ -348,7 +398,12 @@ describe("orchestrator live slice", () => {
     };
 
     gateway = new Gateway({ apiBaseUrl });
-    const api = new ApiClient(apiBaseUrl, generatorBaseUrl);
+    const api = new ApiClient(
+      apiBaseUrl,
+      generatorBaseUrl,
+      env.orchestratorApiToken,
+      env.generatorApiToken,
+    );
     feed = new MarketplaceFeed(api, env.eventsPollMs, (event, eventId) => {
       gateway.emit(event, eventId);
     });
@@ -423,6 +478,7 @@ describe("orchestrator live slice", () => {
       "/challenges/next",
       "/window-closed",
     ]);
+    expect(fakeApi.auth.last).toBe("Bearer test-orchestrator-token");
 
     // 4. Compressed playback: /ready and /challenge-source received
     //    segmentPlaySec (1), not the generator's durationSec (30).
@@ -472,7 +528,12 @@ describe("orchestrator live slice", () => {
     };
 
     gateway = new Gateway({ apiBaseUrl });
-    const api = new ApiClient(apiBaseUrl, env.generatorBaseUrl);
+    const api = new ApiClient(
+      apiBaseUrl,
+      env.generatorBaseUrl,
+      env.orchestratorApiToken,
+      env.generatorApiToken,
+    );
     feed = new MarketplaceFeed(api, env.eventsPollMs, () => {});
     scheduler = new SegmentScheduler({ env, gateway, api });
     feed.start();

@@ -398,13 +398,11 @@ export function createRouter(deps: ApiDeps): Router {
       );
       const existing = ledger.challengesForSegment(segment.id);
       if (existing.length > 0) {
-        res
-          .status(200)
-          .json({
-            segmentId: segment.id,
-            generated: existing.length,
-            replayed: true,
-          });
+        res.status(200).json({
+          segmentId: segment.id,
+          generated: existing.length,
+          replayed: true,
+        });
         return;
       }
       assert(
@@ -449,9 +447,10 @@ export function createRouter(deps: ApiDeps): Router {
     wrap((req, res) => {
       requireOrchestrator(orchestratorApiToken, req);
       const segment = requireSegment(req);
+      const changed = segment.status !== "playing";
       const opened = clearing.openWindow(segment.id, Date.now());
       const startedAt = new Date(opened.windowOpenedAtMs!).toISOString();
-      if (publishLifecycleEvents) {
+      if (publishLifecycleEvents && changed) {
         bus.publish({
           type: "segment.playing",
           segmentId: opened.id,

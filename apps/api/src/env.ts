@@ -54,6 +54,22 @@ function fraction(name: string, value: number): number {
   return value;
 }
 
+function serviceCredential(
+  name: string,
+  value: string | undefined,
+  fallback: string,
+  env: NodeJS.ProcessEnv,
+): string {
+  const configured = value?.trim();
+  if (
+    env.NODE_ENV === "production" &&
+    (!configured || configured === fallback)
+  ) {
+    throw new Error(`${name} must be set in production`);
+  }
+  return configured || fallback;
+}
+
 export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   const mode = env.PROOF_VERIFIER_MODE ?? "stub";
   if (mode !== "stub" && mode !== "remote") {
@@ -83,8 +99,12 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     seedDemo: env.SEED_DEMO !== "0",
     demoAcmeBrandToken:
       env.DEMO_ACME_BRAND_TOKEN ?? "slopstream-demo-acme-token",
-    orchestratorApiToken:
-      env.ORCHESTRATOR_API_TOKEN ?? "slopstream-demo-orchestrator-token",
+    orchestratorApiToken: serviceCredential(
+      "ORCHESTRATOR_API_TOKEN",
+      env.ORCHESTRATOR_API_TOKEN,
+      "slopstream-demo-orchestrator-token",
+      env,
+    ),
     auctionDurationSec: positive(
       "AUCTION_DURATION_SEC",
       num(env.AUCTION_DURATION_SEC, 60),

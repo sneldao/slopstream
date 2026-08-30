@@ -28,4 +28,10 @@ describe("API environment validation", () => {
       loadEnv({ PROOF_VERIFIER_MODE: "midnight" } as NodeJS.ProcessEnv),
     ).toThrow(/Unsupported/);
   });
+
+  it("requires an explicit orchestrator credential in production", () => {
+    expect(() =>
+      loadEnv({ NODE_ENV: "production" } as NodeJS.ProcessEnv),
+    ).toThrow(/ORCHESTRATOR_API_TOKEN must be set/);
+  });
 });

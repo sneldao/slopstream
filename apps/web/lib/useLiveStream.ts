@@ -94,7 +94,7 @@ export function useLiveStream(enabled = true): StreamState {
           seenEventIds.current.add(delivery.eventId);
 
           // Detect a sequence gap → re-fetch snapshot and bail.
-          if (delivery.sequence > fromSequence + 1 && fromSequence > 0) {
+          if (delivery.sequence > fromSequence + 1) {
             ws.close();
             return;
           }

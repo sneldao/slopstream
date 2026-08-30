@@ -93,11 +93,11 @@ export class SegmentScheduler {
    * - anything else → let the poll loop re-drive the closed slot from
    *   /generating (idempotent for the stub generator).
    */
-  private async adoptFromSnapshot(): Promise<void> {
+  private async adoptFromSnapshot(): Promise<boolean> {
     try {
       const snapshot = await this.api.snapshot();
       const nowPlaying = snapshot.nowPlaying;
-      if (!nowPlaying) return;
+      if (!nowPlaying) return false;
       if (nowPlaying.status === "playing") {
         this.processed.add(nowPlaying.id);
         const startedAtMs = snapshot.nowPlayingStartedAt
@@ -110,18 +110,21 @@ export class SegmentScheduler {
           startedAtMs,
           nowPlaying.durationSeconds,
         );
+        return true;
       } else if (nowPlaying.status === "ready") {
         console.log(`[scheduler] resuming ready segment ${nowPlaying.id}`);
-        this.processed.add(nowPlaying.id);
         await this.startPlayback(
           nowPlaying.id,
           nowPlaying.brandId ?? "",
           nowPlaying.slot,
         );
+        this.processed.add(nowPlaying.id);
+        return true;
       }
     } catch {
       // API not up yet; the poll loop will pick up whatever is pending.
     }
+    return false;
   }
 
   // ---------------------------------------------------------------- poll loop
@@ -157,17 +160,20 @@ export class SegmentScheduler {
         if (this.processed.has(winner.segmentId)) continue;
         if (
           winner.segmentStatus === "done" ||
-          winner.segmentStatus === "failed" ||
-          winner.segmentStatus === "playing"
+          winner.segmentStatus === "failed"
         ) {
           this.processed.add(winner.segmentId);
+          continue;
+        }
+        if (winner.segmentStatus === "playing") {
+          if (!this.playback) await this.adoptFromSnapshot();
           continue;
         }
         this.driving = true;
         try {
           if (winner.segmentStatus === "ready") {
-            this.processed.add(winner.segmentId);
             await this.startPlayback(winner.segmentId, winner.brandId, slot);
+            this.processed.add(winner.segmentId);
           } else {
             await this.driveSegment(winner, slot);
           }
@@ -366,6 +372,9 @@ export class SegmentScheduler {
         `[scheduler] window-closed failed for ${playback.segmentId}:`,
         error,
       );
+      // Let the poll loop re-adopt this still-playing segment and retry the
+      // idempotent close. Without this, one transient failure strands funds.
+      this.processed.delete(playback.segmentId);
     } finally {
       playback.done();
     }

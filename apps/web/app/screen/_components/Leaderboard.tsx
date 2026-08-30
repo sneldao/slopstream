@@ -5,8 +5,10 @@ import type { BrandSummary, LeaderboardEntry } from "@slopstream/shared";
 
 /**
  * The leaderboard as floating, semi-transparent chips that bob with subtle
- * physics and re-sort with a spring shuffle (not an instant snap). See
- * design-language.md "The leaderboard as floating chips".
+ * physics and re-sort with a spring shuffle (not an instant snap). This is
+ * the HUD mirror of the primary leaderboard (the 3D brand blobs in the
+ * fluid world). See design-language.md "The leaderboard lives in the blobs
+ * themselves".
  */
 export function Leaderboard({
   ranking,

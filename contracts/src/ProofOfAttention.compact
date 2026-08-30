@@ -1,14 +1,79 @@
-// ProofOfAttention — the core primitive.
-// Interface sketch; implementation lands with the Compact toolchain.
+// Slopstream ProofOfAttention — the core Midnight primitive.
 //
-// submitAttentionProof(
-//     listenerCommitment,   // private: listener identity stays hidden
-//     segmentId,            // segment binding
-//     challengeId,          // challenge binding
-//     resultProof           // non-replayable proof payload
-// )
+// Stripe moves dollars. Midnight proves facts.
 //
-// Proves: a valid listener satisfied the challenge for this specific segment.
+// Proves: a listener satisfied the challenge condition for a specific segment,
+// without revealing who the listener was or what they answered.
 //
-// Private state: listener identity, answer, session info, interaction data.
-// Public state:  aggregate verified attention, segment verification status.
+// Private (never disclosed): the listener secret — an ephemeral per-listener,
+// per-segment value held only in the dApp's private state.
+//
+// Public (on the ledger): the attention nullifier (prevents replay of the
+// exact same proof), the aggregate verified attention count, and whether the
+// segment's attention threshold has been reached.
+
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+// Aggregate count of valid, non-replayed attention proofs.
+export ledger verifiedCount: Counter;
+
+// Nullifier of the last accepted proof. A replayed proof reproduces the same
+// nullifier and is rejected.
+export ledger lastNullifier: Bytes<32>;
+
+// Minimum number of verified attention proofs for the current attention
+// window to clear.
+export ledger attentionThreshold: Uint<32>;
+
+// Flips to true once verifiedCount reaches attentionThreshold.
+export ledger thresholdMet: Boolean;
+
+// Hashed deployer key; authorizes administrative circuits.
+export ledger owner: Bytes<32>;
+
+// Administrative sequence; binds the owner key to the current contract state.
+export ledger sequence: Counter;
+
+constructor() {
+  verifiedCount.increment(0);
+  lastNullifier = pad(32, "slopstream:v1:zero");
+  attentionThreshold = 3;
+  thresholdMet = false;
+  sequence.increment(1);
+  owner = disclose(publicKey(localSecretKey(), sequence as Field as Bytes<32>));
+}
+
+// Deployer/administrator secret key (dApp private state).
+witness localSecretKey(): Bytes<32>;
+
+// Ephemeral listener secret (dApp private state). Fresh per listener per
+// segment, so no listener identity can be linked across segments.
+witness listenerSecret(): Bytes<32>;
+
+export circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "slopstream:pk:"), sequence, sk]);
+}
+
+// The core circuit: a listener proves they satisfied the challenge for this
+// segment. segmentId and challengeId are public bindings supplied by the
+// backend; the listener secret stays private. The returned nullifier is the
+// public receipt that this specific proof was consumed exactly once.
+export circuit submitAttentionProof(segmentId: Bytes<32>, challengeId: Bytes<32>): Bytes<32> {
+  const nullifier = persistentHash<Vector<3, Bytes<32>>>([listenerSecret(), segmentId, challengeId]);
+  assert(nullifier != lastNullifier, "Replayed attention proof rejected");
+  lastNullifier = disclose(nullifier);
+  verifiedCount.increment(1);
+  if (!thresholdMet && verifiedCount as Uint<32> >= attentionThreshold) {
+    thresholdMet = true;
+  }
+  return disclose(nullifier);
+}
+
+// Admin: adjust the attention threshold for the next window.
+export circuit setAttentionThreshold(newThreshold: Uint<32>): [] {
+  assert(owner == publicKey(localSecretKey(), sequence as Field as Bytes<32>), "Not the contract owner");
+  attentionThreshold = disclose(newThreshold);
+  sequence.increment(1);
+}

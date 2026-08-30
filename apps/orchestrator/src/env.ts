@@ -36,15 +36,39 @@ function positive(name: string, value: number): number {
   return value;
 }
 
+function serviceCredential(
+  name: string,
+  value: string | undefined,
+  fallback: string,
+  env: NodeJS.ProcessEnv,
+): string {
+  const configured = value?.trim();
+  if (
+    env.NODE_ENV === "production" &&
+    (!configured || configured === fallback)
+  ) {
+    throw new Error(`${name} must be set in production`);
+  }
+  return configured || fallback;
+}
+
 export function loadEnv(env: NodeJS.ProcessEnv = process.env): OrchestratorEnv {
   return {
     port: positive("PORT", num(env.PORT, 4200)),
     apiBaseUrl: env.API_BASE_URL ?? "http://localhost:4000",
     generatorBaseUrl: env.GENERATOR_BASE_URL ?? "http://localhost:4300",
-    orchestratorApiToken:
-      env.ORCHESTRATOR_API_TOKEN ?? "slopstream-demo-orchestrator-token",
-    generatorApiToken:
-      env.GENERATOR_API_TOKEN ?? "slopstream-demo-generator-token",
+    orchestratorApiToken: serviceCredential(
+      "ORCHESTRATOR_API_TOKEN",
+      env.ORCHESTRATOR_API_TOKEN,
+      "slopstream-demo-orchestrator-token",
+      env,
+    ),
+    generatorApiToken: serviceCredential(
+      "GENERATOR_API_TOKEN",
+      env.GENERATOR_API_TOKEN,
+      "slopstream-demo-generator-token",
+      env,
+    ),
     segmentPlaySec: positive("SEGMENT_PLAY_SEC", num(env.SEGMENT_PLAY_SEC, 20)),
     auctionPollMs: positive("AUCTION_POLL_MS", num(env.AUCTION_POLL_MS, 2000)),
     eventsPollMs: positive("EVENTS_POLL_MS", num(env.EVENTS_POLL_MS, 750)),

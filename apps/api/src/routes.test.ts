@@ -237,4 +237,38 @@ describe("publishLifecycleEvents gate", () => {
       expect(harness.events.map((e) => e.type)).toEqual(["segment.generating"]);
     });
   });
+
+  it("does not republish lifecycle events when commands are retried", async () => {
+    await withServer(undefined, async (harness, baseUrl) => {
+      const segmentId = await wonSegment(harness);
+      harness.events.length = 0;
+      const post = (path: string, body?: unknown) =>
+        fetch(`${baseUrl}/segments/${segmentId}${path}`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${ORCHESTRATOR_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body ?? {}),
+        });
+
+      expect((await post("/generating")).status).toBe(200);
+      expect((await post("/generating")).status).toBe(200);
+      const ready = {
+        assetUrl: "https://cdn.test/segment.mp4",
+        durationSec: 20,
+        summary: "test segment",
+      };
+      expect((await post("/ready", ready)).status).toBe(200);
+      expect((await post("/ready", ready)).status).toBe(200);
+      expect((await post("/playing")).status).toBe(200);
+      expect((await post("/playing")).status).toBe(200);
+
+      expect(harness.events.map((event) => event.type)).toEqual([
+        "segment.generating",
+        "segment.ready",
+        "segment.playing",
+      ]);
+    });
+  });
 });

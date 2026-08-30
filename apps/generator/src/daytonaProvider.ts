@@ -10,7 +10,7 @@ const DEFAULT_CREATE_TIMEOUT_SEC = 120;
 const DEFAULT_EXECUTION_TIMEOUT_SEC = 300;
 const DEFAULT_SANDBOX_TTL_MINUTES = 15;
 
-export type GeneratorMode = "stub" | "daytona";
+export type GeneratorMode = "stub" | "daytona" | "elevenlabs";
 
 export interface DaytonaCommandResponse {
   exitCode: number;
@@ -282,11 +282,11 @@ export function configuredGeneratorMode(
   environment: Environment,
 ): GeneratorMode {
   const mode = environment.GENERATOR_MODE ?? "stub";
-  if (mode === "stub" || mode === "daytona") {
+  if (mode === "stub" || mode === "daytona" || mode === "elevenlabs") {
     return mode;
   }
   throw new Error(
-    `Unsupported GENERATOR_MODE=${mode}. Expected "stub" or "daytona".`,
+    `Unsupported GENERATOR_MODE=${mode}. Expected "stub", "daytona", or "elevenlabs".`,
   );
 }
 
@@ -300,8 +300,21 @@ export function createGenerationProviderFromEnv(
   createClient: (config: DaytonaClientConfig) => DaytonaClientLike = (config) =>
     new Daytona(config),
 ): GenerationProvider {
-  if (configuredGeneratorMode(environment) === "stub") {
+  const mode = configuredGeneratorMode(environment);
+
+  if (mode === "stub") {
     return new StubGenerationProvider();
+  }
+
+  if (mode === "elevenlabs") {
+    // Lazy import to avoid loading the SDK in stub/daytona mode.
+    const { createElevenLabsProviderFromEnv } =
+      require("./elevenlabsProvider.js") as {
+        createElevenLabsProviderFromEnv: (
+          env: Environment,
+        ) => import("./elevenlabsProvider.js").ElevenLabsGenerationProvider;
+      };
+    return createElevenLabsProviderFromEnv(environment);
   }
 
   const clientConfig: DaytonaClientConfig = {
