@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { SphereField } from "./_components/SphereField";
+import { SurfaceNav } from "./_components/SurfaceNav";
 
 const SURFACES = [
   {
@@ -35,22 +36,18 @@ export default function Home() {
   const mode = process.env.NEXT_PUBLIC_STREAM_MODE === "live" ? "live" : "demo";
 
   return (
-    <main className="home-shell">
+    <main className="home-shell has-dock">
       <SphereField />
       <div className="slop-grain" />
 
-      <header className="home-nav">
-        <a
-          className="slop-wordmark home-wordmark"
-          href="#top"
-          aria-label="Slopstream home"
-        >
-          Slopstream
-        </a>
-        <div className={`home-mode home-mode--${mode}`}>
-          <span /> {mode === "live" ? "Live network" : "Demo broadcast"}
-        </div>
-      </header>
+      <SurfaceNav
+        tone="light"
+        trailing={
+          <div className={`home-mode home-mode--${mode}`}>
+            <span /> {mode === "live" ? "Live network" : "Demo broadcast"}
+          </div>
+        }
+      />
 
       <section className="home-hero" id="top">
         <div className="home-hero__intro">
@@ -96,9 +93,8 @@ export default function Home() {
       </footer>
 
       <p className="home-operator">
-        Demo tip: open <a href="/screen">Screen</a> on the projector,{" "}
-        <a href="/listen">Listen</a> on a phone, <a href="/brand">Brand</a> on a
-        laptop.
+        Demo tip: open Screen on the projector, Listen on a phone, Brand on a
+        laptop — use the nav to jump between them.
       </p>
     </main>
   );

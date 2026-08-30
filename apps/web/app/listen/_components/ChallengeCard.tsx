@@ -223,6 +223,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 12,
+    minHeight: 52,
     padding: "14px 16px",
     borderRadius: 999,
     border: "1px solid",

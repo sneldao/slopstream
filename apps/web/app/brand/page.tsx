@@ -129,7 +129,10 @@ export default function BrandPage() {
   };
 
   return (
-    <main className="brand-shell slop-surface-shell" style={styles.main}>
+    <main
+      className="brand-shell slop-surface-shell has-dock"
+      style={styles.main}
+    >
       {/* Ambient brand glow — the console breathes with the brand's identity. */}
       <AmbientGlow
         color={myBrand?.primaryColor ?? "#1e6fff"}
@@ -139,7 +142,7 @@ export default function BrandPage() {
       <SphereField className="sphere-field--soft brand-spheres" />
       <div className="slop-grain" />
 
-      <div className="brand-console-frame" style={styles.frame}>
+      <div className="brand-console-frame slop-frame slop-frame--wide">
         {/* OUTBID alert — full-width, urgent */}
         <AnimatePresence>
           {outbidAlert && (
@@ -276,6 +279,7 @@ export default function BrandPage() {
           <section style={styles.actionColumn}>
             {/* Bid section — the pressure station */}
             <motion.div
+              className="brand-bid-sticky"
               style={{
                 ...styles.bidSection,
                 boxShadow: `0 8px 40px ${myBrand?.primaryColor ?? "#1e6fff"}22`,
@@ -864,7 +868,7 @@ const TIER_COLORS: Record<ProductionTier, string> = {
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  main: { position: "relative", minHeight: "100svh", overflow: "hidden" },
+  main: { position: "relative", minHeight: "100svh" },
   glowCanvas: {
     position: "fixed",
     inset: 0,
@@ -876,12 +880,7 @@ const styles: Record<string, React.CSSProperties> = {
   frame: {
     position: "relative",
     zIndex: 3,
-    maxWidth: 1180,
-    margin: "0 auto",
-    padding: "28px clamp(20px, 4vw, 56px) 48px",
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
+    width: "100%",
     gap: 24,
   },
   outbidBanner: {

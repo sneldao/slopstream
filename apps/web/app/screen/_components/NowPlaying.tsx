@@ -18,14 +18,8 @@ const STAGES: { key: GenerationStage; label: string }[] = [
 ];
 
 /**
- * The now-playing text overlay — brand name, generation stage labels, and
- * the challenge banner. This is a thin HTML layer floating over the 3D
- * canvas; the visual ad surface (orb / image plane / video plane) is
- * rendered by `AdSurface` inside the 3D scene.
- *
- * The 2D canvas background, receding segment ghosts, and generation orb
- * that lived here in the first overhaul are now 3D — this component keeps
- * only the text elements that are clearer as crisp HTML than as 3D text.
+ * Crisp broadcast labels over the Continuum. Media and generative states
+ * live in the world itself; this layer supplies only useful context.
  */
 export function NowPlaying({
   nowPlaying,
@@ -80,20 +74,11 @@ function EmptyMarket() {
       <div style={styles.emptyKicker}>
         Open frequency · waiting for the next bid
       </div>
-      <motion.h1
-        style={styles.emptyTitle}
-        animate={{ opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <span style={styles.emptyTitleSolid}>SLOP</span>
-        <span style={styles.emptyTitleOutline}>STREAM</span>
-      </motion.h1>
       <div style={styles.emptySub}>
-        Attention is moving. Scan the QR to join — the next brand can own the
-        moment.
+        The archive is awake. The next winning bid becomes part of the world.
       </div>
       <div style={styles.emptyPulse}>
-        <i className="empty-pulse__dot" /> Market open · waiting for bids
+        <i className="empty-pulse__dot" /> Market open
       </div>
     </motion.div>
   );
@@ -199,7 +184,8 @@ function PlayingLabels({
 }
 
 function ChallengeBanner({ brandColor }: { brandColor: string | undefined }) {
-  // Spectators must not see the question or options — answers stay on /listen.
+  // Spectators see only a quiet availability signal. Questions and answers
+  // stay on /listen for people who explicitly enable Earn Mode.
   return (
     <motion.div
       style={styles.challenge}
@@ -210,12 +196,10 @@ function ChallengeBanner({ brandColor }: { brandColor: string | undefined }) {
       role="status"
       aria-live="polite"
     >
-      <div style={styles.challengeHeader}>
-        <span style={{ color: brandColor ?? "#fff" }}>👀 ATTENTION CHECK</span>
-      </div>
-      <div style={styles.challengeQuestion}>In progress on listener phones</div>
-      <div style={styles.challengeHint}>
-        Scan the QR to prove you were here.
+      <i style={{ ...styles.challengeDot, background: brandColor }} />
+      <div>
+        <div style={styles.challengeHeader}>EARN MODE IS LIVE</div>
+        <div style={styles.challengeHint}>Optional on listener phones</div>
       </div>
     </motion.div>
   );
@@ -232,45 +216,28 @@ const styles: Record<string, React.CSSProperties> = {
     pointerEvents: "none",
   },
   empty: {
-    textAlign: "center",
+    position: "fixed",
+    left: "clamp(18px, 3vw, 42px)",
+    bottom: "clamp(94px, 14vh, 150px)",
+    textAlign: "left",
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "column",
-    maxWidth: "min(86vw, 1100px)",
+    maxWidth: 330,
   },
   emptyKicker: {
     marginBottom: 18,
-    color: "var(--slop-yellow)",
+    color: "var(--slop-ink)",
     fontSize: "clamp(9px, 1vw, 12px)",
     fontWeight: 900,
     letterSpacing: 3,
     textTransform: "uppercase",
   },
-  emptyTitle: {
-    display: "flex",
-    margin: 0,
-    flexDirection: "column",
-    fontFamily: "var(--slop-display)",
-    fontSize: "clamp(74px, 12vw, 180px)",
-    fontWeight: 900,
-    letterSpacing: "-0.06em",
-    lineHeight: 0.7,
-    color: "#fff",
-    textShadow: "0 12px 50px rgba(0,0,0,0.45)",
-  },
-  emptyTitleSolid: {
-    transform: "translateX(-0.18em)",
-  },
-  emptyTitleOutline: {
-    transform: "translateX(0.16em)",
-    color: "transparent",
-    WebkitTextStroke: "2px rgba(255,255,255,0.9)",
-  },
   emptySub: {
-    maxWidth: 480,
+    maxWidth: 330,
     fontSize: "clamp(14px, 1.8vw, 22px)",
-    color: "rgba(255,255,255,0.72)",
-    marginTop: 34,
+    color: "rgba(16,16,20,0.68)",
+    marginTop: 0,
     fontWeight: 650,
     lineHeight: 1.25,
   },
@@ -280,9 +247,9 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
     marginTop: 18,
     padding: "8px 13px",
-    border: "1px solid rgba(255,255,255,0.18)",
+    border: "1px solid rgba(16,16,20,0.2)",
     borderRadius: 999,
-    background: "rgba(8,8,18,0.5)",
+    background: "rgba(244,241,232,0.76)",
     backdropFilter: "blur(12px)",
     fontSize: 9,
     fontWeight: 900,
@@ -295,19 +262,20 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 16,
     position: "relative",
+    color: "var(--slop-ink)",
   },
   genTitle: {
     fontSize: "clamp(28px, 5vw, 64px)",
     fontWeight: 900,
     letterSpacing: 4,
-    color: "#fff",
+    color: "var(--slop-ink)",
     position: "relative",
-    textShadow: "0 4px 30px rgba(0,0,0,0.6)",
+    textShadow: "0 2px 20px rgba(255,255,255,0.7)",
   },
   genBrand: {
     fontSize: "clamp(18px, 2.6vw, 32px)",
     fontWeight: 700,
-    color: "var(--platform-text-dim)",
+    color: "rgba(16,16,20,0.62)",
     position: "relative",
   },
   genStages: {
@@ -326,26 +294,32 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
   },
   adContent: {
-    position: "relative",
+    position: "fixed",
+    left: "clamp(18px, 3vw, 42px)",
+    bottom: "clamp(94px, 14vh, 150px)",
+    maxWidth: 360,
     zIndex: 2,
-    textAlign: "center",
+    textAlign: "left",
   },
   adBadge: {
     fontSize: 13,
     letterSpacing: 3,
     fontWeight: 800,
-    color: "rgba(255,255,255,0.7)",
-    background: "rgba(0,0,0,0.3)",
+    color: "rgba(16,16,20,0.66)",
+    background: "rgba(244,241,232,0.78)",
+    border: "1px solid rgba(16,16,20,0.2)",
     padding: "4px 12px",
     borderRadius: 999,
     marginBottom: 16,
     display: "inline-block",
   },
   adBrand: {
-    fontSize: "clamp(36px, 7vw, 96px)",
+    fontSize: "clamp(30px, 4vw, 58px)",
     fontWeight: 900,
-    color: "#fff",
-    textShadow: "0 6px 40px rgba(0,0,0,0.5)",
+    color: "var(--slop-ink)",
+    fontFamily: "var(--slop-display)",
+    letterSpacing: "-0.04em",
+    lineHeight: 0.9,
   },
   adChapter: {
     marginTop: 12,
@@ -353,47 +327,49 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: "var(--slop-yellow)",
+    color: "var(--slop-ink)",
   },
   adBlurb: {
     maxWidth: 520,
-    margin: "10px auto 0",
+    margin: "10px 0 0",
     fontSize: "clamp(14px, 1.5vw, 18px)",
     fontWeight: 650,
     lineHeight: 1.35,
-    color: "rgba(255,255,255,0.7)",
+    color: "rgba(16,16,20,0.66)",
   },
-  adTime: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 8 },
+  adTime: { fontSize: 12, color: "rgba(16,16,20,0.5)", marginTop: 8 },
   challenge: {
     position: "absolute",
-    bottom: 24,
+    top: "clamp(72px, 10vh, 104px)",
     left: "50%",
     transform: "translateX(-50%)",
-    width: "min(560px, 90%)",
-    background: "rgba(10,10,26,0.78)",
-    backdropFilter: "blur(12px)",
-    border: "1px solid rgba(255,255,255,0.16)",
-    borderRadius: 18,
-    padding: "18px 22px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    background: "rgba(244,241,232,0.86)",
+    backdropFilter: "blur(16px)",
+    border: "1px solid rgba(16,16,20,0.22)",
+    borderRadius: 999,
+    padding: "9px 14px",
     zIndex: 30,
-    boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-    pointerEvents: "auto",
+    boxShadow: "3px 4px 0 rgba(16,16,20,0.14)",
   },
   challengeHeader: {
-    fontSize: 13,
-    letterSpacing: 2,
-    fontWeight: 800,
-    marginBottom: 8,
+    color: "var(--slop-ink)",
+    fontSize: 9,
+    letterSpacing: 1.5,
+    fontWeight: 900,
   },
-  challengeQuestion: {
-    fontSize: "clamp(18px, 2.4vw, 26px)",
-    fontWeight: 700,
-    color: "#fff",
-    marginBottom: 14,
+  challengeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    boxShadow: "0 0 16px currentColor",
   },
   challengeHint: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "rgba(255,255,255,0.55)",
+    marginTop: 2,
+    fontSize: 9,
+    fontWeight: 700,
+    color: "rgba(16,16,20,0.54)",
   },
 };

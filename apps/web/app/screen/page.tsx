@@ -101,10 +101,9 @@ export default function ScreenPage() {
     : undefined;
 
   return (
-    <main style={styles.main}>
-      {/* The 3D fluid world — metaball shader, brand blobs, ad surface,
-          threshold basin, clearing streams. The fluid tint follows the bid
-          leader so OUTBID floods the palette. */}
+    <main className="screen-continuum-shell has-dock" style={styles.main}>
+      {/* The Continuum — media is the world; brand colour, archive fragments,
+          physical spheres and event ripples create the surrounding depth. */}
       <Scene
         signalRef={signalRef}
         colorA={fluidBrand?.primaryColor ?? "#2563eb"}
@@ -132,8 +131,7 @@ export default function ScreenPage() {
       />
       <div className="slop-grain" />
 
-      {/* Text overlay — brand name, generation stages, challenge banner.
-          The visual ad surface is now 3D (AdSurface inside Scene). */}
+      {/* Crisp editorial labels remain HTML above the moving media world. */}
       <div style={styles.stage}>
         <NowPlaying
           nowPlaying={state.nowPlaying}
@@ -156,35 +154,30 @@ export default function ScreenPage() {
         brandColor={activeBrand?.primaryColor}
       />
 
-      {/* Floating header — cream chip + role badge. */}
-      <motion.div
-        style={styles.header}
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <SurfaceHeader
-          role="01"
-          subtitle="Attention market / on air"
-          trailing={
-            <>
-              <span style={styles.liveDot} />
-              {mode === "live" && (
-                <span
-                  className="slop-hud-pill"
-                  style={{
-                    color:
-                      connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
-                  }}
-                >
-                  <span style={styles.connectionDot} />
-                  {connectionStatus === "connected" ? "Live" : "Offline"}
-                </span>
-              )}
-            </>
-          }
-        />
-      </motion.div>
+      {/* Top nav — shared surface switcher */}
+      <SurfaceHeader
+        role="01"
+        subtitle="Attention market / on air"
+        tone="light"
+        sticky
+        trailing={
+          <>
+            <span style={styles.liveDot} />
+            {mode === "live" && (
+              <span
+                className="slop-hud-pill"
+                style={{
+                  color:
+                    connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
+                }}
+              >
+                <span style={styles.connectionDot} />
+                {connectionStatus === "connected" ? "Live" : "Offline"}
+              </span>
+            )}
+          </>
+        }
+      />
 
       {/* Floating leaderboard — right side, over the canvas. */}
       <motion.div
@@ -230,16 +223,14 @@ export default function ScreenPage() {
       </motion.div>
 
       <aside
-        className={`screen-join${
-          state.activeChallenge || !state.nowPlaying ? " slop-join-pulse" : ""
-        }`}
+        className="screen-join"
         style={styles.joinPanel}
         aria-label="Join Slopstream as a listener"
       >
         <div style={styles.qrFrame}>
           <QRCodeSVG
             value={listenerUrl}
-            size={state.activeChallenge || !state.nowPlaying ? 108 : 92}
+            size={82}
             bgColor="#ffffff"
             fgColor="#0b0b1a"
             level="M"
@@ -247,15 +238,13 @@ export default function ScreenPage() {
           />
         </div>
         <div>
-          <div style={styles.joinTitle}>
-            {state.activeChallenge ? "ANSWER ON YOUR PHONE" : "SCAN TO JOIN"}
-          </div>
+          <div style={styles.joinTitle}>OPTIONAL EARN MODE</div>
           <div style={styles.joinCopy}>
             {state.activeChallenge
-              ? "Attention check in progress — prove you were here."
+              ? "A proof moment is open on listener phones."
               : !state.nowPlaying
-                ? "Market open. Be ready when the next ad drops."
-                : "Prove attention. Earn rewards."}
+                ? "Scan to listen, or opt in to earn from proof moments."
+                : "Listen freely. Opt in to attention checks if you want rewards."}
           </div>
         </div>
       </aside>
@@ -318,6 +307,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: "relative",
     minHeight: "100vh",
     overflow: "hidden",
+    background: "var(--slop-cream)",
   },
   stage: {
     position: "absolute",
@@ -403,14 +393,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     letterSpacing: 3,
     fontWeight: 800,
-    color: "var(--platform-text-dim)",
+    color: "rgba(16,16,20,0.66)",
   },
-  nextSlot: { fontSize: 11, color: "var(--platform-text-dim)" },
-  nextPrice: { fontWeight: 800, color: "var(--platform-accent)", fontSize: 14 },
+  nextSlot: { fontSize: 11, color: "rgba(16,16,20,0.58)" },
+  nextPrice: { fontWeight: 900, color: "var(--slop-ink)", fontSize: 14 },
   chipsColumn: { display: "flex", flexDirection: "column", gap: 12 },
   emptyBids: {
     fontSize: 14,
-    color: "var(--platform-text-dim)",
+    color: "rgba(16,16,20,0.58)",
     fontStyle: "italic",
     padding: 12,
   },
@@ -425,30 +415,31 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 2,
     padding: "6px 16px",
     borderRadius: 999,
-    background: "rgba(5,5,15,0.6)",
+    background: "rgba(244,241,232,0.9)",
     backdropFilter: "blur(8px)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    border: "1px solid rgba(16,16,20,0.22)",
+    boxShadow: "3px 3px 0 rgba(16,16,20,0.14)",
   },
   thresholdCount: {
     fontSize: 22,
     fontWeight: 900,
-    color: "#fff",
+    color: "var(--slop-ink)",
     fontVariantNumeric: "tabular-nums",
   },
   thresholdSlash: {
     fontSize: 16,
-    color: "rgba(255,255,255,0.4)",
+    color: "rgba(16,16,20,0.4)",
   },
   thresholdTarget: {
     fontSize: 16,
     fontWeight: 700,
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(16,16,20,0.6)",
     fontVariantNumeric: "tabular-nums",
   },
   thresholdLabel2: {
     fontSize: 12,
     fontWeight: 600,
-    color: "var(--platform-text-dim)",
+    color: "rgba(16,16,20,0.58)",
     marginLeft: 4,
   },
   statsFloat: {
@@ -466,10 +457,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 12,
     padding: 10,
-    borderRadius: 14,
-    background: "rgba(5,5,15,0.72)",
-    backdropFilter: "blur(12px)",
-    border: "1px solid rgba(255,255,255,0.14)",
+    borderRadius: 18,
+    background: "rgba(244,241,232,0.9)",
+    backdropFilter: "blur(16px)",
+    border: "1px solid rgba(16,16,20,0.24)",
+    boxShadow: "5px 6px 0 rgba(16,16,20,0.16)",
   },
   qrFrame: {
     display: "flex",
@@ -481,13 +473,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 900,
     letterSpacing: 2,
-    color: "#fff",
+    color: "var(--slop-ink)",
   },
   joinCopy: {
     marginTop: 5,
     maxWidth: 130,
     fontSize: 12,
     lineHeight: 1.35,
-    color: "var(--platform-text-dim)",
+    color: "rgba(16,16,20,0.62)",
   },
 };

@@ -41,9 +41,14 @@ export default function ListenPage() {
   const [receipt, setReceipt] = useState<AttentionProofReceipt | null>(null);
   const [balance, setBalance] = useState(0);
   const [todayVerified, setTodayVerified] = useState(0);
+  const [earnMode, setEarnMode] = useState(false);
   const [listenerIdentity, setListenerIdentity] =
     useState<ListenerIdentity | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEarnMode(window.localStorage.getItem(EARN_MODE_KEY) === "on");
+  }, []);
 
   useEffect(() => {
     if (mode !== "live") return;
@@ -123,14 +128,23 @@ export default function ListenPage() {
     setJoined(true);
   };
 
-  // Sound on challenge fire.
+  const toggleEarnMode = () => {
+    setEarnMode((enabled) => {
+      const next = !enabled;
+      window.localStorage.setItem(EARN_MODE_KEY, next ? "on" : "off");
+      if (!next) setReceipt(null);
+      return next;
+    });
+  };
+
+  // Challenge sounds belong only to the explicitly enabled earn experience.
   const lastChallengeId = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (challenge && challenge.id !== lastChallengeId.current) {
+    if (earnMode && challenge && challenge.id !== lastChallengeId.current) {
       lastChallengeId.current = challenge.id;
       play("challenge");
     }
-  }, [challenge, play]);
+  }, [challenge, earnMode, play]);
 
   const handleAnswer = (answer: string) => {
     if (!challenge) return;
@@ -180,7 +194,10 @@ export default function ListenPage() {
   };
 
   return (
-    <main className="listen-shell slop-surface-shell" style={styles.main}>
+    <main
+      className="listen-shell slop-surface-shell has-dock"
+      style={styles.main}
+    >
       {/* Full-bleed audio-reactive background */}
       <FullBleedVisualizer
         signalRef={signalRef}
@@ -191,7 +208,51 @@ export default function ListenPage() {
       <SphereField className="sphere-field--soft listen-spheres" />
       <div className="slop-grain" />
 
-      <div style={styles.frame}>
+      <SurfaceHeader
+        role="02"
+        subtitle="Listener channel"
+        trailing={
+          joined ? (
+            <>
+              <button
+                type="button"
+                className="slop-hud-pill"
+                onClick={toggleEarnMode}
+                aria-pressed={earnMode}
+                style={earnMode ? styles.earnModeOn : undefined}
+              >
+                {earnMode ? "Earn mode on" : "Earn mode off"}
+              </button>
+              <button
+                type="button"
+                className="slop-hud-pill"
+                onClick={toggleMute}
+                aria-pressed={muted}
+                aria-label={muted ? "Unmute stream" : "Mute stream"}
+              >
+                {muted ? "Muted" : "Sound on"}
+              </button>
+              <motion.div
+                style={styles.balancePill}
+                key={balance}
+                initial={{ scale: 1.2 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 14,
+                }}
+                aria-live="polite"
+              >
+                <span style={styles.balanceLabel}>Balance</span>
+                <span style={styles.balanceAmount}>${balance.toFixed(2)}</span>
+              </motion.div>
+            </>
+          ) : undefined
+        }
+      />
+
+      <div className="slop-frame">
         <AnimatePresence mode="wait">
           {!joined ? (
             <JoinSplash key="splash" onJoin={handleJoin} />
@@ -203,42 +264,6 @@ export default function ListenPage() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
             >
-              {/* Floating header — cream chip + role badge */}
-              <SurfaceHeader
-                role="02"
-                subtitle="Listener channel"
-                trailing={
-                  <>
-                    <button
-                      type="button"
-                      className="slop-hud-pill"
-                      onClick={toggleMute}
-                      aria-pressed={muted}
-                      aria-label={muted ? "Unmute stream" : "Mute stream"}
-                    >
-                      {muted ? "Muted" : "Sound on"}
-                    </button>
-                    <motion.div
-                      style={styles.balancePill}
-                      key={balance}
-                      initial={{ scale: 1.2 }}
-                      animate={{ scale: 1 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 400,
-                        damping: 14,
-                      }}
-                      aria-live="polite"
-                    >
-                      <span style={styles.balanceLabel}>Balance</span>
-                      <span style={styles.balanceAmount}>
-                        ${balance.toFixed(2)}
-                      </span>
-                    </motion.div>
-                  </>
-                }
-              />
-
               <FirstRunCoach
                 storageKey="slopstream.coach.listen.v1"
                 title="How you earn"
@@ -250,8 +275,9 @@ export default function ListenPage() {
               />
 
               <p className="slop-value-prop">
-                Answer quick checks while ads play — listener rewards funded by
-                verified attention.
+                {earnMode
+                  ? "Earn Mode is on — answer quick checks while ads play to share in listener rewards."
+                  : "Listen without interruptions. Turn on Earn Mode whenever you want to answer checks for rewards."}
               </p>
 
               {mode === "live" && connectionStatus !== "connected" && (
@@ -355,9 +381,9 @@ export default function ListenPage() {
                 </motion.div>
               )}
 
-              {/* Challenge card — floating, springy */}
+              {/* Challenge cards belong to the optional earning layer. */}
               <AnimatePresence>
-                {challenge && !receipt && (
+                {earnMode && challenge && !receipt && (
                   <ChallengeCard
                     key={challenge.id}
                     challenge={challenge}
@@ -484,9 +510,7 @@ function JoinSplash({ onJoin }: { onJoin: () => void }) {
         animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.9, 0.5] }}
         transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       />
-      <a className="slop-wordmark" href="/" style={styles.splashTitle}>
-        SLOPSTREAM
-      </a>
+      <div style={styles.splashTitle}>Join the stream</div>
       <div style={styles.splashSub}>
         Listen. Prove you were here. Earn rewards.
       </div>
@@ -497,7 +521,7 @@ function JoinSplash({ onJoin }: { onJoin: () => void }) {
         whileTap={{ scale: 0.97 }}
         whileHover={{ scale: 1.03 }}
       >
-        Tap to join the stream
+        Tap to join
       </motion.button>
       <div style={styles.splashHint}>Enables audio on this device</div>
     </motion.div>
@@ -520,6 +544,7 @@ function hexA(hex: string, a: number): string {
 }
 
 const LISTENER_TOKEN_KEY = "slopstream.listener-token";
+const EARN_MODE_KEY = "slopstream.listener.earn-mode.v1";
 const LISTENER_COMMITMENT_KEY = "slopstream.listener-commitment";
 
 interface ListenerIdentity {
@@ -575,7 +600,7 @@ async function submitProofLive(
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  main: { position: "relative", minHeight: "100svh", overflow: "hidden" },
+  main: { position: "relative", minHeight: "100svh" },
   bgCanvas: {
     position: "fixed",
     inset: 0,
@@ -587,20 +612,16 @@ const styles: Record<string, React.CSSProperties> = {
   frame: {
     position: "relative",
     zIndex: 3,
-    maxWidth: 480,
-    margin: "0 auto",
-    padding: "20px 20px 34px",
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
+    width: "100%",
   },
   splash: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "80vh",
+    minHeight: "70svh",
     position: "relative",
+    paddingBottom: 24,
   },
   splashOrb: {
     position: "absolute",
@@ -612,12 +633,13 @@ const styles: Record<string, React.CSSProperties> = {
     filter: "blur(20px)",
   },
   splashTitle: {
-    fontSize: 36,
+    fontFamily: "var(--slop-display)",
+    fontSize: 28,
     fontWeight: 900,
-    letterSpacing: 6,
+    letterSpacing: 1,
     color: "#fff",
     position: "relative",
-    textDecoration: "none",
+    textTransform: "uppercase" as const,
   },
   splashSub: {
     maxWidth: "28ch",
@@ -634,6 +656,8 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 28,
     border: "none",
     borderRadius: 999,
+    minHeight: 52,
+    width: "min(100%, 280px)",
     padding: "16px 28px",
     background: "var(--slop-yellow)",
     color: "var(--slop-ink)",
@@ -719,6 +743,12 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 13px",
     borderRadius: 999,
     boxShadow: "0 8px 24px rgba(255,228,94,0.24)",
+  },
+  earnModeOn: {
+    borderColor: "var(--slop-lime)",
+    background: "var(--slop-lime)",
+    color: "var(--slop-ink)",
+    boxShadow: "0 0 20px rgba(184,255,101,0.26)",
   },
   balanceLabel: {
     fontSize: 10,

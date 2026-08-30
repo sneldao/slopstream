@@ -2,54 +2,42 @@
 
 import {
   Component,
-  useState,
   useEffect,
-  Suspense,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
-import { Canvas } from "@react-three/fiber";
-import { FluidBackground } from "./FluidBackground";
-import { FluidBackgroundMesh } from "./FluidBackgroundMesh";
-import { BrandBlobField } from "./BrandBlobField";
-import { AdSurface } from "./AdSurface";
-import { ThresholdBasin } from "./ThresholdBasin";
-import { ClearingStreams } from "./ClearingStreams";
-import { AmbientCanvas } from "./AmbientCanvas";
 import type { AudioSignal } from "@/lib/useAudioSignal";
 import type {
-  LeaderboardEntry,
+  AttentionState,
+  ClearBurst,
+  GenerationState,
+} from "@/lib/streamReducer";
+import type {
   BrandSummary,
+  LeaderboardEntry,
   ProductionTier,
   Segment,
 } from "@slopstream/shared";
-import type {
-  GenerationState,
-  AttentionState,
-  ClearBurst,
-} from "@/lib/streamReducer";
 
 interface SceneProps {
   signalRef: React.RefObject<AudioSignal>;
   colorA: string;
   colorB: string;
   shockwaveKey: number;
-  /** Fluid shader quality 0..1 (controls march steps + metaball count). */
   quality?: number;
-  // Brand blobs
   leaderboard: LeaderboardEntry[];
   brandById: Record<string, BrandSummary>;
   outbidFlashId: number;
   outbidDisplacedBrandId?: string;
   outbidNewBrandId?: string;
-  // Ad surface (Phase 4)
   segment: Segment | null;
   generation: GenerationState | undefined;
   playingTier: ProductionTier | undefined;
-  // Threshold basin (Phase 5)
   attention: AttentionState | undefined;
-  // Clearing streams (Phase 5)
   lastClear: ClearBurst | undefined;
-  // Brand palette for the Canvas 2D fallback.
   fallbackBrandColor: string;
   fallbackSecondaryColor: string;
   fallbackBurstKey: number;
@@ -57,144 +45,415 @@ interface SceneProps {
   fallbackBurstToColor?: string;
 }
 
+interface ArchiveItem {
+  id: string;
+  assetUrl?: string;
+  summary: string;
+  brandName: string;
+  primary: string;
+  secondary: string;
+}
+
 interface SceneErrorState {
   failed: boolean;
 }
 
-/**
- * The 3D scene — a full-viewport R3F Canvas rendering the fluid background,
- * brand blobs, the ad surface, the threshold basin, and clearing streams.
- *
- * Capability detection at mount selects between the ray-marched metaball
- * shader (primary, WebGL2) and the mesh-based fallback (FluidBackgroundMesh,
- * weaker GPUs). If WebGL entirely fails, the error boundary falls back to
- * the Canvas 2D `AmbientCanvas`.
- *
- * Must be loaded with `dynamic(() => import(...), { ssr: false })`.
- */
+const PLATFORM_ORBS = [
+  ["7%", "18%", "clamp(78px, 10vw, 170px)", "var(--slop-coral)", "-3s", "0.24"],
+  [
+    "26%",
+    "82%",
+    "clamp(90px, 13vw, 220px)",
+    "var(--slop-blue)",
+    "-11s",
+    "0.52",
+  ],
+  ["48%", "9%", "clamp(52px, 7vw, 110px)", "var(--slop-lime)", "-7s", "0.18"],
+  [
+    "71%",
+    "78%",
+    "clamp(115px, 16vw, 270px)",
+    "var(--slop-yellow)",
+    "-16s",
+    "0.68",
+  ],
+  [
+    "91%",
+    "22%",
+    "clamp(88px, 12vw, 190px)",
+    "var(--slop-violet)",
+    "-5s",
+    "0.42",
+  ],
+  ["97%", "65%", "clamp(44px, 6vw, 90px)", "var(--slop-coral)", "-13s", "0.12"],
+] as const;
+
+const ARCHIVE_POSITIONS = [
+  { left: "4%", top: "49%", rotate: "-8deg", scale: 0.72 },
+  { left: "68%", top: "7%", rotate: "7deg", scale: 0.66 },
+  { left: "76%", top: "57%", rotate: "-4deg", scale: 0.58 },
+  { left: "19%", top: "4%", rotate: "5deg", scale: 0.48 },
+  { left: "54%", top: "74%", rotate: "3deg", scale: 0.44 },
+] as const;
+
+type WorldStyle = CSSProperties & {
+  "--world-a": string;
+  "--world-b": string;
+};
+
+type OrbStyle = CSSProperties & {
+  "--orb-x": string;
+  "--orb-y": string;
+  "--orb-size": string;
+  "--orb-color": string;
+  "--orb-delay": string;
+  "--orb-z": string;
+};
+
+/** A living editorial archive built from media, type and physical colour. */
 export function Scene(props: SceneProps) {
   return (
-    <SceneBoundary fallback={<SceneFallback {...props} />}>
-      <SceneInner {...props} />
+    <SceneBoundary fallback={<ContinuumFallback {...props} />}>
+      <ContinuumWorld {...props} />
     </SceneBoundary>
   );
 }
 
-function SceneInner(props: SceneProps) {
-  const [useShader, setUseShader] = useState<boolean | null>(null);
+function ContinuumWorld(props: SceneProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const previousSegment = useRef<Segment | null>(null);
+  const [archive, setArchive] = useState<ArchiveItem[]>([]);
 
-  // Capability detection — check for WebGL2 and a reasonable texture unit
-  // count. If WebGL2 is unavailable, fall back to the mesh path.
   useEffect(() => {
-    try {
-      const testCanvas = document.createElement("canvas");
-      const gl2 = testCanvas.getContext("webgl2");
-      if (!gl2) {
-        setUseShader(false);
-        return;
-      }
-      const units = gl2.getParameter(gl2.MAX_TEXTURE_IMAGE_UNITS);
-      // Below 16 units → very weak GPU; use mesh fallback.
-      setUseShader(units >= 16);
-    } catch {
-      setUseShader(false);
+    const previous = previousSegment.current;
+    if (previous && previous.id !== props.segment?.id) {
+      const brand = previous.brandId
+        ? props.brandById[previous.brandId]
+        : undefined;
+      const item: ArchiveItem = {
+        id: previous.id,
+        assetUrl: previous.assetUrl,
+        summary: previous.summary,
+        brandName: brand?.name ?? "Open frequency",
+        primary: brand?.primaryColor ?? "#ff5c58",
+        secondary: brand?.secondaryColor ?? "#ffe45e",
+      };
+      setArchive((items) =>
+        [item, ...items.filter((i) => i.id !== item.id)].slice(0, 5),
+      );
     }
+    previousSegment.current = props.segment;
+  }, [props.segment, props.brandById]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let frame = 0;
+    const move = (event: PointerEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const x = event.clientX / window.innerWidth - 0.5;
+        const y = event.clientY / window.innerHeight - 0.5;
+        root.style.setProperty("--continuum-x", `${x * 24}px`);
+        root.style.setProperty("--continuum-y", `${y * 24}px`);
+        root.style.setProperty("--continuum-x-reverse", `${x * -18}px`);
+        root.style.setProperty("--continuum-y-reverse", `${y * -18}px`);
+      });
+    };
+    window.addEventListener("pointermove", move, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pointermove", move);
+    };
   }, []);
 
-  // Still detecting — render nothing (the canvas mounts after detection).
-  if (useShader === null) return null;
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let frame = 0;
+    const tick = () => {
+      const signal = props.signalRef.current;
+      root.style.setProperty(
+        "--continuum-pulse",
+        (1 + signal.smoothAmplitude * 0.045 + signal.beat * 0.025).toFixed(3),
+      );
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [props.signalRef]);
+
+  const activeBrand = props.segment?.brandId
+    ? props.brandById[props.segment.brandId]
+    : props.generation?.brandId
+      ? props.brandById[props.generation.brandId]
+      : undefined;
 
   return (
-    <Canvas
-      gl={{
-        antialias: false,
-        alpha: false,
-        powerPreference: "high-performance",
-      }}
-      dpr={[1, 1]}
-      camera={{ position: [0, 0, 3], fov: 60, near: 0.1, far: 20 }}
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+    <div
+      ref={rootRef}
+      className={`continuum-world${props.segment ? " continuum-world--focus" : ""}`}
+      style={
+        { "--world-a": props.colorA, "--world-b": props.colorB } as WorldStyle
+      }
+      aria-hidden="true"
     >
-      {/* Lighting for the glass basin (MeshPhysicalMaterial needs it). */}
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[2, 3, 2]} intensity={0.6} />
-      <pointLight position={[-2, -1, 1]} intensity={0.3} color={props.colorA} />
+      <div className="continuum-world__wash" />
+      <div className="continuum-world__grid" />
+      <div className="continuum-world__type continuum-world__type--one">
+        ATTENTION&nbsp; IS&nbsp; MOVING&nbsp; ATTENTION&nbsp; IS&nbsp; MOVING
+      </div>
+      <div className="continuum-world__type continuum-world__type--two">
+        PROOF / PLAY / REWARD / REPEAT / PROOF / PLAY / REWARD / REPEAT
+      </div>
+      <svg
+        className="continuum-world__route"
+        viewBox="0 0 1600 900"
+        preserveAspectRatio="none"
+      >
+        <path d="M-40 720 C 220 410, 390 930, 650 510 S 1040 100, 1240 390 S 1510 760, 1680 280" />
+      </svg>
 
-      {/* Fluid background — ray-marched or mesh fallback. */}
-      {useShader ? (
-        <FluidBackground
-          signalRef={props.signalRef}
-          colorA={props.colorA}
-          colorB={props.colorB}
-          shockwaveKey={props.shockwaveKey}
-          quality={props.quality}
-        />
-      ) : (
-        <FluidBackgroundMesh
-          signalRef={props.signalRef}
-          colorA={props.colorA}
-          colorB={props.colorB}
-          shockwaveKey={props.shockwaveKey}
-          quality={props.quality}
-        />
-      )}
+      <div className="continuum-world__archive">
+        {archive.map((item, index) => (
+          <ArchiveCard key={item.id} item={item} index={index} />
+        ))}
+      </div>
 
-      {/* Brand blobs — kinematic Rapier bodies. Suspense wraps the
-          async WASM load so the error boundary doesn't catch the
-          suspended promise as a crash. */}
-      <Suspense fallback={null}>
-        <BrandBlobField
-          leaderboard={props.leaderboard}
-          brandById={props.brandById}
-          outbidFlashId={props.outbidFlashId}
-          outbidDisplacedBrandId={props.outbidDisplacedBrandId}
-          outbidNewBrandId={props.outbidNewBrandId}
-          signalRef={props.signalRef}
-        />
-      </Suspense>
-
-      {/* Ad surface — the 3D stage (orb / image plane / video plane). */}
-      <AdSurface
+      <ActivePortal
         segment={props.segment}
         generation={props.generation}
-        playingTier={props.playingTier}
+        brand={activeBrand}
         color={props.colorA}
-        secondaryColor={props.colorB}
-        signalRef={props.signalRef}
       />
 
-      {/* Threshold basin — 3D glass container that fills with brand fluid. */}
-      {props.attention && (
-        <ThresholdBasin
-          attention={props.attention}
-          color={props.colorA}
-          secondaryColor={props.colorB}
-          signalRef={props.signalRef}
-        />
+      <div className="continuum-world__orbs">
+        {PLATFORM_ORBS.map(([x, y, size, color, delay, depth], index) => (
+          <i
+            className="continuum-orb"
+            key={`${x}-${y}`}
+            style={
+              {
+                "--orb-x": x,
+                "--orb-y": y,
+                "--orb-size": size,
+                "--orb-color": color,
+                "--orb-delay": delay,
+                "--orb-z": `${Number(depth) * 130}px`,
+              } as OrbStyle
+            }
+          >
+            <span>{String(index + 1).padStart(2, "0")}</span>
+          </i>
+        ))}
+        {props.leaderboard.slice(0, 3).map((entry, index) => {
+          const brand = props.brandById[entry.brandId];
+          return (
+            <i
+              className="continuum-orb continuum-orb--bid"
+              key={entry.brandId}
+              style={
+                {
+                  "--orb-x": `${16 + index * 31}%`,
+                  "--orb-y": `${24 + ((index + 1) % 2) * 53}%`,
+                  "--orb-size": `clamp(${44 + index * 8}px, ${5 + index * 1.2}vw, ${92 + index * 14}px)`,
+                  "--orb-color": brand?.primaryColor ?? props.colorA,
+                  "--orb-delay": `${-4 - index * 5}s`,
+                  "--orb-z": `${(0.2 + index * 0.15) * 130}px`,
+                } as OrbStyle
+              }
+            >
+              <span>{index + 1}</span>
+            </i>
+          );
+        })}
+      </div>
+
+      {(props.shockwaveKey > 0 || props.lastClear) && (
+        <div
+          className="continuum-ripple"
+          key={`${props.shockwaveKey}-${props.lastClear?.burstId ?? 0}`}
+        >
+          <i />
+          <i />
+          <i />
+        </div>
       )}
 
-      {/* Clearing streams — particle burst on bid clear (80/20 split). */}
-      <ClearingStreams burst={props.lastClear} color={props.colorA} />
-    </Canvas>
+      {props.attention && (
+        <div
+          className="continuum-world__proof-glow"
+          style={{
+            opacity: Math.min(
+              0.72,
+              0.12 + props.attention.verifiedCount / props.attention.threshold,
+            ),
+          }}
+        />
+      )}
+    </div>
   );
 }
 
-function SceneFallback({
-  signalRef,
-  fallbackBrandColor,
-  fallbackSecondaryColor,
-  fallbackBurstKey,
-  fallbackBurstFromColor,
-  fallbackBurstToColor,
-}: SceneProps) {
+function ActivePortal({
+  segment,
+  generation,
+  brand,
+  color,
+}: {
+  segment: Segment | null;
+  generation: GenerationState | undefined;
+  brand: BrandSummary | undefined;
+  color: string;
+}) {
   return (
-    <AmbientCanvas
-      signalRef={signalRef}
-      brandColor={fallbackBrandColor}
-      secondaryColor={fallbackSecondaryColor}
-      burstKey={fallbackBurstKey}
-      burstFromColor={fallbackBurstFromColor}
-      burstToColor={fallbackBurstToColor}
+    <div
+      className="continuum-portal"
+      key={segment?.id ?? generation?.segmentId ?? "open"}
+    >
+      <div className="continuum-portal__halo" style={{ background: color }} />
+      <div className="continuum-portal__frame">
+        {segment ? (
+          <MediaAsset segment={segment} brand={brand} />
+        ) : generation ? (
+          <div className="continuum-portal__generating">
+            <span>ASSEMBLING</span>
+            <strong>{brand?.name ?? "THE NEXT MOMENT"}</strong>
+            <div>
+              {["SCRIPT", "VOICE", "IMAGE", "VIDEO"].map((label, index) => (
+                <i
+                  className={
+                    generation.doneStages.length > index ? "is-done" : ""
+                  }
+                  key={label}
+                >
+                  {label}
+                </i>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="continuum-portal__open">
+            <span>THE CONTINUUM / LIVE</span>
+            <strong>
+              SLOP
+              <br />
+              <em>STREAM</em>
+            </strong>
+            <small>Every moment leaves a trace.</small>
+          </div>
+        )}
+      </div>
+      <span className="continuum-portal__index">
+        CURRENT
+        <br />
+        FREQUENCY
+      </span>
+    </div>
+  );
+}
+
+function MediaAsset({
+  segment,
+  brand,
+}: {
+  segment: Segment;
+  brand?: BrandSummary;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [segment.assetUrl]);
+  const mediaType = useMemo(
+    () => assetType(segment.assetUrl),
+    [segment.assetUrl],
+  );
+
+  if (!segment.assetUrl || failed || mediaType === "audio") {
+    return (
+      <div
+        className="continuum-portal__editorial"
+        style={{
+          background: `linear-gradient(135deg, ${brand?.primaryColor ?? "#45a7ff"}, ${brand?.secondaryColor ?? "#b8ff65"})`,
+        }}
+      >
+        <span>NOW PLAYING</span>
+        <strong>{brand?.name ?? "OPEN STREAM"}</strong>
+        <p>{segment.summary || "A new signal entering the Continuum."}</p>
+      </div>
+    );
+  }
+
+  if (mediaType === "video") {
+    return (
+      <video
+        className="continuum-portal__media"
+        src={segment.assetUrl}
+        autoPlay
+        muted
+        loop
+        playsInline
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    // Generated asset URLs are dynamic and cannot use next/image host allowlists.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className="continuum-portal__media"
+      src={segment.assetUrl}
+      alt=""
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function ArchiveCard({ item, index }: { item: ArchiveItem; index: number }) {
+  const position = ARCHIVE_POSITIONS[index % ARCHIVE_POSITIONS.length];
+  return (
+    <div
+      className="continuum-memory"
+      style={
+        {
+          left: position.left,
+          top: position.top,
+          rotate: position.rotate,
+          scale: position.scale,
+          "--memory-a": item.primary,
+          "--memory-b": item.secondary,
+        } as CSSProperties
+      }
+    >
+      <span>ARCHIVE {String(index + 1).padStart(2, "0")}</span>
+      {item.assetUrl && assetType(item.assetUrl) === "image" ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.assetUrl} alt="" />
+      ) : (
+        <strong>{item.brandName}</strong>
+      )}
+      <small>{item.summary || "Previously on this frequency"}</small>
+    </div>
+  );
+}
+
+function assetType(url?: string): "image" | "video" | "audio" {
+  if (!url) return "audio";
+  const clean = url.split(/[?#]/)[0]?.toLowerCase() ?? "";
+  if (/\.(mp4|webm|mov|m4v)$/.test(clean)) return "video";
+  if (/\.(png|jpe?g|webp|gif|avif)$/.test(clean)) return "image";
+  return "audio";
+}
+
+function ContinuumFallback(props: SceneProps) {
+  return (
+    <div
+      className="continuum-world continuum-world--fallback"
+      style={
+        {
+          "--world-a": props.fallbackBrandColor,
+          "--world-b": props.fallbackSecondaryColor,
+        } as WorldStyle
+      }
     />
   );
 }
@@ -211,16 +470,13 @@ class SceneBoundary extends Component<
 
   componentDidCatch(error: unknown) {
     // eslint-disable-next-line no-console
-    console.error("[Scene] 3D scene failed, falling back to Canvas 2D:", error);
-    // eslint-disable-next-line no-console
-    console.log(
-      "[Scene] Error details:",
-      error instanceof Error ? error.message : String(error),
+    console.error(
+      "[Continuum] scene failed, using a static colour field:",
+      error,
     );
   }
 
   render() {
-    if (this.state.failed) return this.props.fallback;
-    return this.props.children;
+    return this.state.failed ? this.props.fallback : this.props.children;
   }
 }
