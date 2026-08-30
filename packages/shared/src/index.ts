@@ -73,7 +73,8 @@ export interface AttentionProofReceipt {
 // Bids and clearing (Lane 2 boundary)
 // ---------------------------------------------------------------------------
 
-export type BidStatus = "pending" | "winning" | "won" | "cleared" | "lost";
+export type BidStatus =
+  "pending" | "won" | "lost" | "cleared" | "uncleared" | "failed";
 
 export interface Bid {
   id: string;
@@ -126,32 +127,87 @@ export interface RewardPool {
 
 // ---------------------------------------------------------------------------
 // WebSocket events (orchestrator/API → every screen)
+// Event names and semantics mirror docs/technical/backend.md —
+// "WebSocket event contract (starter set)". Payloads carry only
+// aggregate/public data; no listener identity or answers cross the wire.
 // ---------------------------------------------------------------------------
 
 export type GenerationStage = "script" | "voice" | "image" | "video";
 
+export interface LeaderboardEntry {
+  brandId: string;
+  amountUsd: number;
+}
+
 export type WsEvent =
-  | { type: "segment_started"; segment: Segment }
-  | { type: "segment_generating"; slot: number; brandId: string }
   | {
-      type: "generation_progress";
+      type: "bid.placed";
+      bidId: string;
+      brandId: string;
+      amountUsd: number;
+      slot: number;
+    }
+  | {
+      type: "bid.outbid";
+      bidId: string;
+      prevAmountUsd: number;
+      newAmountUsd: number;
+      brandId: string;
+    }
+  | {
+      type: "leaderboard.updated";
+      ranking: LeaderboardEntry[];
+      nextSlotPriceUsd: number;
+    }
+  | {
+      type: "segment.generating";
+      segmentId: string;
+      slot: number;
+      tier: ProductionTier;
+    }
+  | {
+      type: "generation.progress";
       slot: number;
       stage: GenerationStage;
       done: boolean;
     }
-  | { type: "bid_placed"; bid: Bid }
-  | { type: "outbid"; previousBidId: string; newBid: Bid }
-  | { type: "challenge_issued"; challenge: Challenge }
   | {
-      type: "attention_verified";
+      type: "segment.ready";
       segmentId: string;
-      proofId: string;
-      rewardUsd: number;
+      assetUrl: string;
+      durationSec: number;
     }
-  | { type: "bid_cleared"; bidId: string; clearedAmountUsd: number }
-  | { type: "reward_pool_created"; pool: RewardPool }
+  | { type: "segment.playing"; segmentId: string; startedAt: string }
+  | { type: "challenge.fired"; challenge: Challenge }
   | {
-      type: "stats";
+      type: "attention.verified";
+      segmentId: string;
+      verifiedCount: number;
+      total: number;
+    }
+  | {
+      type: "bid.cleared";
+      bidId: string;
+      segmentId: string;
+      grossAmountUsd: number;
+      listenerPoolUsd: number;
+      platformRevenueUsd: number;
+    }
+  | {
+      type: "bid.uncleared";
+      bidId: string;
+      segmentId: string;
+      returnedAmountUsd: number;
+    }
+  | {
+      type: "reward.pool.updated";
+      poolId: string;
+      bidId: string;
+      eligibleAmountUsd: number;
+      distributedAmountUsd: number;
+    }
+  | {
+      type: "stats.updated";
       listeners: number;
       attentionProofs: number;
       listenerRewardsUsd: number;

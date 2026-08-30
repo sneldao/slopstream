@@ -8,7 +8,7 @@ The centerpiece of the demo. This should feel closer to a **live sports scoreboa
 
 The screen shows:
 
-```
+```text
 LIVE SLOPSTREAM
 ┌──────────────────────────────────────────────┐
 │                                              │
@@ -36,7 +36,7 @@ LIVE SLOPSTREAM
 
 When a brand gets outbid:
 
-```
+```text
 ⚡ OUTBID ⚡
 
 COOLSTARTUP
@@ -51,7 +51,7 @@ The listener joins by **scanning a QR code**. No app download. Just a mobile web
 
 Listener screen:
 
-```
+```text
 SLOPSTREAM
 
 You're listening to:
@@ -66,7 +66,7 @@ Questions can appear at any time.
 
 A challenge suddenly appears:
 
-```
+```text
 ┌─────────────────────────────┐
 │ 👀 ATTENTION CHECK          │
 │                             │
@@ -81,13 +81,13 @@ A challenge suddenly appears:
 
 Correct answer:
 
-```
+```text
 ✓ ATTENTION VERIFIED
 
 Proof generated privately.
 
 Estimated reward:
-+$0.37
+~$0.37 (pending pool close)
 ```
 
 Then the ad continues. See [economics](economics.md) for how the estimated reward becomes a pool share, and [content](content.md) for challenge design.
@@ -96,7 +96,7 @@ Then the ad continues. See [economics](economics.md) for how the estimated rewar
 
 Brands get a bidding console:
 
-```
+```text
 YOUR BALANCE
 
 $500.00
@@ -107,6 +107,9 @@ Acme AI
 
 CURRENT SLOT
 #4
+
+CURRENT LISTENERS
+1,284
 
 YOUR BID
 $27
@@ -133,6 +136,8 @@ $50+
 Premium / Interactive
 ```
 
+The console surfaces **current listener count** alongside the standing bid, because slot value scales with audience size (see [auction strategy](economics.md#audience-size-is-slot-value--and-its-not-in-the-auction-yet)). A brand should be able to reason about cost-per-verified-attention, not just nominal bid amount.
+
 The bid controls more than position. Higher bids can unlock:
 
 - better generation quality
@@ -149,7 +154,7 @@ This matches the free/low → image → video production escalation in the [gene
 
 Every verified interaction should produce a beautiful receipt:
 
-```
+```text
 ┌─────────────────────────────┐
 │ ✓ ATTENTION VERIFIED        │
 │                             │
@@ -164,8 +169,8 @@ Every verified interaction should produce a beautiful receipt:
 │                             │
 │ Proof: 0x8F29...            │
 │                             │
-│ REWARD RELEASED             │
-│ +$0.37                      │
+│ ESTIMATED REWARD            │
+│ ~$0.37 (pending pool close) │
 │                             │
 │ VERIFIED BY MIDNIGHT        │
 └─────────────────────────────┘
@@ -173,4 +178,6 @@ Every verified interaction should produce a beautiful receipt:
 
 This is the moment to demonstrate **why Midnight exists**. The audience doesn't need to understand the cryptography first. They see:
 
-> I answered → proof → money.
+> I answered → proof → reward.
+
+The reward is an *estimate* until the attention window closes and the pool is distributed proportionally (see [economics](economics.md#dont-pay-per-question)) — the receipt shows a pending share, not a settled payout.

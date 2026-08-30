@@ -4,7 +4,7 @@
 
 ### Brand
 
-```
+```text
 SIGN UP
    ↓
 TOP UP $100
@@ -34,7 +34,7 @@ $20 CLEARED
 
 ### Listener
 
-```
+```text
 SCAN QR
    ↓
 JOIN STREAM
@@ -62,7 +62,7 @@ This is what actually gets built and shown at the hackathon.
 
 Big screen:
 
-```
+```text
 SLOPSTREAM
 
 The world's first live attention market.
@@ -78,7 +78,7 @@ ACME AI: `$5 → $10 → $15`. The leaderboard moves.
 
 COOLSTARTUP: `$18`. Huge animation:
 
-```
+```text
 ⚡ OUTBID ⚡
 ```
 
@@ -86,13 +86,13 @@ COOLSTARTUP: `$18`. Huge animation:
 
 The winner gets a slot. On screen:
 
-```
+```text
 GENERATING AD...
 ```
 
 Then:
 
-```
+```text
 Script ✓
 Voice ✓
 Image ✓
@@ -107,12 +107,13 @@ The audience scans. The ad says something memorable. A question appears on every
 
 ### Scene 6 — Proof
 
-Correct answers start arriving. Big screen:
+Correct answers start arriving. The segment crosses its attention threshold. Big screen:
 
-```
+```text
 ATTENTION VERIFIED
 
 127 / 143 listeners
+(threshold met)
 
 ██████████████████░░
 
@@ -121,10 +122,10 @@ $18 CLEARED
 
 ### Scene 7 — Money
 
-Animation:
+The full bid clears once the threshold is met; the listener share becomes a reward pool distributed across the valid attention events. Animation:
 
-```
-$18 VERIFIED SPEND
+```text
+$18 CLEARED SPEND
 
 $3.60
 SLOPSTREAM
@@ -137,7 +138,7 @@ LISTENER REWARD POOL
 
 Someone bids again.
 
-```
+```text
 ⚡ NEW BID ⚡
 
 $18 → $22

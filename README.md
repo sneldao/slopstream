@@ -2,7 +2,7 @@
 
 **A live marketplace for human attention.**
 
-Brands bid for attention. AI creates the content. Humans prove they paid attention. Slopstream shares the resulting value with them — distributing up to 80% of eligible advertising spend back to listeners as rewards.
+Brands bid for attention. AI creates the content. Humans prove they engaged with it. Slopstream shares the resulting value with them — distributing up to 80% of eligible advertising spend back to listeners as rewards.
 
 ## The pitch
 
@@ -35,8 +35,8 @@ $ REWARD
 2. AI generates the ad in real time — audio, image, or video depending on the bid tier.
 3. Listeners join by scanning a QR code (no app, just mobile web).
 4. Randomized attention challenges interrupt the stream ("What did they just say?").
-5. Correct answers produce a cryptographic proof of attention.
-6. Only then does the advertiser spend clear — and up to 80% flows into a listener reward pool.
+5. Correct answers produce a cryptographic proof that the attention condition was satisfied.
+6. Once a segment clears its attention threshold the advertiser spend clears — and up to 80% flows into a listener reward pool.
 
 ## Positioning
 
@@ -67,7 +67,7 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:orchestr
 | --- | --- |
 | [docs/README.md](docs/README.md) | Documentation map |
 | [docs/product/overview.md](docs/product/overview.md) | Core idea, positioning, differentiators |
-| [docs/product/economics.md](docs/product/economics.md) | Economic model, reward pools, anti-gaming |
+| [docs/product/economics.md](docs/product/economics.md) | Economic model, reward pools, auction strategy, anti-gaming |
 | [docs/product/surfaces.md](docs/product/surfaces.md) | Big screen, listener client, brand console, proof receipt |
 | [docs/product/content.md](docs/product/content.md) | Infinite Slop™, attention challenges, free-AI-ads growth engine |
 | [docs/technical/architecture.md](docs/technical/architecture.md) | System architecture, tech stack, generation pipeline |
@@ -75,3 +75,4 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:orchestr
 | [docs/technical/backend.md](docs/technical/backend.md) | Money architecture, ledger schema, challenge engine |
 | [docs/hackathon/demo-script.md](docs/hackathon/demo-script.md) | User flows and the live demo sequence |
 | [docs/hackathon/build-order.md](docs/hackathon/build-order.md) | P0 / P1 / P2 build priorities |
+| [docs/hackathon/team-split.md](docs/hackathon/team-split.md) | Three parallel development lanes and shared-type seams |

@@ -5,7 +5,7 @@ Product design and technical architecture for a live, infinite AI-generated adve
 ## Product
 
 - [overview.md](product/overview.md) — the core idea, what makes Slopstream different, positioning, and the central product principle.
-- [economics.md](product/economics.md) — the economic model: verified spend, the 80/20 split, the attention reward pool (don't pay per question), and the anti-gaming layer.
+- [economics.md](product/economics.md) — the economic model: verified spend, the 80/20 split, the attention reward pool (don't pay per question), bid clearing semantics, auction strategy and theory, and the anti-gaming layer.
 - [surfaces.md](product/surfaces.md) — the three main surfaces: the big screen, the listener experience (QR + mobile web), and the brand bidding console, plus the proof receipt.
 - [content.md](product/content.md) — Infinite Slop™ continuity, randomized attention challenge types, and the free-AI-ads cold-start engine with company claim pages.
 

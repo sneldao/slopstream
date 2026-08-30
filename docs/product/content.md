@@ -14,35 +14,35 @@ The challenge engine randomly selects:
 
 Possible challenge types:
 
-**Recall**
+### Recall
 
 > What product did the company mention?
 
-**Audio**
+### Audio
 
 > Which sound did you just hear?
 
-**Visual**
+### Visual
 
 > What appeared in the previous frame?
 
-**Completion**
+### Completion
 
 > "Acme makes ______ for developers."
 
-**True / False**
+### True / False
 
 > Acme said its product works offline.
 
-**Sequence**
+### Sequence
 
 > What happened immediately before the robot appeared?
 
-**Voice**
+### Voice
 
 > Repeat: "Acme makes developers faster."
 
-**Image**
+### Image
 
 > Show three images: which one appeared in the ad?
 
@@ -60,7 +60,7 @@ Instead: **one continuously evolving AI-generated universe.**
 
 Each generated segment receives a summary of recent segments. For example:
 
-```
+```text
 SEGMENT 1
 
 Acme AI introduces an AI robot.
@@ -114,7 +114,7 @@ Then the company eventually discovers:
 
 Give every company a **claim page**:
 
-```
+```text
 ACME AI
 
 We've already generated
@@ -134,3 +134,5 @@ Once claimed:
 → bidding console.
 
 This turns the free tier into an **automated outbound sales engine**.
+
+**Legal/consent caveat.** Generating an unsolicited ad for a real company and showing it publicly carries trademark, defamation, and right-of-publicity risk — arguably higher than the revenue-share framing, and it varies by jurisdiction. Before this runs against real companies: keep generated content clearly labelled as unofficial/AI-generated and parody where applicable, honor takedown/opt-out requests immediately, avoid implying endorsement, and check the rules for target jurisdictions. For the prototype, prefer fictional brands or companies that have opted in.

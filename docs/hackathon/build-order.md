@@ -21,7 +21,7 @@
 - [ ] Proof receipt
 - [ ] Listener reward balance
 - [ ] Infinite Slop continuity
-- [ ] Scraped startup cold start
+- [ ] Scraped startup cold start (cross-lane: scraper ingestion in Lane 2 backend → generation + stream insertion in Lane 3; agree on the scraped-company payload shape in `packages/shared` before either lane starts)
 
 ## P2 — Stretch
 
@@ -31,6 +31,7 @@
 - [ ] Sophisticated anti-fraud
 - [ ] Brand analytics
 - [ ] Dynamic auction pricing
+- [ ] Reserve / floor price per slot (prevents stream deflation — see [auction strategy](../product/economics.md#sequential-auction-effects))
 
 ## Notes
 
