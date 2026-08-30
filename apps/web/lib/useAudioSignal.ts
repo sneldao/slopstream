@@ -5,10 +5,15 @@ import { useEffect, useRef, useState, useCallback } from "react";
 /**
  * The shared audio signal — the heartbeat of the living canvas.
  *
- * Until a shared media element is connected, synthesizes an organic amplitude signal
- * from a mix of sine waves + noise, modulated by whether a segment is
- * "playing." This gives every visual surface a real signal to react to
- * without needing actual audio.
+ * Two modes:
+ * 1. **Real audio** — when `audioUrl` is provided, creates a hidden
+ *    `<audio>` element, connects it to a Web Audio `AnalyserNode`, and
+ *    drives the signal from real frequency data. This is used in live mode
+ *    when the ElevenLabs generator produces real TTS audio.
+ * 2. **Synthesized** — when no `audioUrl` is provided (demo mode), synthesizes
+ *    an organic amplitude signal from layered sines + noise. This gives
+ *    every visual surface a real signal to react to without needing actual
+ *    audio.
  *
  * Returns a ref to a shared `AudioSignal` object (amplitude, bass, mid,
  * treble, beat) that visual components read on each animation frame. Using
@@ -41,7 +46,7 @@ function createEmptySignal(): AudioSignal {
   };
 }
 
-export function useAudioSignal(active: boolean) {
+export function useAudioSignal(active: boolean, audioUrl?: string) {
   const signalRef = useRef<AudioSignal>(createEmptySignal());
   const rafRef = useRef<number>(0);
   const phaseRef = useRef(0);
@@ -49,13 +54,120 @@ export function useAudioSignal(active: boolean) {
   const beatEnergyRef = useRef(0);
   const [ready, setReady] = useState(false);
 
+  // Web Audio nodes for real audio analysis.
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const freqDataRef = useRef<Uint8Array | null>(null);
+
+  // Set up real audio when an audioUrl is provided.
+  useEffect(() => {
+    if (!audioUrl) {
+      // Tear down any existing real audio.
+      if (audioElRef.current) {
+        audioElRef.current.pause();
+        audioElRef.current = null;
+      }
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+      analyserRef.current = null;
+      freqDataRef.current = null;
+      return;
+    }
+
+    // Create audio element.
+    const audio = new Audio();
+    audio.src = audioUrl;
+    audio.crossOrigin = "anonymous";
+    audio.loop = false;
+    audioElRef.current = audio;
+
+    // Create AudioContext + AnalyserNode.
+    const ctx = new AudioContext();
+    audioCtxRef.current = ctx;
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.6;
+    analyserRef.current = analyser;
+    freqDataRef.current = new Uint8Array(analyser.frequencyBinCount);
+
+    try {
+      const source = ctx.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+    } catch {
+      // CORS or autoplay restrictions — fall back to synthesized signal.
+      analyserRef.current = null;
+    }
+
+    // Attempt to play (may require user interaction in some browsers).
+    audio.play().catch(() => {
+      // Autoplay blocked — the signal stays at 0 until user interaction.
+      // The synthesized fallback still provides a signal if active=true.
+    });
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+      audioElRef.current = null;
+      ctx.close().catch(() => {});
+      audioCtxRef.current = null;
+      analyserRef.current = null;
+      freqDataRef.current = null;
+    };
+  }, [audioUrl]);
+
   const tick = useCallback(() => {
     const phase = phaseRef.current;
     phaseRef.current = phase + 0.016;
 
-    if (active) {
+    // Try real audio analysis first.
+    const analyser = analyserRef.current;
+    const freqData = freqDataRef.current;
+    if (active && analyser && freqData) {
+      analyser.getByteFrequencyData(freqData);
+
+      // Map frequency bins to bass / mid / treble.
+      // fftSize=256 → 128 bins. Bass: 0-8, Mid: 8-32, Treble: 32-64.
+      const bins = freqData.length;
+      let bassSum = 0,
+        midSum = 0,
+        trebleSum = 0;
+      const bassEnd = Math.max(1, Math.floor(bins * 0.06));
+      const midEnd = Math.max(bassEnd + 1, Math.floor(bins * 0.25));
+      const trebleEnd = Math.max(midEnd + 1, Math.floor(bins * 0.5));
+
+      for (let i = 0; i < bassEnd; i++) bassSum += freqData[i];
+      for (let i = bassEnd; i < midEnd; i++) midSum += freqData[i];
+      for (let i = midEnd; i < trebleEnd; i++) trebleSum += freqData[i];
+
+      const bass = bassSum / (bassEnd * 255);
+      const mid = midSum / ((midEnd - bassEnd) * 255);
+      const treble = trebleSum / ((trebleEnd - midEnd) * 255);
+      const amp = bass * 0.5 + mid * 0.3 + treble * 0.2;
+
+      // Beat detection — bass energy spike.
+      const bassDelta = bass - beatEnergyRef.current;
+      beatEnergyRef.current = bass;
+      let beat = signalRef.current.beat * 0.85;
+      if (bassDelta > 0.12 && phase - lastBeatRef.current > 0.25) {
+        beat = 1;
+        lastBeatRef.current = phase;
+      }
+
+      const prevSmooth = signalRef.current.smoothAmplitude;
+      signalRef.current = {
+        amplitude: Math.max(0, Math.min(1, amp)),
+        bass: Math.max(0, Math.min(1, bass)),
+        mid: Math.max(0, Math.min(1, mid)),
+        treble: Math.max(0, Math.min(1, treble)),
+        beat,
+        smoothAmplitude: prevSmooth + (amp - prevSmooth) * 0.08,
+      };
+    } else if (active) {
       // Synthesized organic amplitude — layered sines + noise.
-      // Voice-like mid frequencies pulse slower than treble sparkle.
       const bass =
         0.4 + 0.3 * Math.sin(phase * 0.8) + 0.15 * Math.sin(phase * 2.1);
       const mid =
@@ -64,10 +176,9 @@ export function useAudioSignal(active: boolean) {
         0.2 + 0.15 * Math.sin(phase * 4.2 + 1.0) + 0.1 * Math.sin(phase * 7.1);
       const amp = bass * 0.5 + mid * 0.3 + treble * 0.2;
 
-      // Beat detection — when bass energy spikes above a threshold.
       const bassDelta = bass - beatEnergyRef.current;
       beatEnergyRef.current = bass;
-      let beat = signalRef.current.beat * 0.85; // decay
+      let beat = signalRef.current.beat * 0.85;
       if (bassDelta > 0.15 && phase - lastBeatRef.current > 0.3) {
         beat = 1;
         lastBeatRef.current = phase;

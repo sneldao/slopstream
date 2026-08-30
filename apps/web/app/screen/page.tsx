@@ -22,7 +22,13 @@ const Scene = dynamic(
 
 export default function ScreenPage() {
   const { state, demo } = useStream();
-  const { signalRef } = useAudioSignal(!!state.nowPlaying);
+  // In live mode, play real audio from the segment's asset URL.
+  // In demo mode, the asset URLs are placeholders that don't exist, so
+  // the hook falls back to the synthesized signal.
+  const audioUrl = state.nowPlaying?.assetUrl?.match(/\.(mp3|wav|ogg)$/i)
+    ? state.nowPlaying.assetUrl
+    : undefined;
+  const { signalRef } = useAudioSignal(!!state.nowPlaying, audioUrl);
   const { play } = useSoundDesign();
   const listenerUrl =
     process.env.NEXT_PUBLIC_LISTENER_URL ?? "http://localhost:3000/listen";
