@@ -19,7 +19,7 @@
 │ Queue manager                                               │
 │ Segment scheduler                                           │
 │ Stream continuity                                           │
-│ Bid selection                                               │
+│ Consumes auction results                                    │
 │ Attention challenge timing                                  │
 └──────────────┬───────────────────────────┬──────────────────┘
                │              ▲            │
@@ -34,6 +34,7 @@
 │ TTS                      │      │ Reward ledger + accounting│
 │ Image generation         │      │ Scraper ingestion         │
 │ Video generation         │      │ Challenge generation      │
+│                          │      │ Auction resolution        │
 └──────────────────────────┘      └──────┬─────────────┬──────┘
                                          │             │
                           proves facts   │             │ moves dollars
@@ -50,12 +51,28 @@
 
 The backend is the only component that talks to Midnight and Stripe: **Stripe moves dollars, Midnight proves facts** (see [money architecture](backend.md#money-architecture)), and the backend updates its ledger from both. The orchestrator drives the live experience and hands the backend the events it needs to clear bids; it does not settle money itself.
 
+## Live transport architecture
+
+Slopstream uses a **hybrid transport model**: HTTP is the authoritative command and snapshot plane; WebSockets are a low-latency projection of live state. A socket is never the source of truth for money, bids, proofs, or rewards.
+
+| Plane | Transport | Responsibility | Examples |
+| --- | --- | --- | --- |
+| Commands | HTTPS / REST | Authenticated, validated, idempotent state changes | create listener session, place bid, top up, submit attention proof |
+| State | HTTPS / REST | Authoritative initial load and recovery after a missed event or reconnect | `GET /stream/snapshot`, brand balance/campaign state, listener receipt/balance |
+| Live projection | WebSocket | Server → client updates after state is persisted or stream runtime changes | leaderboard, OUTBID, generation progress, now playing, public challenge, aggregate attention, clearing |
+
+A typical listener flow is: create or resume a session through the API, fetch the current stream snapshot, connect to the socket, then render subsequent events. A challenge response is posted to the API; the API persists it, routes it through the verifier, and only then causes an aggregate `attention.verified` event to reach the screen. Browser clients do not send marketplace mutations as ad-hoc WebSocket events.
+
+The gateway currently fans out only the **public** `WsEvent` stream: now playing, leaderboard, aggregate stats, generation, public challenges, and clearing animations. Listener proof receipts/balances and brand balances/campaign state remain on authenticated HTTPS responses and snapshots for the hackathon; they are never placed in the public live feed.
+
+If a later release adds private socket updates, it must define a separately scoped event type and authenticate the target listener session or brand account. Do not reuse a public `WsEvent` by adding private fields. The detailed event, audience, and recovery contract is in [backend](backend.md#live-event-contract).
+
 ## Component responsibilities
 
 - **Big screen** — stream playback, live leaderboard, QR code, live stats. Consumes WebSocket events.
-- **Stream orchestrator** — the live brain: queue manager, segment scheduler, stream continuity (Infinite Slop), bid selection, attention challenge timing. Emits events; does not settle money.
+- **Stream orchestrator** — the live brain: queue manager, segment scheduler, stream continuity (Infinite Slop), attention challenge timing. Consumes auction results from the backend — it never resolves auctions or settles money; the ledger is the single source of truth for both.
 - **Daytona pool** — disposable sandboxes for ad generation (LLM script, TTS, image generation, video generation); returns the generated asset to the orchestrator.
-- **Backend API** — brand accounts, Stripe balances, listener sessions, reward ledger and accounting, scraper ingestion, challenge generation. Owns all clearing and settlement, and is the sole caller of Midnight and Stripe.
+- **Backend API** — brand accounts, Stripe balances, listener sessions, reward ledger and accounting, scraper ingestion, challenge generation, auction resolution (winner selection and slot assignment). Owns all clearing and settlement, and is the sole caller of Midnight and Stripe.
 - **Midnight** — proves conditions on-chain; consulted by the backend. See [contracts](contracts.md).
 - **Stripe** — the only real-money rail; called by the backend. See [backend](backend.md#money-architecture).
 
@@ -100,7 +117,7 @@ The sandbox is then destroyed. This retains the isolation rationale: brand-submi
 | Layer | Technology |
 | --- | --- |
 | Frontend | Next.js |
-| Live updates | WebSockets |
+| Live transport | HTTPS / REST commands + WebSocket projections |
 | Backend | Node + TypeScript |
 | Queue | Redis |
 | Database | Postgres |

@@ -12,6 +12,7 @@
 - [ ] Live stream
 - [ ] Live leaderboard
 - [ ] Reward pool calculation
+- [ ] Demo-mode harness: fixture-driven full demo sequence with no live backend, generator, or contracts (Lane 3 owns the player; Lanes 1–2 supply canned proof/clearing data)
 
 ## P1 — Makes the demo excellent
 
@@ -21,7 +22,7 @@
 - [ ] Proof receipt
 - [ ] Listener reward balance
 - [ ] Infinite Slop continuity
-- [ ] Scraped startup cold start (cross-lane: scraper ingestion in Lane 2 backend → generation + stream insertion in Lane 3; agree on the scraped-company payload shape in `packages/shared` before either lane starts)
+- [ ] Scraped startup cold start (cross-lane: Lane 1 writes the scraper and generates the free ads → Lane 2 backend ingests companies and serves claim pages → Lane 3 inserts segments into the stream; agree on the scraped-company payload shape in `packages/shared` before any lane starts)
 
 ## P2 — Stretch
 
