@@ -23,7 +23,7 @@ import { tierForAmount, tierMin } from "@/lib/tierForAmount";
  * tier chips, bid confirmation particle effect, live leaderboard.
  */
 export default function BrandPage() {
-  const { state, mode, connectionStatus } = useStream();
+  const { state, connectionStatus } = useStream();
   const { play } = useSoundDesign();
 
   const DEMO_BRAND_ID = "brand_acme";
@@ -42,7 +42,6 @@ export default function BrandPage() {
   const [bidSubmitting, setBidSubmitting] = useState(false);
 
   useEffect(() => {
-    if (mode !== "live") return;
     if (!demoBrandToken) {
       setBidError("Set NEXT_PUBLIC_DEMO_BRAND_TOKEN for the local demo brand.");
       return;
@@ -59,7 +58,7 @@ export default function BrandPage() {
       .catch((error: unknown) => {
         setBidError(errorMessage(error, "Unable to load balance."));
       });
-  }, [demoBrandToken, mode]);
+  }, [demoBrandToken]);
 
   // Keep the balance in sync with the stream: settlements (bid.cleared /
   // bid.uncleared / bid.failed) change what this brand has available, so
@@ -70,7 +69,7 @@ export default function BrandPage() {
     if (!settlement || settlement.flashId === lastSettlementFlashIdRef.current)
       return;
     lastSettlementFlashIdRef.current = settlement.flashId;
-    if (mode !== "live" || !demoBrandToken) return;
+    if (!demoBrandToken) return;
     void requestJson<BrandBalanceResponse>(
       "/brands/me/balance",
       { method: "GET" },
@@ -83,7 +82,7 @@ export default function BrandPage() {
       .catch(() => {
         // A transient balance refresh must not interrupt the console.
       });
-  }, [state.lastSettlement, mode, demoBrandToken]);
+  }, [state.lastSettlement, demoBrandToken]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -141,13 +140,11 @@ export default function BrandPage() {
     setBidError(null);
     setBidSubmitting(true);
     try {
-      if (mode === "live") {
-        if (!demoBrandToken) {
-          throw new Error("Missing local demo brand token.");
-        }
-        const result = await placeBidLive(amount, demoBrandToken);
-        setBalance(result.balance.availableUsd);
+      if (!demoBrandToken) {
+        throw new Error("Missing local brand token.");
       }
+      const result = await placeBidLive(amount, demoBrandToken);
+      setBalance(result.balance.availableUsd);
       play("bid");
       setBidPlaced(true);
       setTimeout(() => setBidPlaced(false), 2000);
@@ -199,17 +196,15 @@ export default function BrandPage() {
               className="slop-hud-pill"
               style={{
                 color:
-                  mode === "demo" || connectionStatus === "connected"
+                  connectionStatus === "connected"
                     ? "var(--slop-lime)"
                     : "var(--slop-yellow)",
               }}
             >
               <i style={styles.networkDot} />
-              {mode === "demo"
-                ? "Demo feed"
-                : connectionStatus === "connected"
-                  ? "Market live"
-                  : "Market offline"}
+              {connectionStatus === "connected"
+                ? "Market live"
+                : "Market offline"}
             </span>
           }
         />

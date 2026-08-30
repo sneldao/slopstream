@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getStreamMode } from "@/lib/streamMode";
 import { errorMessage } from "@/lib/errors";
 
 /**
@@ -73,9 +72,7 @@ export function PayoutSheet({
 
             {done ? (
               <p className="slop-payout-sheet__done" role="status">
-                {getStreamMode() === "demo"
-                  ? "Requested — demo holds funds locally."
-                  : "Requested — payout submitted."}
+                Requested — payout submitted.
               </p>
             ) : (
               <button

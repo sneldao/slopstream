@@ -10,7 +10,7 @@ import {
 } from "./streamReducer";
 
 /**
- * Live stream client — the real-WebSocket counterpart to the demo player.
+ * Live stream client — snapshot + WebSocket gateway.
  *
  * Flow (see docs/technical/backend.md "Live event contract"):
  *  1. Fetch `GET /stream/snapshot` → authoritative initial `StreamState`.
@@ -18,10 +18,6 @@ import {
  *     `/ws`). Record `asOfSequence` from the snapshot.
  *  3. On each `WsDelivery`: dedupe by `eventId`, detect sequence gaps, and
  *     apply through the reducer. On a gap or reconnect, re-fetch the snapshot.
- *
- * In demo mode this hook is never used for state (see `useStream`), but it
- * must still be called to satisfy the Rules of Hooks — it short-circuits with
- * a static empty state when no snapshot URL is configured.
  */
 
 const SNAPSHOT_PATH = "/stream/snapshot";
@@ -63,11 +59,9 @@ export interface LiveStreamResult {
   status: LiveConnectionStatus;
 }
 
-export function useLiveStream(enabled = true): LiveStreamResult {
+export function useLiveStream(): LiveStreamResult {
   const [state, setState] = useState<StreamState>(EMPTY_STATE);
-  const [status, setStatus] = useState<LiveConnectionStatus>(
-    enabled ? "connecting" : "idle",
-  );
+  const [status, setStatus] = useState<LiveConnectionStatus>("connecting");
   const wsRef = useRef<WebSocket | null>(null);
   const seenEventIds = useRef<Set<string>>(new Set());
   const lastSequence = useRef<number>(0);
@@ -149,10 +143,8 @@ export function useLiveStream(enabled = true): LiveStreamResult {
   );
 
   useEffect(() => {
-    // Only attempt live connection if a snapshot URL is resolvable.
-    // In demo mode this env var is unset, so the hook stays inert.
-    if (!enabled || (!apiBaseUrl() && !process.env.NEXT_PUBLIC_WS_URL)) {
-      setStatus("idle");
+    if (!apiBaseUrl() && !process.env.NEXT_PUBLIC_WS_URL) {
+      setStatus("offline");
       return;
     }
     setStatus("connecting");
@@ -167,7 +159,7 @@ export function useLiveStream(enabled = true): LiveStreamResult {
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [enabled, fetchSnapshot, connect]);
+  }, [fetchSnapshot, connect]);
 
   return { state, status };
 }

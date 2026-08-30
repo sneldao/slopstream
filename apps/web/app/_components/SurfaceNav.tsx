@@ -2,14 +2,10 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { getStreamMode } from "@/lib/streamMode";
 
 export type SurfaceRole = "01" | "02" | "03";
 
-// In live mode the home hub redirects to /screen unless ?hub=1 is set, so nav
-// links that mean "take me to the hub" must carry the opt-in. Demo mode keeps
-// a clean "/" URL.
-const HOME_HREF = getStreamMode() === "live" ? "/?hub=1" : "/";
+const HOME_HREF = "/screen";
 
 const SURFACES = [
   {

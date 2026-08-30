@@ -1,62 +1,31 @@
 "use client";
 
-import { useMemo } from "react";
 import type { StreamSnapshot, WsDelivery } from "@slopstream/shared";
 import {
   reduceStreamEvent,
   snapshotToState,
   type StreamState,
 } from "./streamReducer";
-import { useDemoPlayer } from "./useDemoPlayer";
 import { useLiveStream } from "./useLiveStream";
 import type { LiveConnectionStatus } from "./useLiveStream";
-import { DEMO_FIXTURE } from "./demoFixture";
 
 /**
- * Unified stream hook — the single entry point all three surfaces (big screen,
- * listener, brand console) use to get `StreamState`. Picks demo vs live based
- * on `NEXT_PUBLIC_STREAM_MODE`:
- *
- *  - `demo` (default): plays the fixture from `demoFixture.ts`. No backend.
- *  - `live`: fetches `GET /stream/snapshot` then subscribes to the WebSocket
- *    gateway at `NEXT_PUBLIC_WS_URL` (or same-origin `/ws`). Applies events
- *    through the same reducer.
- *
- * The returned shape is identical either way, so swapping demo → live is an
- * env-var change with no code edits. See docs/technical/backend.md "Live
- * event contract".
+ * Unified stream hook — the single entry point all three surfaces use.
+ * Fetches `GET /stream/snapshot` then subscribes to the WebSocket gateway.
+ * See docs/technical/backend.md "Live event contract".
  */
-import { getStreamMode } from "./streamMode";
-import type { StreamMode } from "./streamMode";
-
-export { getStreamMode };
-export type { StreamMode };
 
 export interface UseStreamResult {
   state: StreamState;
-  mode: StreamMode;
-  connectionStatus: LiveConnectionStatus | "demo";
-  /** Demo-only controls; no-op when live (the socket drives the state). */
-  demo: ReturnType<typeof useDemoPlayer>;
+  connectionStatus: LiveConnectionStatus;
 }
 
 export function useStream(): UseStreamResult {
-  const mode = useMemo(() => getStreamMode(), []);
-
-  // Always call both hooks (Rules of Hooks), but only activate the relevant
-  // transport. This avoids an invisible demo timeline running in live mode.
-  const demo = useDemoPlayer(DEMO_FIXTURE, mode === "demo");
-  const live = useLiveStream(mode === "live");
-
-  const state = mode === "live" ? live.state : demo.state;
-  const connectionStatus = mode === "live" ? live.status : "demo";
-  return { state, mode, connectionStatus, demo };
+  const live = useLiveStream();
+  return { state: live.state, connectionStatus: live.status };
 }
 
-/**
- * Apply a single delivery to a state — used by the live hook and exposed for
- * testing. Demo mode doesn't call this directly (the player does internally).
- */
+/** Apply a single delivery to a state — exposed for tests. */
 export function applyDelivery(
   prev: StreamState,
   delivery: WsDelivery,

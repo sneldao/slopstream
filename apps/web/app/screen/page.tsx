@@ -13,7 +13,6 @@ import { NowPlaying } from "./_components/NowPlaying";
 import { StatsFooter } from "./_components/StatsFooter";
 import { OutbidFlashOverlay } from "./_components/OutbidFlash";
 import { BlobChip } from "./_components/SoftBlob";
-import { DemoControls } from "./_components/DemoControls";
 import { ProofReceipt3D } from "./_components/ProofReceipt3D";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { LoopStatus } from "../_components/LoopStatus";
@@ -26,15 +25,10 @@ const Scene = dynamic(
 );
 
 export default function ScreenPage() {
-  const { state, mode, connectionStatus, demo } = useStream();
-  const { theater, setTheater } = useTheaterMode(true);
-  // In live mode, play real audio from the segment's asset URL.
-  // Audio-tier segments have .mp3 as the asset; audio_image and video tiers
-  // have .png/.mp4 as the asset but the .mp3 TTS file always exists alongside
-  // (same segmentId prefix on the generator). Derive the audio URL so the
-  // voiceover plays even when the visual asset is the primary assetUrl.
-  // In demo mode, the asset URLs are placeholders that don't exist, so
-  // the hook falls back to the synthesized signal.
+  const { state, connectionStatus } = useStream();
+  const { theater } = useTheaterMode(true);
+  // Audio-tier segments have .mp3 as the asset; image/video tiers store the
+  // visual as assetUrl but the .mp3 TTS file exists alongside on the generator.
   const audioUrl = state.nowPlaying?.assetUrl
     ? state.nowPlaying.assetUrl.match(/\.(mp3|wav|ogg)$/i)
       ? state.nowPlaying.assetUrl
@@ -137,7 +131,7 @@ export default function ScreenPage() {
       {/* Click-to-start overlay — browsers block autoplay until a user
           gesture. This full-screen prompt unlocks the AudioContext on the
           first click, then disappears for the rest of the session. */}
-      {!audioStarted && mode === "live" && (
+      {!audioStarted && (
         <button
           className="screen-start-overlay"
           style={styles.startOverlay}
@@ -199,7 +193,7 @@ export default function ScreenPage() {
         showDock={false}
         hidden={theater}
         trailing={
-          !theater && mode === "live" ? (
+          !theater ? (
             <span
               className="slop-hud-pill"
               style={{
@@ -209,8 +203,6 @@ export default function ScreenPage() {
               <span style={styles.connectionDot} />
               {connectionStatus === "connected" ? "Live" : "Offline"}
             </span>
-          ) : !theater ? (
-            <span style={styles.liveDot} aria-hidden />
           ) : null
         }
       />
@@ -382,21 +374,6 @@ export default function ScreenPage() {
             listenerRewardsUsd={state.listenerRewardsUsd}
           />
         </motion.div>
-      )}
-
-      {mode === "demo" && (
-        <DemoControls
-          playing={demo.playing}
-          finished={demo.finished}
-          stepIndex={demo.stepIndex}
-          totalSteps={demo.totalSteps}
-          label={demo.label}
-          theater={theater}
-          onToggle={demo.toggle}
-          onRestart={demo.restart}
-          onStep={demo.stepNext}
-          onEnterTheater={() => setTheater(true)}
-        />
       )}
     </main>
   );

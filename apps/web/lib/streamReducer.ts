@@ -2,7 +2,7 @@
  * Stream reducer — pure function from (state, WsEvent) -> state.
  *
  * This is the single client-side projection of the public `WsEvent` stream
- * into UI state. Both the demo player (fixture-driven) and a future live
+ * into UI state. The live WebSocket client applies events through this reducer.
  * WebSocket client use it unchanged: the only difference is the event
  * source. See docs/technical/backend.md "Live event contract".
  *

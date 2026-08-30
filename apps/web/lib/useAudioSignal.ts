@@ -10,10 +10,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
  *    `<audio>` element, connects it to a Web Audio `AnalyserNode`, and
  *    drives the signal from real frequency data. This is used in live mode
  *    when the ElevenLabs generator produces real TTS audio.
- * 2. **Synthesized** — when no `audioUrl` is provided (demo mode), synthesizes
- *    an organic amplitude signal from layered sines + noise. This gives
- *    every visual surface a real signal to react to without needing actual
- *    audio.
+ * 2. **Synthesized** — when no `audioUrl` is provided (stream between
+ *    segments or audio-only fallback), synthesizes an organic amplitude
+ *    signal from layered sines + noise.
  *
  * Returns a ref to a shared `AudioSignal` object (amplitude, bass, mid,
  * treble, beat) that visual components read on each animation frame. Using

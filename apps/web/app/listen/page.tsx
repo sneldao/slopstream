@@ -17,7 +17,6 @@ import { ProofReceipt } from "./_components/ProofReceipt";
 import { requestJson } from "@/lib/liveApi";
 import { hexA } from "@/lib/color";
 import { errorMessage } from "@/lib/errors";
-import { expectedDemoAnswer } from "@/lib/demoFixture";
 import { SphereField } from "../_components/SphereField";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
@@ -30,10 +29,7 @@ import { PayoutSheet } from "./_components/PayoutSheet";
  * one calm moment. Sound fires on challenge appearance and proof verified.
  */
 export default function ListenPage() {
-  const { state, mode, connectionStatus } = useStream();
-  // In live mode, play real audio from the segment's asset URL so the
-  // listener actually hears the ad. In demo mode, the synthesized signal
-  // drives the visualizer.
+  const { state, connectionStatus } = useStream();
   const audioUrl = state.nowPlaying?.assetUrl?.match(/\.(mp3|wav|ogg)$/i)
     ? state.nowPlaying.assetUrl
     : undefined;
@@ -78,7 +74,6 @@ export default function ListenPage() {
   }, []);
 
   useEffect(() => {
-    if (mode !== "live") return;
     const commitment = readOrCreateCommitment();
     const token =
       window.sessionStorage.getItem(LISTENER_TOKEN_KEY) ?? undefined;
@@ -98,10 +93,10 @@ export default function ListenPage() {
       .catch((error: unknown) =>
         setSubmissionError(errorMessage(error, "Unable to submit proof.")),
       );
-  }, [mode]);
+  }, []);
 
   useEffect(() => {
-    if (mode !== "live" || !listenerIdentity) return;
+    if (!listenerIdentity) return;
     const refresh = () => {
       void requestJson<{ session: ListenerSession }>(
         "/listener-sessions/me",
@@ -124,7 +119,7 @@ export default function ListenPage() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [listenerIdentity, mode]);
+  }, [listenerIdentity]);
 
   const activeBrandId =
     state.nowPlaying?.brandId ?? state.generation?.brandId ?? null;
@@ -148,29 +143,22 @@ export default function ListenPage() {
   const challenge = state.activeChallenge;
   const attention = state.attention;
 
-  // Demo mode simulates pending → available locally; live mode reads the API.
+  // Refresh balances when a segment clears on the API.
   useEffect(() => {
     const clear = state.lastClear;
     if (!clear || clear.burstId === lastClearBurstId.current) return;
     lastClearBurstId.current = clear.burstId;
-    if (mode === "live" && listenerIdentity) {
-      void requestJson<{ session: ListenerSession }>(
-        "/listener-sessions/me",
-        { method: "GET" },
-        listenerIdentity.token,
-      )
-        .then(({ session }) => applySession(session))
-        .catch(() => {
-          // Heartbeat failure should not block the celebration moment.
-        });
-      return;
-    }
-    setBalances((b) => ({
-      availableUsd:
-        b.pendingUsd > 0 ? b.availableUsd + b.pendingUsd : b.availableUsd,
-      pendingUsd: 0,
-    }));
-  }, [state.lastClear, mode, listenerIdentity]);
+    if (!listenerIdentity) return;
+    void requestJson<{ session: ListenerSession }>(
+      "/listener-sessions/me",
+      { method: "GET" },
+      listenerIdentity.token,
+    )
+      .then(({ session }) => applySession(session))
+      .catch(() => {
+        // Heartbeat failure should not block the celebration moment.
+      });
+  }, [state.lastClear, listenerIdentity]);
 
   const handleJoin = () => {
     if (joined) return;
@@ -199,56 +187,25 @@ export default function ListenPage() {
 
   const handleAnswer = (answer: string) => {
     if (!challenge) return;
-    if (mode === "live") {
-      if (!listenerIdentity) {
-        setSubmissionError(
-          "Connecting your listener session. Please try again.",
-        );
-        return;
-      }
-      setSubmissionError(null);
-      void submitProofLive(
-        listenerIdentity,
-        challenge.id,
-        challenge.segmentId,
-        answer,
-      )
-        .then(({ receipt: nextReceipt, session }) => {
-          setReceipt(nextReceipt);
-          applySession(session);
-          if (nextReceipt.verified) play("proof");
-        })
-        .catch((error: unknown) =>
-          setSubmissionError(errorMessage(error, "Unable to submit proof.")),
-        );
+    if (!listenerIdentity) {
+      setSubmissionError("Connecting your listener session. Please try again.");
       return;
     }
-
-    // Demo grading is fixture-driven: the expected answer lives next to the
-    // fixture steps (DEMO_CHALLENGE_ANSWERS), not in option order. Challenges
-    // without a mapped answer verify by design — the demo never blocks the arc.
-    const expected = expectedDemoAnswer(challenge.id);
-    const verified = expected === undefined || answer === expected;
-    const estimatedReward = verified ? 0.37 : undefined;
-    setReceipt({
-      proofId: `0x${Math.random().toString(16).slice(2, 10)}`,
-      segmentId: challenge.segmentId,
-      challengeId: challenge.id,
-      brandId: activeBrandId ?? "unknown",
-      challengeType: challenge.type,
-      verified,
-      estimatedRewardUsd: estimatedReward,
-      verifierMode: "stub",
-      createdAt: new Date().toISOString(),
-    });
-    if (verified) {
-      play("proof");
-      setBalances((b) => ({
-        ...b,
-        pendingUsd: b.pendingUsd + (estimatedReward ?? 0),
-      }));
-      setTodayVerified((t) => t + (estimatedReward ?? 0));
-    }
+    setSubmissionError(null);
+    void submitProofLive(
+      listenerIdentity,
+      challenge.id,
+      challenge.segmentId,
+      answer,
+    )
+      .then(({ receipt: nextReceipt, session }) => {
+        setReceipt(nextReceipt);
+        applySession(session);
+        if (nextReceipt.verified) play("proof");
+      })
+      .catch((error: unknown) =>
+        setSubmissionError(errorMessage(error, "Unable to submit proof.")),
+      );
   };
 
   return (
@@ -342,7 +299,7 @@ export default function ListenPage() {
                 />
               )}
 
-              {mode === "live" && connectionStatus !== "connected" && (
+              {connectionStatus !== "connected" && (
                 <div role="status" style={styles.signalNotice}>
                   <span style={styles.signalDot} />
                   Reconnecting to the live stream
@@ -479,9 +436,7 @@ export default function ListenPage() {
             challenge={challenge}
             brandColor={brandColor}
             onAnswer={handleAnswer}
-            nowPlayingStartedAt={
-              mode === "live" ? state.nowPlayingStartedAt : undefined
-            }
+            nowPlayingStartedAt={state.nowPlayingStartedAt}
           />
         )}
       </AnimatePresence>
@@ -500,22 +455,18 @@ export default function ListenPage() {
         pendingUsd={pendingUsd}
         onClose={() => setPayoutOpen(false)}
         onRequest={async () => {
-          // No try/catch-rethrow here: PayoutSheet awaits this and renders its
-          // own error state on rejection, so nothing becomes an unhandled
-          // promise rejection.
-          if (mode === "live" && listenerIdentity) {
-            const { session } = await requestJson<{
-              receipt: PayoutReceipt;
-              session: ListenerSession;
-            }>(
-              "/listener-sessions/me/payout-request",
-              { method: "POST", body: JSON.stringify({}) },
-              listenerIdentity.token,
-            );
-            applySession(session);
-            return;
+          if (!listenerIdentity) {
+            throw new Error("Listener session not ready.");
           }
-          setBalances((b) => ({ ...b, availableUsd: 0 }));
+          const { session } = await requestJson<{
+            receipt: PayoutReceipt;
+            session: ListenerSession;
+          }>(
+            "/listener-sessions/me/payout-request",
+            { method: "POST", body: JSON.stringify({}) },
+            listenerIdentity.token,
+          );
+          applySession(session);
         }}
       />
     </main>
