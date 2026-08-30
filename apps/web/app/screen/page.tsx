@@ -7,6 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useSoundDesign } from "@/lib/useSoundDesign";
+import { FREE_BRAND_ID, FREE_BRAND_SUMMARY } from "@slopstream/shared";
 import { NowPlaying } from "./_components/NowPlaying";
 import { StatsFooter } from "./_components/StatsFooter";
 import { OutbidFlashOverlay } from "./_components/OutbidFlash";
@@ -21,7 +22,7 @@ const Scene = dynamic(
 );
 
 export default function ScreenPage() {
-  const { state, demo } = useStream();
+  const { state, mode, connectionStatus, demo } = useStream();
   // In live mode, play real audio from the segment's asset URL.
   // In demo mode, the asset URLs are placeholders that don't exist, so
   // the hook falls back to the synthesized signal.
@@ -33,20 +34,21 @@ export default function ScreenPage() {
   const listenerUrl =
     process.env.NEXT_PUBLIC_LISTENER_URL ?? "http://localhost:3000/listen";
 
-  // Active brand drives the now-playing surface.
-  const activeBrandId =
+  // Active brand drives the now-playing surface. Free segments (scraped
+  // companies with no bid) have brandId null — map them to the FREE SLOP
+  // brand so the screen still gets colours and a brand identity.
+  const rawActiveBrandId =
     state.nowPlaying?.brandId ?? state.generation?.brandId ?? null;
-  const activeBrand = activeBrandId
-    ? state.brandById[activeBrandId]
-    : undefined;
+  const activeBrandId = rawActiveBrandId ?? FREE_BRAND_ID;
+  const activeBrand = state.brandById[activeBrandId] ?? FREE_BRAND_SUMMARY;
 
   // The bid leader drives the fluid tint. The design language says the screen
   // floods to the new leader's palette on OUTBID — so the fluid tracks who's
   // *winning the auction*, not who's *currently playing*. When the leader
   // changes, FluidBackground lerps the palette over ~600ms (the flood).
-  // Falls back to the playing brand when there are no bids yet.
+  // Falls back to the playing brand (or FREE SLOP) when there are no bids.
   const leaderBrandId = state.leaderboard[0]?.brandId ?? activeBrandId;
-  const fluidBrand = leaderBrandId ? state.brandById[leaderBrandId] : undefined;
+  const fluidBrand = state.brandById[leaderBrandId] ?? FREE_BRAND_SUMMARY;
 
   // Set brand-palette CSS variables.
   useEffect(() => {
@@ -104,8 +106,8 @@ export default function ScreenPage() {
           leader so OUTBID floods the palette. */}
       <Scene
         signalRef={signalRef}
-        colorA={fluidBrand?.primaryColor ?? "#1a1a3e"}
-        colorB={fluidBrand?.secondaryColor ?? "#0b0b1a"}
+        colorA={fluidBrand?.primaryColor ?? "#2563eb"}
+        colorB={fluidBrand?.secondaryColor ?? "#7dd3fc"}
         shockwaveKey={burstKey}
         leaderboard={state.leaderboard}
         brandById={state.brandById}
@@ -121,12 +123,13 @@ export default function ScreenPage() {
         // Clearing streams (Phase 5)
         lastClear={state.lastClear}
         // Canvas 2D fallback palette (used only if WebGL fails).
-        fallbackBrandColor={activeBrand?.primaryColor ?? "#1a1a3e"}
-        fallbackSecondaryColor={activeBrand?.secondaryColor ?? "#0b0b1a"}
+        fallbackBrandColor={activeBrand?.primaryColor ?? "#8f5cff"}
+        fallbackSecondaryColor={activeBrand?.secondaryColor ?? "#ff5c58"}
         fallbackBurstKey={burstKey}
         fallbackBurstFromColor={burstFromColor}
         fallbackBurstToColor={burstToColor}
       />
+      <div className="slop-grain" />
 
       {/* Text overlay — brand name, generation stages, challenge banner.
           The visual ad surface is now 3D (AdSurface inside Scene). */}
@@ -152,7 +155,7 @@ export default function ScreenPage() {
         brandColor={activeBrand?.primaryColor}
       />
 
-      {/* Floating header — minimal, top-left. */}
+      {/* Floating header — wordmark + live status. Top-left, single row. */}
       <motion.header
         style={styles.header}
         initial={{ opacity: 0, x: -20 }}
@@ -160,11 +163,26 @@ export default function ScreenPage() {
         transition={{ delay: 0.3 }}
       >
         <span style={styles.liveDot} />
-        <span style={styles.title}>SLOPSTREAM</span>
+        <a className="slop-wordmark" href="/" style={styles.title}>
+          SLOPSTREAM
+        </a>
+        <span style={styles.broadcastTag}>Attention market / on air</span>
+        {mode === "live" && (
+          <span
+            style={{
+              ...styles.connectionBadge,
+              color: connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
+            }}
+          >
+            <span style={styles.connectionDot} />
+            {connectionStatus === "connected" ? "Live" : "Offline"}
+          </span>
+        )}
       </motion.header>
 
       {/* Floating leaderboard — right side, over the canvas. */}
       <motion.div
+        className="screen-leaderboard"
         style={styles.leaderboardFloat}
         initial={{ opacity: 0, x: 40 }}
         animate={{ opacity: 1, x: 0 }}
@@ -204,6 +222,7 @@ export default function ScreenPage() {
       </motion.div>
 
       <aside
+        className="screen-join"
         style={styles.joinPanel}
         aria-label="Join Slopstream as a listener"
       >
@@ -227,6 +246,7 @@ export default function ScreenPage() {
           this small label shows the numbers. */}
       {state.attention && (
         <motion.div
+          className="screen-threshold"
           style={styles.thresholdLabel}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -246,6 +266,7 @@ export default function ScreenPage() {
 
       {/* Drifting stats — bottom center, no border, floating. */}
       <motion.div
+        className="screen-stats"
         style={styles.statsFloat}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -258,16 +279,18 @@ export default function ScreenPage() {
         />
       </motion.div>
 
-      <DemoControls
-        playing={demo.playing}
-        finished={demo.finished}
-        stepIndex={demo.stepIndex}
-        totalSteps={demo.totalSteps}
-        label={demo.label}
-        onToggle={demo.toggle}
-        onRestart={demo.restart}
-        onStep={demo.stepNext}
-      />
+      {mode === "demo" && (
+        <DemoControls
+          playing={demo.playing}
+          finished={demo.finished}
+          stepIndex={demo.stepIndex}
+          totalSteps={demo.totalSteps}
+          label={demo.label}
+          onToggle={demo.toggle}
+          onRestart={demo.restart}
+          onStep={demo.stepNext}
+        />
+      )}
     </main>
   );
 }
@@ -306,6 +329,41 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     letterSpacing: 6,
     color: "rgba(255,255,255,0.9)",
+    textDecoration: "none",
+  },
+  broadcastTag: {
+    padding: "6px 10px",
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 999,
+    color: "rgba(255,255,255,0.58)",
+    background: "rgba(8,8,18,0.48)",
+    backdropFilter: "blur(12px)",
+    fontSize: 9,
+    fontWeight: 800,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  connectionBadge: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 10px",
+    border: "1px solid rgba(255,255,255,0.16)",
+    borderRadius: 999,
+    background: "rgba(8,8,18,0.64)",
+    backdropFilter: "blur(14px)",
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginLeft: 4,
+  },
+  connectionDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "currentColor",
+    boxShadow: "0 0 12px currentColor",
   },
   leaderboardFloat: {
     position: "fixed",
@@ -340,7 +398,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   thresholdLabel: {
     position: "fixed",
-    bottom: "clamp(80px, 14vh, 130px)",
+    bottom: "clamp(70px, 12vh, 110px)",
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: 10,
@@ -378,8 +436,7 @@ const styles: Record<string, React.CSSProperties> = {
   statsFloat: {
     position: "fixed",
     bottom: "clamp(16px, 3vw, 32px)",
-    left: "50%",
-    transform: "translateX(-50%)",
+    left: "clamp(16px, 3vw, 32px)",
     zIndex: 10,
   },
   joinPanel: {

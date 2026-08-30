@@ -48,14 +48,17 @@ function applyStep(
   return s;
 }
 
-export function useDemoPlayer(fixture: DemoFixture): DemoPlayer {
+export function useDemoPlayer(
+  fixture: DemoFixture,
+  enabled = true,
+): DemoPlayer {
   const initial = useMemo(
     () => snapshotToState(fixture.initialSnapshot),
     [fixture],
   );
   const [state, setState] = useState<StreamState>(initial);
   const [stepIndex, setStepIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(enabled);
   const [label, setLabel] = useState<string | undefined>(undefined);
 
   const totalSteps = fixture.steps.length;
@@ -94,11 +97,16 @@ export function useDemoPlayer(fixture: DemoFixture): DemoPlayer {
 
   // Autoplay from the start on mount.
   useEffect(() => {
+    if (!enabled) {
+      playingRef.current = false;
+      setPlaying(false);
+      return clearTimer;
+    }
     indexRef.current = 0;
     playingRef.current = true;
     advance(true);
     return clearTimer;
-  }, [advance, clearTimer]);
+  }, [advance, clearTimer, enabled]);
 
   const play = useCallback(() => {
     if (indexRef.current >= totalSteps) return;

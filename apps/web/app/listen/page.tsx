@@ -14,6 +14,7 @@ import { AudioVisualizer } from "./_components/AudioVisualizer";
 import { ChallengeCard } from "./_components/ChallengeCard";
 import { ProofReceipt } from "./_components/ProofReceipt";
 import { requestJson } from "@/lib/liveApi";
+import { SphereField } from "../_components/SphereField";
 
 /**
  * The listener experience — a game show on a phone. Full-bleed audio-
@@ -21,14 +22,14 @@ import { requestJson } from "@/lib/liveApi";
  * one calm moment. Sound fires on challenge appearance and proof verified.
  */
 export default function ListenPage() {
-  const { state, mode } = useStream();
+  const { state, mode, connectionStatus } = useStream();
   // In live mode, play real audio from the segment's asset URL so the
   // listener actually hears the ad. In demo mode, the synthesized signal
   // drives the visualizer.
   const audioUrl = state.nowPlaying?.assetUrl?.match(/\.(mp3|wav|ogg)$/i)
     ? state.nowPlaying.assetUrl
     : undefined;
-  const { signalRef } = useAudioSignal(!!state.nowPlaying, audioUrl);
+  const { signalRef, unlock } = useAudioSignal(!!state.nowPlaying, audioUrl);
   const { play } = useSoundDesign();
   const [joined, setJoined] = useState(false);
   const [receipt, setReceipt] = useState<AttentionProofReceipt | null>(null);
@@ -95,28 +96,26 @@ export default function ListenPage() {
   const brandColor = activeBrand?.primaryColor ?? "#ffd76a";
 
   useEffect(() => {
-    const root = document.documentElement;
     if (activeBrand) {
+      const root = document.documentElement;
       root.style.setProperty("--brand-primary", activeBrand.primaryColor);
       root.style.setProperty("--brand-secondary", activeBrand.secondaryColor);
     } else {
+      const root = document.documentElement;
       root.style.setProperty("--brand-primary", "var(--platform-bg-2)");
       root.style.setProperty("--brand-secondary", "var(--platform-bg-1)");
     }
   }, [activeBrand]);
 
-  useEffect(() => {
-    if (!joined) {
-      const t = setTimeout(() => {
-        setJoined(true);
-        play("join");
-      }, 1600);
-      return () => clearTimeout(t);
-    }
-  }, [joined, play]);
-
   const challenge = state.activeChallenge;
   const attention = state.attention;
+
+  const handleJoin = () => {
+    if (joined) return;
+    unlock();
+    play("join");
+    setJoined(true);
+  };
 
   // Sound on challenge fire.
   const lastChallengeId = useRef<string | undefined>(undefined);
@@ -175,7 +174,7 @@ export default function ListenPage() {
   };
 
   return (
-    <main style={styles.main}>
+    <main className="listen-shell" style={styles.main}>
       {/* Full-bleed audio-reactive background */}
       <FullBleedVisualizer
         signalRef={signalRef}
@@ -183,11 +182,13 @@ export default function ListenPage() {
         secondaryColor={activeBrand?.secondaryColor ?? "#0b0b1a"}
         active={!!state.nowPlaying}
       />
+      <SphereField className="sphere-field--soft listen-spheres" />
+      <div className="slop-grain" />
 
       <div style={styles.frame}>
         <AnimatePresence mode="wait">
           {!joined ? (
-            <JoinSplash key="splash" />
+            <JoinSplash key="splash" onJoin={handleJoin} />
           ) : (
             <motion.div
               key="listening"
@@ -196,9 +197,14 @@ export default function ListenPage() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
             >
-              {/* Floating header — minimal */}
+              {/* Floating header — wordmark links home */}
               <header style={styles.header}>
-                <span style={styles.logo}>SLOPSTREAM</span>
+                <div style={styles.headerBrand}>
+                  <a className="slop-wordmark" href="/" style={styles.logo}>
+                    SLOPSTREAM
+                  </a>
+                  <span style={styles.channel}>Listener channel</span>
+                </div>
                 <motion.div
                   style={styles.balancePill}
                   key={balance}
@@ -213,6 +219,18 @@ export default function ListenPage() {
                 </motion.div>
               </header>
 
+              <p style={styles.valueProp}>
+                Answer quick checks while ads play — listener rewards funded by
+                verified attention.
+              </p>
+
+              {mode === "live" && connectionStatus !== "connected" && (
+                <div role="status" style={styles.signalNotice}>
+                  <span style={styles.signalDot} />
+                  Reconnecting to the live stream
+                </div>
+              )}
+
               {/* Now playing — floating over the visualizer */}
               <motion.div
                 style={styles.nowPlaying}
@@ -222,11 +240,12 @@ export default function ListenPage() {
                 transition={{ type: "spring", stiffness: 200, damping: 20 }}
               >
                 <div style={styles.listeningLabel}>
-                  You&apos;re listening to
+                  Now flooding your frequency
                 </div>
                 <div style={{ ...styles.brandName, color: brandColor }}>
-                  {activeBrand?.name ?? "Free Ad"}
+                  {activeBrand?.name ?? "Open Stream"}
                 </div>
+                <div style={styles.nowPlayingRule} />
               </motion.div>
 
               {/* Audio visualizer — the heartbeat blob */}
@@ -244,6 +263,9 @@ export default function ListenPage() {
                   animate={{ opacity: 1, y: 0 }}
                 >
                   <div style={styles.meterLabel}>Live attention meter</div>
+                  <div style={styles.meterHint}>
+                    When this fills, rewards unlock for the segment.
+                  </div>
                   <div style={styles.meterCount}>
                     <span className="slop-figures">
                       {attention.verifiedCount}
@@ -394,7 +416,7 @@ function FullBleedVisualizer({
   );
 }
 
-function JoinSplash() {
+function JoinSplash({ onJoin }: { onJoin: () => void }) {
   return (
     <motion.div
       style={styles.splash}
@@ -408,8 +430,22 @@ function JoinSplash() {
         animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.9, 0.5] }}
         transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       />
-      <div style={styles.splashTitle}>SLOPSTREAM</div>
-      <div style={styles.splashSub}>Entering the stream…</div>
+      <a className="slop-wordmark" href="/" style={styles.splashTitle}>
+        SLOPSTREAM
+      </a>
+      <div style={styles.splashSub}>
+        Listen. Prove you were here. Earn rewards.
+      </div>
+      <motion.button
+        type="button"
+        style={styles.joinButton}
+        onClick={onJoin}
+        whileTap={{ scale: 0.97 }}
+        whileHover={{ scale: 1.03 }}
+      >
+        Tap to join the stream
+      </motion.button>
+      <div style={styles.splashHint}>Enables audio on this device</div>
     </motion.div>
   );
 }
@@ -485,7 +521,7 @@ async function submitProofLive(
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  main: { position: "relative", minHeight: "100vh", overflow: "hidden" },
+  main: { position: "relative", minHeight: "100svh", overflow: "hidden" },
   bgCanvas: {
     position: "fixed",
     inset: 0,
@@ -496,10 +532,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   frame: {
     position: "relative",
-    zIndex: 1,
-    maxWidth: 440,
+    zIndex: 3,
+    maxWidth: 480,
     margin: "0 auto",
-    padding: "16px 18px 32px",
+    padding: "20px 20px 34px",
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
@@ -527,64 +563,177 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: 6,
     color: "#fff",
     position: "relative",
+    textDecoration: "none",
   },
   splashSub: {
+    maxWidth: "28ch",
     fontSize: 16,
     color: "var(--platform-text-dim)",
     marginTop: 8,
     position: "relative",
+    textAlign: "center",
+    lineHeight: 1.35,
+    fontWeight: 650,
   },
-  content: { display: "flex", flexDirection: "column", gap: 16 },
+  joinButton: {
+    position: "relative",
+    marginTop: 28,
+    border: "none",
+    borderRadius: 999,
+    padding: "16px 28px",
+    background: "var(--slop-yellow)",
+    color: "var(--slop-ink)",
+    fontSize: 15,
+    fontWeight: 900,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase" as const,
+    cursor: "pointer",
+    boxShadow: "0 10px 28px rgba(255,228,94,0.28)",
+  },
+  splashHint: {
+    position: "relative",
+    marginTop: 12,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase" as const,
+    color: "rgba(255,255,255,0.45)",
+  },
+  content: { display: "flex", flexDirection: "column", gap: 18 },
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 2,
+    padding: "8px 0",
   },
-  logo: { fontSize: 16, fontWeight: 900, letterSpacing: 3, color: "#fff" },
+  headerBrand: { display: "flex", flexDirection: "column", gap: 4 },
+  logo: {
+    fontSize: 16,
+    fontWeight: 900,
+    color: "#fff",
+    textDecoration: "none",
+  },
+  channel: {
+    color: "rgba(255,255,255,0.48)",
+    fontSize: 8,
+    fontWeight: 900,
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+  },
+  valueProp: {
+    margin: 0,
+    padding: "10px 14px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    background: "rgba(8,8,18,0.5)",
+    backdropFilter: "blur(12px)",
+    color: "rgba(255,253,246,0.72)",
+    fontSize: 13,
+    fontWeight: 650,
+    lineHeight: 1.4,
+  },
   balancePill: {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    background: "rgba(255,255,255,0.08)",
-    padding: "6px 12px",
-    borderRadius: 12,
+    background: "var(--slop-yellow)",
+    color: "var(--slop-ink)",
+    padding: "8px 13px",
+    borderRadius: 999,
+    boxShadow: "0 8px 24px rgba(255,228,94,0.24)",
   },
   balanceLabel: {
     fontSize: 10,
     letterSpacing: 1,
-    color: "var(--platform-text-dim)",
+    color: "rgba(16,16,20,0.62)",
     fontWeight: 600,
   },
   balanceAmount: {
     fontSize: 16,
     fontWeight: 800,
-    color: "var(--platform-accent)",
+    color: "var(--slop-ink)",
     fontVariantNumeric: "tabular-nums",
   },
-  nowPlaying: { textAlign: "center", marginTop: 4 },
-  listeningLabel: {
-    fontSize: 13,
-    color: "var(--platform-text-dim)",
-    fontWeight: 600,
+  signalNotice: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: "9px 12px",
+    border: "1px solid rgba(255,228,94,0.3)",
+    borderRadius: 999,
+    color: "var(--slop-yellow)",
+    background: "rgba(8,8,18,0.58)",
+    backdropFilter: "blur(14px)",
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
   },
-  brandName: { fontSize: 28, fontWeight: 900, marginTop: 4 },
-  meter: { display: "flex", flexDirection: "column", gap: 6 },
+  signalDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "currentColor",
+    boxShadow: "0 0 12px currentColor",
+  },
+  nowPlaying: { textAlign: "center", marginTop: 10 },
+  listeningLabel: {
+    fontSize: 9,
+    color: "rgba(255,255,255,0.62)",
+    fontWeight: 900,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  brandName: {
+    fontFamily: "var(--slop-display)",
+    fontSize: 44,
+    fontWeight: 900,
+    letterSpacing: -1.5,
+    lineHeight: 0.95,
+    marginTop: 8,
+    textTransform: "uppercase",
+    textShadow: "0 8px 30px rgba(0,0,0,0.36)",
+  },
+  nowPlayingRule: {
+    width: 42,
+    height: 4,
+    margin: "14px auto 0",
+    borderRadius: 999,
+    background: "currentColor",
+  },
+  meter: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    padding: 16,
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 18,
+    background: "rgba(8,8,18,0.58)",
+    backdropFilter: "blur(16px)",
+  },
   meterLabel: {
     fontSize: 12,
     letterSpacing: 1.5,
     fontWeight: 700,
     color: "var(--platform-text-dim)",
   },
+  meterHint: {
+    fontSize: 12,
+    fontWeight: 650,
+    color: "rgba(255,253,246,0.58)",
+    lineHeight: 1.35,
+  },
   meterCount: { fontSize: 20, fontWeight: 800 },
   meterDim: { color: "var(--platform-text-dim)", fontWeight: 600 },
   meterBar: {
-    height: 10,
-    borderRadius: 5,
+    height: 14,
+    borderRadius: 999,
     background: "rgba(255,255,255,0.08)",
     overflow: "hidden",
   },
-  meterFill: { height: "100%", borderRadius: 5 },
+  meterFill: { height: "100%", borderRadius: 999 },
   submissionError: {
     fontSize: 13,
     color: "#ff9b9b",
@@ -595,8 +744,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "baseline",
-    padding: "12px 0",
-    borderTop: "1px solid rgba(255,255,255,0.08)",
+    padding: "15px 16px",
+    border: "1px solid rgba(255,255,255,0.14)",
+    borderRadius: 18,
+    background: "rgba(255,255,255,0.08)",
+    backdropFilter: "blur(16px)",
   },
   todayLabel: {
     fontSize: 13,
@@ -604,7 +756,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   todayAmount: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 800,
     color: "#4ade80",
     fontVariantNumeric: "tabular-nums",

@@ -52,18 +52,29 @@ function Stat({
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  row: { display: "flex", gap: "clamp(20px, 4vw, 56px)", flexWrap: "wrap" },
-  stat: { display: "flex", alignItems: "baseline", gap: 8 },
-  icon: { fontSize: 18 },
+  row: {
+    display: "flex",
+    gap: "clamp(14px, 2vw, 32px)",
+    flexWrap: "wrap",
+    padding: "10px 18px",
+    border: "1px solid rgba(255,255,255,0.2)",
+    borderRadius: 999,
+    background: "rgba(244,241,232,0.9)",
+    boxShadow: "0 16px 50px rgba(0,0,0,0.3)",
+    backdropFilter: "blur(16px)",
+  },
+  stat: { display: "flex", alignItems: "baseline", gap: 7 },
+  icon: { fontSize: 15 },
   value: {
     fontSize: "clamp(20px, 2.6vw, 30px)",
     fontWeight: 800,
-    color: "#fff",
+    color: "var(--slop-ink)",
   },
   label: {
     fontSize: 12,
     letterSpacing: 1.5,
-    color: "var(--platform-text-dim)",
-    fontWeight: 600,
+    color: "rgba(16,16,20,0.58)",
+    fontWeight: 750,
+    textTransform: "uppercase",
   },
 };

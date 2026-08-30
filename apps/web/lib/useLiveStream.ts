@@ -53,8 +53,19 @@ const EMPTY_STATE: StreamState = snapshotToState({
   listenerRewardsUsd: 0,
 });
 
-export function useLiveStream(enabled = true): StreamState {
+export type LiveConnectionStatus =
+  "idle" | "connecting" | "connected" | "offline";
+
+export interface LiveStreamResult {
+  state: StreamState;
+  status: LiveConnectionStatus;
+}
+
+export function useLiveStream(enabled = true): LiveStreamResult {
   const [state, setState] = useState<StreamState>(EMPTY_STATE);
+  const [status, setStatus] = useState<LiveConnectionStatus>(
+    enabled ? "connecting" : "idle",
+  );
   const wsRef = useRef<WebSocket | null>(null);
   const seenEventIds = useRef<Set<string>>(new Set());
   const lastSequence = useRef<number>(0);
@@ -64,14 +75,19 @@ export function useLiveStream(enabled = true): StreamState {
   const fetchSnapshot = useCallback(async (): Promise<StreamState | null> => {
     try {
       const res = await fetch(apiUrl(SNAPSHOT_PATH));
-      if (!res.ok) return null;
+      if (!res.ok) {
+        setStatus("offline");
+        return null;
+      }
       const snapshot = (await res.json()) as StreamSnapshot;
       const next = snapshotToState(snapshot);
       lastSequence.current = snapshot.asOfSequence;
       seenEventIds.current = new Set();
       setState(next);
+      setStatus("connecting");
       return next;
     } catch {
+      setStatus("offline");
       return null;
     }
   }, []);
@@ -82,6 +98,8 @@ export function useLiveStream(enabled = true): StreamState {
       if (!url || stopped.current) return;
       const ws = new WebSocket(url);
       wsRef.current = ws;
+
+      ws.onopen = () => setStatus("connected");
 
       ws.onmessage = (ev) => {
         try {
@@ -112,6 +130,7 @@ export function useLiveStream(enabled = true): StreamState {
       ws.onclose = () => {
         wsRef.current = null;
         if (stopped.current) return;
+        setStatus("offline");
         // Reconnect after a short backoff; the snapshot fetch on reconnect
         // handles any missed events.
         reconnectTimer.current = setTimeout(
@@ -131,8 +150,10 @@ export function useLiveStream(enabled = true): StreamState {
     // Only attempt live connection if a snapshot URL is resolvable.
     // In demo mode this env var is unset, so the hook stays inert.
     if (!enabled || (!apiBaseUrl() && !process.env.NEXT_PUBLIC_WS_URL)) {
+      setStatus("idle");
       return;
     }
+    setStatus("connecting");
     stopped.current = false;
     void fetchSnapshot().then((s) => {
       if (s) connect(s.asOfSequence);
@@ -146,5 +167,5 @@ export function useLiveStream(enabled = true): StreamState {
     };
   }, [enabled, fetchSnapshot, connect]);
 
-  return state;
+  return { state, status };
 }

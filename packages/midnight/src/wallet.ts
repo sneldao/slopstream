@@ -164,15 +164,16 @@ export const fundFromFaucetAndWait = async (
       logger as never,
     ).requestTokens(encoded.toString());
     logger.info("Waiting for faucet funds to arrive (2-3 minutes)...");
-    return Rx.firstValueFrom(
-      wallet.state().pipe(
-        Rx.filter(
-          (state) =>
-            (state.unshielded.balances[unshieldedToken().raw] ?? 0n) > 0n,
-        ),
-        Rx.map((state) => state.unshielded),
-      ),
-    );
+    const deadline = Date.now() + 10 * 60_000;
+    while (Date.now() < deadline) {
+      const state = await Rx.firstValueFrom(wallet.unshielded.state);
+      if ((state.balances[unshieldedToken().raw] ?? 0n) > 0n) {
+        return state;
+      }
+      logger.info("Faucet funds not visible yet; checking again in 15s...");
+      await new Promise((r) => setTimeout(r, 15_000));
+    }
+    throw new Error("Timed out waiting for faucet funds.");
   }
   return initialState;
 };

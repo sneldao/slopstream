@@ -1,131 +1,99 @@
+import type { CSSProperties } from "react";
+import { SphereField } from "./_components/SphereField";
+
+const SURFACES = [
+  {
+    href: "/screen",
+    index: "01",
+    eyebrow: "The spectacle",
+    title: "Enter the live world",
+    description:
+      "A fluid broadcast where brands collide, bids burst and attention becomes visible.",
+    color: "var(--slop-coral)",
+  },
+  {
+    href: "/listen",
+    index: "02",
+    eyebrow: "The pocket portal",
+    title: "Listen. Prove. Earn.",
+    description:
+      "Join the stream, catch the cue and turn real attention into a reward.",
+    color: "var(--slop-blue)",
+  },
+  {
+    href: "/brand",
+    index: "03",
+    eyebrow: "The auction cockpit",
+    title: "Put your brand in play",
+    description:
+      "Bid for the next moment and watch your campaign enter the living canvas.",
+    color: "var(--slop-violet)",
+  },
+] as const;
+
 export default function Home() {
+  const mode = process.env.NEXT_PUBLIC_STREAM_MODE === "live" ? "live" : "demo";
+
   return (
-    <main style={styles.main}>
-      <div className="slop-canvas" />
-      <div style={styles.frame}>
-        <h1 style={styles.title}>SLOPSTREAM</h1>
-        <p style={styles.tagline}>
-          The world&apos;s first live attention market.
-        </p>
+    <main className="home-shell">
+      <SphereField />
+      <div className="slop-grain" />
 
-        <div style={styles.grid}>
-          <SurfaceCard
-            href="/screen"
-            title="Big Screen"
-            desc="The living canvas — stream, leaderboard, OUTBID, clearing animations. The centerpiece."
-          />
-          <SurfaceCard
-            href="/listen"
-            title="Listener Client"
-            desc="QR join, audio visualizer, attention challenges, proof receipt. Mobile web."
-          />
-          <SurfaceCard
-            href="/brand"
-            title="Brand Console"
-            desc="Balance, bid controls, OUTBID alerts, cost-per-verified-attention, slot countdown."
-          />
+      <header className="home-nav">
+        <a
+          className="slop-wordmark home-wordmark"
+          href="#top"
+          aria-label="Slopstream home"
+        >
+          Slopstream
+        </a>
+        <div className={`home-mode home-mode--${mode}`}>
+          <span /> {mode === "live" ? "Live network" : "Demo broadcast"}
         </div>
+      </header>
 
-        <p style={styles.mode}>
-          Running in <strong>demo mode</strong> — fixture-driven, no backend
-          required. Set{" "}
-          <code style={styles.code}>NEXT_PUBLIC_STREAM_MODE=live</code> to
-          connect to the real API + WebSocket gateway.
-        </p>
-      </div>
+      <section className="home-hero" id="top">
+        <div className="home-hero__intro">
+          <span className="slop-kicker">The attention market is open</span>
+          <p>Bid for the moment. Reward the people who were really there.</p>
+        </div>
+        <h1 aria-label="Slopstream">
+          <span>Slop</span>
+          <span>Stream</span>
+        </h1>
+        <div className="home-hero__stamp" aria-hidden="true">
+          <span>Live</span>
+          <strong>Attention</strong>
+          <span>Market</span>
+        </div>
+      </section>
+
+      <section className="home-surfaces" aria-label="Choose an experience">
+        {SURFACES.map((surface) => (
+          <a
+            className="home-surface"
+            href={surface.href}
+            key={surface.href}
+            style={{ "--surface-color": surface.color } as CSSProperties}
+          >
+            <span className="home-surface__index">{surface.index}</span>
+            <span className="home-surface__copy">
+              <small>{surface.eyebrow}</small>
+              <strong>{surface.title}</strong>
+              <span>{surface.description}</span>
+            </span>
+            <span className="home-surface__arrow" aria-hidden="true">
+              ↗
+            </span>
+          </a>
+        ))}
+      </section>
+
+      <footer className="home-footer">
+        <span>Attention is the currency.</span>
+        <span>Proof is the receipt.</span>
+        <span>Everybody gets paid.</span>
+      </footer>
     </main>
   );
 }
-
-function SurfaceCard({
-  href,
-  title,
-  desc,
-}: {
-  href: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <a href={href} style={styles.card}>
-      <div style={styles.cardTitle}>{title}</div>
-      <div style={styles.cardDesc}>{desc}</div>
-      <div style={styles.cardArrow}>→</div>
-    </a>
-  );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  main: { position: "relative", minHeight: "100vh", overflow: "hidden" },
-  frame: {
-    position: "relative",
-    zIndex: 1,
-    maxWidth: 720,
-    margin: "0 auto",
-    padding: "clamp(40px, 10vh, 120px) 24px 40px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 24,
-  },
-  title: {
-    fontSize: "clamp(40px, 8vw, 80px)",
-    fontWeight: 900,
-    letterSpacing: 8,
-    color: "#fff",
-    margin: 0,
-    textShadow: "0 6px 40px rgba(0,0,0,0.5)",
-  },
-  tagline: {
-    fontSize: "clamp(16px, 2.4vw, 24px)",
-    color: "var(--platform-text-dim)",
-    fontWeight: 600,
-    margin: 0,
-  },
-  grid: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-    width: "100%",
-    marginTop: 16,
-  },
-  card: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    padding: "20px 24px",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    textDecoration: "none",
-    color: "#fff",
-    transition: "background 200ms ease, transform 200ms ease",
-  },
-  cardTitle: { fontSize: 22, fontWeight: 800 },
-  cardDesc: {
-    fontSize: 14,
-    color: "var(--platform-text-dim)",
-    fontWeight: 500,
-    lineHeight: 1.5,
-  },
-  cardArrow: {
-    fontSize: 18,
-    color: "var(--platform-accent)",
-    fontWeight: 800,
-    alignSelf: "flex-end",
-  },
-  mode: {
-    fontSize: 13,
-    color: "var(--platform-text-dim)",
-    textAlign: "center",
-    lineHeight: 1.6,
-    marginTop: 8,
-  },
-  code: {
-    background: "rgba(255,255,255,0.1)",
-    padding: "2px 6px",
-    borderRadius: 4,
-    fontFamily: "ui-monospace, monospace",
-    fontSize: 12,
-  },
-};

@@ -217,5 +217,19 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [tick]);
 
-  return { signalRef, ready };
+  /** Resume AudioContext + play the media element after a user gesture. */
+  const unlock = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (ctx?.state === "suspended") {
+      void ctx.resume();
+    }
+    const audio = audioElRef.current;
+    if (audio && audio.paused) {
+      void audio.play().catch(() => {
+        // Still blocked or missing asset — synthesized signal continues.
+      });
+    }
+  }, []);
+
+  return { signalRef, ready, unlock };
 }

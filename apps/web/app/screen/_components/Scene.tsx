@@ -1,8 +1,13 @@
 "use client";
 
-import { Component, useState, useEffect, type ReactNode } from "react";
+import {
+  Component,
+  useState,
+  useEffect,
+  Suspense,
+  type ReactNode,
+} from "react";
 import { Canvas } from "@react-three/fiber";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { FluidBackground } from "./FluidBackground";
 import { FluidBackgroundMesh } from "./FluidBackgroundMesh";
 import { BrandBlobField } from "./BrandBlobField";
@@ -134,15 +139,19 @@ function SceneInner(props: SceneProps) {
         />
       )}
 
-      {/* Brand blobs — kinematic Rapier bodies. */}
-      <BrandBlobField
-        leaderboard={props.leaderboard}
-        brandById={props.brandById}
-        outbidFlashId={props.outbidFlashId}
-        outbidDisplacedBrandId={props.outbidDisplacedBrandId}
-        outbidNewBrandId={props.outbidNewBrandId}
-        signalRef={props.signalRef}
-      />
+      {/* Brand blobs — kinematic Rapier bodies. Suspense wraps the
+          async WASM load so the error boundary doesn't catch the
+          suspended promise as a crash. */}
+      <Suspense fallback={null}>
+        <BrandBlobField
+          leaderboard={props.leaderboard}
+          brandById={props.brandById}
+          outbidFlashId={props.outbidFlashId}
+          outbidDisplacedBrandId={props.outbidDisplacedBrandId}
+          outbidNewBrandId={props.outbidNewBrandId}
+          signalRef={props.signalRef}
+        />
+      </Suspense>
 
       {/* Ad surface — the 3D stage (orb / image plane / video plane). */}
       <AdSurface
@@ -166,15 +175,6 @@ function SceneInner(props: SceneProps) {
 
       {/* Clearing streams — particle burst on bid clear (80/20 split). */}
       <ClearingStreams burst={props.lastClear} color={props.colorA} />
-
-      <EffectComposer>
-        <Bloom
-          intensity={0.4}
-          luminanceThreshold={0.6}
-          luminanceSmoothing={0.2}
-          mipmapBlur
-        />
-      </EffectComposer>
     </Canvas>
   );
 }
@@ -212,6 +212,11 @@ class SceneBoundary extends Component<
   componentDidCatch(error: unknown) {
     // eslint-disable-next-line no-console
     console.error("[Scene] 3D scene failed, falling back to Canvas 2D:", error);
+    // eslint-disable-next-line no-console
+    console.log(
+      "[Scene] Error details:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 
   render() {

@@ -9,6 +9,7 @@ import {
 } from "./streamReducer";
 import { useDemoPlayer } from "./useDemoPlayer";
 import { useLiveStream } from "./useLiveStream";
+import type { LiveConnectionStatus } from "./useLiveStream";
 import { DEMO_FIXTURE } from "./demoFixture";
 
 /**
@@ -35,6 +36,7 @@ export function getStreamMode(): StreamMode {
 export interface UseStreamResult {
   state: StreamState;
   mode: StreamMode;
+  connectionStatus: LiveConnectionStatus | "demo";
   /** Demo-only controls; no-op when live (the socket drives the state). */
   demo: ReturnType<typeof useDemoPlayer>;
 }
@@ -42,14 +44,14 @@ export interface UseStreamResult {
 export function useStream(): UseStreamResult {
   const mode = useMemo(() => getStreamMode(), []);
 
-  // Always call both hooks (Rules of Hooks), but only use the relevant one's
-  // state. The unused hook's timers are harmless in demo mode; in live mode
-  // the demo player runs but its state is ignored.
-  const demo = useDemoPlayer(DEMO_FIXTURE);
+  // Always call both hooks (Rules of Hooks), but only activate the relevant
+  // transport. This avoids an invisible demo timeline running in live mode.
+  const demo = useDemoPlayer(DEMO_FIXTURE, mode === "demo");
   const live = useLiveStream(mode === "live");
 
-  const state = mode === "live" ? live : demo.state;
-  return { state, mode, demo };
+  const state = mode === "live" ? live.state : demo.state;
+  const connectionStatus = mode === "live" ? live.status : "demo";
+  return { state, mode, connectionStatus, demo };
 }
 
 /**

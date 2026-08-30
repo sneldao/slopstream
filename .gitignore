@@ -11,6 +11,9 @@ dist/
 .next/
 *.tsbuildinfo
 
+# Generated media from the local generator pipeline
+apps/generator/assets/
+
 # Dependencies / builds — belt-and-braces for nested layouts
 **/node_modules/
 

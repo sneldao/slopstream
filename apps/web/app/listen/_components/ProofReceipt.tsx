@@ -90,6 +90,7 @@ export function ProofReceipt({
           transition={{ duration: 0.3 }}
         >
           <motion.div
+            className="proof-ticket"
             style={styles.card}
             initial={{ scale: 0.7, y: 30, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
@@ -211,20 +212,21 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "rgba(0,0,0,0.4)",
-    backdropFilter: "blur(4px)",
+    background: "rgba(8,8,18,0.68)",
+    backdropFilter: "blur(16px) saturate(1.2)",
   },
   card: {
-    background: "rgba(255,255,255,0.95)",
-    color: "#0a0a1a",
-    borderRadius: 20,
-    padding: "28px 24px 20px",
-    width: "min(360px, 90vw)",
+    background: "var(--slop-cream)",
+    color: "var(--slop-ink)",
+    border: "2px solid var(--slop-ink)",
+    borderRadius: 28,
+    padding: "34px 28px 24px",
+    width: "min(390px, 90vw)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 4,
-    boxShadow: "0 30px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.2)",
+    boxShadow: "10px 12px 0 var(--slop-yellow), 0 30px 80px rgba(0,0,0,0.5)",
     position: "relative",
   },
   seal: {
@@ -241,8 +243,14 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 8px 24px rgba(34,197,94,0.5)",
   },
   sealInner: { fontSize: 28, fontWeight: 900, color: "#fff" },
-  verified: { fontSize: 18, fontWeight: 900, letterSpacing: 3, marginTop: 8 },
-  brand: { fontSize: 22, fontWeight: 800, marginTop: 8 },
+  verified: {
+    fontFamily: "var(--slop-display)",
+    fontSize: 21,
+    fontWeight: 900,
+    letterSpacing: 2.5,
+    marginTop: 8,
+  },
+  brand: { fontSize: 24, fontWeight: 900, marginTop: 8 },
   segment: { fontSize: 13, color: "#666", marginBottom: 12 },
   row: {
     display: "flex",
@@ -287,8 +295,9 @@ const styles: Record<string, React.CSSProperties> = {
   cursor: { opacity: 0.4 },
   rewardBox: {
     width: "100%",
-    background: "rgba(0,0,0,0.04)",
-    borderRadius: 12,
+    background: "var(--slop-yellow)",
+    border: "1px solid var(--slop-ink)",
+    borderRadius: 18,
     padding: "12px 16px",
     marginTop: 12,
     textAlign: "center",
@@ -300,7 +309,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#888",
   },
   rewardAmount: {
-    fontSize: 24,
+    fontFamily: "var(--slop-display)",
+    fontSize: 30,
     fontWeight: 900,
     marginTop: 4,
     fontVariantNumeric: "tabular-nums",
@@ -318,9 +328,9 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 8,
     border: 0,
     borderRadius: 999,
-    padding: "8px 14px",
-    background: "rgba(0,0,0,0.08)",
-    color: "#222",
+    padding: "10px 16px",
+    background: "var(--slop-ink)",
+    color: "var(--slop-cream)",
     fontWeight: 700,
     cursor: "pointer",
   },

@@ -7,6 +7,7 @@ import { TIER_BID_THRESHOLDS_USD } from "@slopstream/shared";
 import { useStream } from "@/lib/useStream";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { requestJson } from "@/lib/liveApi";
+import { SphereField } from "../_components/SphereField";
 
 /**
  * The brand bidding console — live auction pressure, not form-filling.
@@ -14,7 +15,7 @@ import { requestJson } from "@/lib/liveApi";
  * tier chips, bid confirmation particle effect, live leaderboard.
  */
 export default function BrandPage() {
-  const { state, mode } = useStream();
+  const { state, mode, connectionStatus } = useStream();
   const { play } = useSoundDesign();
 
   const DEMO_BRAND_ID = "brand_acme";
@@ -124,15 +125,17 @@ export default function BrandPage() {
   };
 
   return (
-    <main style={styles.main}>
+    <main className="brand-shell" style={styles.main}>
       {/* Ambient brand glow — the console breathes with the brand's identity. */}
       <AmbientGlow
         color={myBrand?.primaryColor ?? "#1e6fff"}
         secondary={myBrand?.secondaryColor ?? "#8ab4ff"}
         intensity={outbidAlert ? 1.5 : iAmWinning ? 1.2 : 0.8}
       />
+      <SphereField className="sphere-field--soft brand-spheres" />
+      <div className="slop-grain" />
 
-      <div style={styles.frame}>
+      <div className="brand-console-frame" style={styles.frame}>
         {/* OUTBID alert — full-width, urgent */}
         <AnimatePresence>
           {outbidAlert && (
@@ -153,266 +156,316 @@ export default function BrandPage() {
         </AnimatePresence>
 
         <header style={styles.header}>
-          <span style={styles.logo}>SLOPSTREAM</span>
-          <span style={styles.consoleLabel}>BRAND CONSOLE</span>
+          <div>
+            <a className="slop-wordmark" href="/" style={styles.logo}>
+              SLOPSTREAM
+            </a>
+            <div style={styles.consoleSub}>The auction cockpit</div>
+          </div>
+          <div style={styles.headerStatus}>
+            <span style={styles.consoleLabel}>BRAND CONSOLE</span>
+            <span
+              style={{
+                ...styles.networkStatus,
+                color:
+                  mode === "demo" || connectionStatus === "connected"
+                    ? "var(--slop-lime)"
+                    : "var(--slop-yellow)",
+              }}
+            >
+              <i style={styles.networkDot} />
+              {mode === "demo"
+                ? "Demo feed"
+                : connectionStatus === "connected"
+                  ? "Market live"
+                  : "Market offline"}
+            </span>
+          </div>
         </header>
 
-        {/* Balance + campaign — glassmorphic, floating */}
-        <motion.div
-          style={styles.balanceRow}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <div style={styles.balanceBox}>
-            <div style={styles.balanceLabel}>YOUR BALANCE</div>
+        <p style={styles.valueProp}>
+          Bid for the next moment. You pay for verified attention — not empty
+          impressions.
+        </p>
+
+        <div className="brand-console-grid">
+          <section style={styles.overviewColumn}>
+            {/* Balance + campaign — glassmorphic, floating */}
             <motion.div
-              key={balance}
-              style={styles.balanceAmount}
-              initial={{ scale: 1.2 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 14 }}
+              style={styles.balanceRow}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
             >
-              ${balance.toFixed(2)}
+              <div style={styles.balanceBox}>
+                <div style={styles.balanceLabel}>YOUR BALANCE</div>
+                <motion.div
+                  key={balance}
+                  style={styles.balanceAmount}
+                  initial={{ scale: 1.2 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 14 }}
+                >
+                  ${balance.toFixed(2)}
+                </motion.div>
+              </div>
+              <div style={styles.campaignBox}>
+                <div style={styles.balanceLabel}>ACTIVE CAMPAIGN</div>
+                <div style={styles.campaignName}>{myBrand?.name ?? "—"}</div>
+              </div>
             </motion.div>
-          </div>
-          <div style={styles.campaignBox}>
-            <div style={styles.balanceLabel}>ACTIVE CAMPAIGN</div>
-            <div style={styles.campaignName}>{myBrand?.name ?? "—"}</div>
-          </div>
-        </motion.div>
 
-        <div style={styles.statsRow}>
-          <Stat
-            label="CURRENT LISTENERS"
-            value={state.listeners.toLocaleString()}
-          />
-          <Stat
-            label="CURRENT SLOT"
-            value={state.currentAuction ? `#${state.currentAuction.slot}` : "—"}
-          />
-        </div>
-
-        {/* World preview — a mini portal into the 3D big screen showing
-            the brand's blob position in the leaderboard fluid. */}
-        <WorldPreview
-          leaderboard={state.leaderboard}
-          brandById={state.brandById}
-          myBrandId={brandId}
-          myBrandColor={myBrand?.primaryColor ?? "#1e6fff"}
-        />
-
-        {/* Bid section — the pressure station */}
-        <motion.div
-          style={{
-            ...styles.bidSection,
-            boxShadow: `0 8px 40px ${myBrand?.primaryColor ?? "#1e6fff"}22`,
-          }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <div style={styles.bidRow}>
-            <label style={styles.bidLabel} htmlFor="brand-bid-amount">
-              YOUR BID
-            </label>
-            <div style={styles.bidInputWrap}>
-              <span style={styles.dollar}>$</span>
-              <input
-                id="brand-bid-amount"
-                type="number"
-                value={bidAmount}
-                onChange={(e) => setBidAmount(Number(e.target.value))}
-                style={styles.bidInput}
-                min={1}
+            <div style={styles.statsRow}>
+              <Stat
+                label="CURRENT LISTENERS"
+                value={state.listeners.toLocaleString()}
+              />
+              <Stat
+                label="CURRENT SLOT"
+                value={
+                  state.currentAuction ? `#${state.currentAuction.slot}` : "—"
+                }
               />
             </div>
-          </div>
 
-          <div style={styles.winningRow}>
-            <span style={styles.bidLabel}>CURRENT WINNING BID</span>
-            <motion.span
-              key={winningAmount}
+            {/* World preview — a mini portal into the 3D big screen showing
+            the brand's blob position in the leaderboard fluid. */}
+            <WorldPreview
+              leaderboard={state.leaderboard}
+              brandById={state.brandById}
+              myBrandId={brandId}
+              myBrandColor={myBrand?.primaryColor ?? "#1e6fff"}
+            />
+          </section>
+
+          <section style={styles.actionColumn}>
+            {/* Bid section — the pressure station */}
+            <motion.div
               style={{
-                ...styles.winningAmount,
-                color: iAmWinning ? "#4ade80" : "#fff",
+                ...styles.bidSection,
+                boxShadow: `0 8px 40px ${myBrand?.primaryColor ?? "#1e6fff"}22`,
               }}
-              initial={{ scale: 1.4 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 16 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
             >
-              ${winningAmount.toFixed(2)}
-              {iAmWinning && <span style={styles.youTag}> (you)</span>}
-            </motion.span>
-          </div>
+              <div style={styles.bidRow}>
+                <label style={styles.bidLabel} htmlFor="brand-bid-amount">
+                  YOUR BID
+                </label>
+                <div style={styles.bidInputWrap}>
+                  <span style={styles.dollar}>$</span>
+                  <input
+                    id="brand-bid-amount"
+                    type="number"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(Number(e.target.value))}
+                    style={styles.bidInput}
+                    min={1}
+                  />
+                </div>
+              </div>
 
-          <div style={styles.cpvaRow}>
-            <span style={styles.cpvaText}>
-              ~${cpva.toFixed(3)} / verified attention
-            </span>
-            <span style={styles.cpvaSub}>
-              (at {state.listeners.toLocaleString()} listeners,{" "}
-              {Math.round((threshold / audience) * 100)}% threshold)
-            </span>
-          </div>
+              <div style={styles.winningRow}>
+                <span style={styles.bidLabel}>CURRENT WINNING BID</span>
+                <motion.span
+                  key={winningAmount}
+                  style={{
+                    ...styles.winningAmount,
+                    color: iAmWinning ? "#4ade80" : "#fff",
+                  }}
+                  initial={{ scale: 1.4 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 16 }}
+                >
+                  ${winningAmount.toFixed(2)}
+                  {iAmWinning && <span style={styles.youTag}> (you)</span>}
+                </motion.span>
+              </div>
 
-          <div style={styles.countdownRow}>
-            <span style={styles.countdownLabel}>⏱ slot closes in</span>
-            <motion.span
-              key={slotSeconds}
-              style={{
-                ...styles.countdownValue,
-                color: slotSeconds <= 5 ? "#ff3b3b" : "#ff8a1e",
-              }}
-              initial={{ scale: 1.3 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 14 }}
-            >
-              {slotSeconds}s
-            </motion.span>
-          </div>
+              <div style={styles.cpvaRow}>
+                <span style={styles.cpvaText}>
+                  ~${cpva.toFixed(3)} / verified attention
+                </span>
+                <span style={styles.cpvaSub}>
+                  (at {state.listeners.toLocaleString()} listeners,{" "}
+                  {Math.round((threshold / audience) * 100)}% threshold)
+                </span>
+              </div>
 
-          <motion.button
-            style={{
-              ...styles.bidButton,
-              background:
-                bidAmount > balance
-                  ? "#444"
-                  : `linear-gradient(135deg, ${myBrand?.primaryColor ?? "#1e6fff"}, ${myBrand?.secondaryColor ?? "#8ab4ff"})`,
-              boxShadow:
-                bidAmount > balance
-                  ? "none"
-                  : `0 8px 30px ${myBrand?.primaryColor ?? "#1e6fff"}44`,
-            }}
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
-            onClick={() => void handlePlaceBid()}
-            disabled={bidAmount > balance || bidSubmitting}
-          >
-            {bidSubmitting
-              ? "PLACING BID…"
-              : bidAmount > balance
-                ? "INSUFFICIENT BALANCE"
-                : `INCREASE TO $${bidAmount}`}
-          </motion.button>
+              <div style={styles.countdownRow}>
+                <span style={styles.countdownLabel}>⏱ slot closes in</span>
+                <motion.span
+                  key={slotSeconds}
+                  style={{
+                    ...styles.countdownValue,
+                    color: slotSeconds <= 5 ? "#ff3b3b" : "#ff8a1e",
+                  }}
+                  initial={{ scale: 1.3 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 14 }}
+                >
+                  {slotSeconds}s
+                </motion.span>
+              </div>
 
-          {bidError && (
-            <div role="alert" style={styles.bidError}>
-              {bidError}
-            </div>
-          )}
-
-          <AnimatePresence>
-            {bidPlaced && (
-              <motion.div
-                style={styles.bidConfirmed}
-                initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 18 }}
+              <motion.button
+                style={{
+                  ...styles.bidButton,
+                  background:
+                    bidAmount > balance
+                      ? "#444"
+                      : `linear-gradient(135deg, ${myBrand?.primaryColor ?? "#1e6fff"}, ${myBrand?.secondaryColor ?? "#8ab4ff"})`,
+                  boxShadow:
+                    bidAmount > balance
+                      ? "none"
+                      : `0 8px 30px ${myBrand?.primaryColor ?? "#1e6fff"}44`,
+                }}
+                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => void handlePlaceBid()}
+                disabled={bidAmount > balance || bidSubmitting}
               >
-                <BidParticleEffect color={myBrand?.primaryColor ?? "#1e6fff"} />
-                ✓ Bid placed — watch the leaderboard
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+                {bidSubmitting
+                  ? "PLACING BID…"
+                  : bidAmount > balance
+                    ? "INSUFFICIENT BALANCE"
+                    : `INCREASE TO $${bidAmount}`}
+              </motion.button>
 
-        {/* Production tiers — tactile chips */}
-        <div style={styles.tierSection}>
-          <div style={styles.tierLabel}>PRODUCTION TIER</div>
-          <div style={styles.tierGrid}>
-            {(Object.keys(TIER_BID_THRESHOLDS_USD) as ProductionTier[]).map(
-              (tier) => {
-                const range = TIER_BID_THRESHOLDS_USD[tier];
-                const label = TIER_LABELS[tier];
-                const rangeText =
-                  range.max === null
-                    ? `$${range.min}+`
-                    : `$${range.min}–$${range.max}`;
-                const isSelected = selectedTier === tier;
-                return (
-                  <motion.button
-                    key={tier}
-                    style={{
-                      ...styles.tierChip,
-                      borderColor: isSelected
-                        ? TIER_COLORS[tier]
-                        : "rgba(255,255,255,0.12)",
-                      background: isSelected
-                        ? `${TIER_COLORS[tier]}22`
-                        : "rgba(255,255,255,0.04)",
-                      boxShadow: isSelected
-                        ? `0 4px 20px ${TIER_COLORS[tier]}33`
-                        : "none",
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    whileHover={{ scale: 1.03 }}
-                    onClick={() => setSelectedTier(tier)}
+              {bidError && (
+                <div role="alert" style={styles.bidError}>
+                  {bidError}
+                </div>
+              )}
+
+              <AnimatePresence>
+                {bidPlaced && (
+                  <motion.div
+                    style={styles.bidConfirmed}
+                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 18 }}
                   >
-                    <span
+                    <BidParticleEffect
+                      color={myBrand?.primaryColor ?? "#1e6fff"}
+                    />
+                    ✓ Bid placed — watch the leaderboard
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Production tiers — tactile chips */}
+            <div style={styles.tierSection}>
+              <div style={styles.tierLabel}>PRODUCTION TIER</div>
+              <p style={styles.tierHint}>
+                Your winning bid amount sets production quality automatically.
+                Preview the tiers below.
+              </p>
+              <div style={styles.tierGrid}>
+                {(Object.keys(TIER_BID_THRESHOLDS_USD) as ProductionTier[]).map(
+                  (tier) => {
+                    const range = TIER_BID_THRESHOLDS_USD[tier];
+                    const label = TIER_LABELS[tier];
+                    const rangeText =
+                      range.max === null
+                        ? `$${range.min}+`
+                        : `$${range.min}–$${range.max}`;
+                    const isSelected = selectedTier === tier;
+                    return (
+                      <motion.button
+                        key={tier}
+                        style={{
+                          ...styles.tierChip,
+                          borderColor: isSelected
+                            ? TIER_COLORS[tier]
+                            : "rgba(255,255,255,0.12)",
+                          background: isSelected
+                            ? `${TIER_COLORS[tier]}22`
+                            : "rgba(255,255,255,0.04)",
+                          boxShadow: isSelected
+                            ? `0 4px 20px ${TIER_COLORS[tier]}33`
+                            : "none",
+                        }}
+                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.03 }}
+                        onClick={() => setSelectedTier(tier)}
+                      >
+                        <span
+                          style={{
+                            ...styles.tierRange,
+                            color: isSelected ? TIER_COLORS[tier] : "#fff",
+                          }}
+                        >
+                          {rangeText}
+                        </span>
+                        <span style={styles.tierDesc}>{label}</span>
+                      </motion.button>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+
+            {/* Mini leaderboard — living, with your brand highlighted */}
+            <div style={styles.miniLeaderboard}>
+              <div style={styles.tierLabel}>LIVE LEADERBOARD</div>
+              <AnimatePresence mode="popLayout">
+                {state.leaderboard.map((entry, i) => {
+                  const b = state.brandById[entry.brandId];
+                  const isMe = entry.brandId === brandId;
+                  return (
+                    <motion.div
+                      key={entry.brandId}
+                      layout
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 22,
+                      }}
                       style={{
-                        ...styles.tierRange,
-                        color: isSelected ? TIER_COLORS[tier] : "#fff",
+                        ...styles.miniEntry,
+                        borderLeft: `4px solid ${b?.primaryColor ?? "#888"}`,
+                        background: isMe
+                          ? `${myBrand?.primaryColor ?? "#1e6fff"}18`
+                          : "rgba(255,255,255,0.04)",
+                        boxShadow: isMe
+                          ? `0 0 16px ${myBrand?.primaryColor ?? "#1e6fff"}22`
+                          : "none",
                       }}
                     >
-                      {rangeText}
-                    </span>
-                    <span style={styles.tierDesc}>{label}</span>
-                  </motion.button>
-                );
-              },
-            )}
-          </div>
-        </div>
-
-        {/* Mini leaderboard — living, with your brand highlighted */}
-        <div style={styles.miniLeaderboard}>
-          <div style={styles.tierLabel}>LIVE LEADERBOARD</div>
-          <AnimatePresence mode="popLayout">
-            {state.leaderboard.map((entry, i) => {
-              const b = state.brandById[entry.brandId];
-              const isMe = entry.brandId === brandId;
-              return (
-                <motion.div
-                  key={entry.brandId}
-                  layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                  style={{
-                    ...styles.miniEntry,
-                    borderLeft: `4px solid ${b?.primaryColor ?? "#888"}`,
-                    background: isMe
-                      ? `${myBrand?.primaryColor ?? "#1e6fff"}18`
-                      : "rgba(255,255,255,0.04)",
-                    boxShadow: isMe
-                      ? `0 0 16px ${myBrand?.primaryColor ?? "#1e6fff"}22`
-                      : "none",
-                  }}
-                >
-                  <span style={styles.miniRank}>#{i + 1}</span>
-                  <span style={styles.miniName}>
-                    {b?.name ?? entry.brandId}
-                    {isMe && <span style={styles.meTag}> (you)</span>}
-                  </span>
-                  <motion.span
-                    key={entry.amountUsd}
-                    initial={{ scale: 1.3 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 14 }}
-                    style={styles.miniAmount}
-                  >
-                    ${entry.amountUsd.toFixed(2)}
-                  </motion.span>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-          {state.leaderboard.length === 0 && (
-            <div style={styles.miniEmpty}>The market is open.</div>
-          )}
+                      <span style={styles.miniRank}>#{i + 1}</span>
+                      <span style={styles.miniName}>
+                        {b?.name ?? entry.brandId}
+                        {isMe && <span style={styles.meTag}> (you)</span>}
+                      </span>
+                      <motion.span
+                        key={entry.amountUsd}
+                        initial={{ scale: 1.3 }}
+                        animate={{ scale: 1 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 14,
+                        }}
+                        style={styles.miniAmount}
+                      >
+                        ${entry.amountUsd.toFixed(2)}
+                      </motion.span>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+              {state.leaderboard.length === 0 && (
+                <div style={styles.miniEmpty}>The market is open.</div>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </main>
@@ -553,8 +606,11 @@ function WorldPreview({
       const h = canvas.height;
       phase += 0.015;
 
-      // Dark fluid background.
-      ctx.fillStyle = "rgba(8, 8, 20, 0.9)";
+      // High-contrast portal backdrop.
+      const backdrop = ctx.createLinearGradient(0, 0, w, h);
+      backdrop.addColorStop(0, "#f4f1e8");
+      backdrop.addColorStop(1, "#d8e5ff");
+      ctx.fillStyle = backdrop;
       ctx.fillRect(0, 0, w, h);
 
       // Subtle fluid shimmer.
@@ -566,8 +622,8 @@ function WorldPreview({
         h / 2,
         w * 0.6,
       );
-      shimmer.addColorStop(0, hexA(myBrandColor, 0.08));
-      shimmer.addColorStop(1, "rgba(8, 8, 20, 0)");
+      shimmer.addColorStop(0, hexA(myBrandColor, 0.24));
+      shimmer.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = shimmer;
       ctx.fillRect(0, 0, w, h);
 
@@ -626,10 +682,36 @@ function WorldPreview({
 
       // Empty state.
       if (leaderboard.length === 0) {
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.font = "12px sans-serif";
+        const beads = [
+          [0.16, 0.28, 20, "#ff5c58"],
+          [0.28, 0.7, 29, "#45a7ff"],
+          [0.5, 0.35, 42, myBrandColor],
+          [0.7, 0.68, 26, "#b8ff65"],
+          [0.84, 0.27, 18, "#ffe45e"],
+        ] as const;
+        beads.forEach(([x, y, radius, color], index) => {
+          const bx = w * x + Math.sin(phase + index) * 5;
+          const by = h * y + Math.cos(phase * 0.8 + index) * 4;
+          const bead = ctx.createRadialGradient(
+            bx - radius * 0.25,
+            by - radius * 0.3,
+            2,
+            bx,
+            by,
+            radius,
+          );
+          bead.addColorStop(0, "#fff");
+          bead.addColorStop(0.18, color);
+          bead.addColorStop(1, hexA(color, 0.55));
+          ctx.fillStyle = bead;
+          ctx.beginPath();
+          ctx.arc(bx, by, radius, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.fillStyle = "rgba(16,16,20,0.72)";
+        ctx.font = "bold 11px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("The market is open", cx, cy);
+        ctx.fillText("YOUR BRAND ENTERS HERE", cx, h - 13);
       }
 
       raf = requestAnimationFrame(render);
@@ -708,7 +790,7 @@ const TIER_COLORS: Record<ProductionTier, string> = {
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  main: { position: "relative", minHeight: "100vh", overflow: "hidden" },
+  main: { position: "relative", minHeight: "100svh", overflow: "hidden" },
   glowCanvas: {
     position: "fixed",
     inset: 0,
@@ -719,14 +801,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   frame: {
     position: "relative",
-    zIndex: 1,
-    maxWidth: 560,
+    zIndex: 3,
+    maxWidth: 1180,
     margin: "0 auto",
-    padding: "20px 22px 40px",
+    padding: "28px clamp(20px, 4vw, 56px) 48px",
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    gap: 16,
+    gap: 24,
   },
   outbidBanner: {
     background: "linear-gradient(90deg, #ff3b3b, #ff8a1e)",
@@ -748,28 +830,87 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     alignItems: "center",
   },
-  logo: { fontSize: 16, fontWeight: 900, letterSpacing: 3, color: "#fff" },
+  logo: {
+    fontSize: 18,
+    fontWeight: 900,
+    color: "#fff",
+    textDecoration: "none",
+  },
+  consoleSub: {
+    marginTop: 6,
+    color: "rgba(255,255,255,0.46)",
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+  },
+  valueProp: {
+    margin: 0,
+    maxWidth: "52ch",
+    color: "rgba(255,253,246,0.72)",
+    fontSize: 14,
+    fontWeight: 650,
+    lineHeight: 1.4,
+  },
+  headerStatus: {
+    display: "flex",
+    alignItems: "flex-end",
+    flexDirection: "column",
+    gap: 8,
+  },
   consoleLabel: {
     fontSize: 11,
     letterSpacing: 2,
     fontWeight: 700,
     color: "var(--platform-text-dim)",
   },
+  networkStatus: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    padding: "7px 10px",
+    border: "1px solid rgba(255,255,255,0.14)",
+    borderRadius: 999,
+    background: "rgba(8,8,18,0.54)",
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
+  networkDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "currentColor",
+    boxShadow: "0 0 12px currentColor",
+  },
+  overviewColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    minWidth: 0,
+  },
+  actionColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 18,
+    minWidth: 0,
+  },
   balanceRow: { display: "flex", gap: 12 },
   balanceBox: {
     flex: 1,
     background: "rgba(255,255,255,0.06)",
     backdropFilter: "blur(10px)",
-    borderRadius: 14,
-    padding: "14px 16px",
+    borderRadius: 20,
+    padding: "18px 18px",
     border: "1px solid rgba(255,255,255,0.08)",
   },
   campaignBox: {
     flex: 1,
     background: "rgba(255,255,255,0.06)",
     backdropFilter: "blur(10px)",
-    borderRadius: 14,
-    padding: "14px 16px",
+    borderRadius: 20,
+    padding: "18px 18px",
     border: "1px solid rgba(255,255,255,0.08)",
   },
   balanceLabel: {
@@ -779,7 +920,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--platform-text-dim)",
   },
   balanceAmount: {
-    fontSize: 28,
+    fontFamily: "var(--slop-display)",
+    fontSize: 38,
     fontWeight: 900,
     color: "var(--platform-accent)",
     marginTop: 4,
@@ -809,8 +951,8 @@ const styles: Record<string, React.CSSProperties> = {
   bidSection: {
     background: "rgba(255,255,255,0.06)",
     backdropFilter: "blur(12px)",
-    borderRadius: 18,
-    padding: "18px 20px",
+    borderRadius: 26,
+    padding: "clamp(20px, 3vw, 32px)",
     display: "flex",
     flexDirection: "column",
     gap: 14,
@@ -883,9 +1025,9 @@ const styles: Record<string, React.CSSProperties> = {
   bidButton: {
     color: "#fff",
     border: "none",
-    borderRadius: 14,
-    padding: "16px 20px",
-    fontSize: 18,
+    borderRadius: 999,
+    padding: "18px 24px",
+    fontSize: 16,
     fontWeight: 900,
     letterSpacing: 1,
     cursor: "pointer",
@@ -925,14 +1067,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     color: "var(--platform-text-dim)",
   },
+  tierHint: {
+    margin: 0,
+    color: "rgba(255,253,246,0.58)",
+    fontSize: 12,
+    fontWeight: 650,
+    lineHeight: 1.35,
+  },
   tierGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
   tierChip: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 4,
-    padding: "12px 8px",
-    borderRadius: 12,
+    padding: "16px 8px",
+    borderRadius: 18,
     border: "2px solid",
     cursor: "pointer",
     color: "#fff",
@@ -977,8 +1126,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   worldPreviewWrap: {
     background: "rgba(255,255,255,0.04)",
-    borderRadius: 14,
-    padding: "10px 14px",
+    borderRadius: 24,
+    padding: "14px 16px",
     display: "flex",
     flexDirection: "column",
     gap: 8,
@@ -987,7 +1136,8 @@ const styles: Record<string, React.CSSProperties> = {
   worldPreviewCanvas: {
     width: "100%",
     height: 120,
-    borderRadius: 10,
+    borderRadius: 16,
     display: "block",
+    border: "1px solid rgba(255,255,255,0.18)",
   },
 };

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PublicChallenge } from "@slopstream/shared";
 
+const OPTION_COLORS = ["#ffe45e", "#45a7ff", "#ff7a66", "#b8ff65"];
+
 /**
  * The challenge card — pops in with spring overshoot, haptic vibration, and a
  * countdown timer (design-language.md "Challenge appearance"). Large colorful
@@ -88,8 +90,9 @@ export function ChallengeCard({
         transition={{ type: "spring", stiffness: 350, damping: 18 }}
       >
         <div style={styles.header}>
-          <span style={{ ...styles.headerText, color: brandColor }}>
-            👀 ATTENTION CHECK
+          <span style={styles.headerText}>
+            <i style={{ ...styles.headerDot, background: brandColor }} /> Live
+            attention check
           </span>
           <TimerRing pct={ringPct} remaining={remaining} />
         </div>
@@ -104,11 +107,11 @@ export function ChallengeCard({
                 style={{
                   ...styles.option,
                   borderColor:
-                    selected === opt ? brandColor : "rgba(255,255,255,0.15)",
+                    selected === opt ? "#101014" : "rgba(16,16,20,0.18)",
                   background:
                     selected === opt
-                      ? `${brandColor}22`
-                      : "rgba(255,255,255,0.06)",
+                      ? brandColor
+                      : OPTION_COLORS[i % OPTION_COLORS.length],
                 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => handleSelect(opt)}
@@ -150,7 +153,7 @@ function TimerRing({ pct, remaining }: { pct: number; remaining: number }) {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.1)"
+          stroke="rgba(16,16,20,0.12)"
           strokeWidth={stroke}
         />
         <circle
@@ -176,15 +179,15 @@ function TimerRing({ pct, remaining }: { pct: number; remaining: number }) {
 
 const styles: Record<string, React.CSSProperties> = {
   card: {
-    background: "rgba(10,10,26,0.85)",
-    backdropFilter: "blur(16px)",
-    border: "1px solid rgba(255,255,255,0.15)",
-    borderRadius: 22,
-    padding: "20px 18px",
+    background: "var(--slop-cream)",
+    color: "var(--slop-ink)",
+    border: "2px solid var(--slop-ink)",
+    borderRadius: 28,
+    padding: "22px 20px 20px",
     display: "flex",
     flexDirection: "column",
     gap: 14,
-    boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    boxShadow: "8px 10px 0 rgba(16,16,20,0.72), 0 24px 60px rgba(0,0,0,0.42)",
     transition: "box-shadow 200ms ease",
     willChange: "transform",
   },
@@ -193,29 +196,49 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     alignItems: "center",
   },
-  headerText: { fontSize: 13, letterSpacing: 2, fontWeight: 800 },
-  question: { fontSize: 20, fontWeight: 700, color: "#fff", lineHeight: 1.3 },
+  headerText: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    fontWeight: 900,
+    textTransform: "uppercase",
+  },
+  headerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    boxShadow: "0 0 12px currentColor",
+  },
+  question: {
+    fontFamily: "var(--slop-display)",
+    fontSize: 25,
+    fontWeight: 900,
+    color: "var(--slop-ink)",
+    lineHeight: 1.05,
+  },
   options: { display: "flex", flexDirection: "column", gap: 8 },
   option: {
     display: "flex",
     alignItems: "center",
     gap: 12,
     padding: "14px 16px",
-    borderRadius: 14,
-    border: "2px solid",
-    background: "rgba(255,255,255,0.06)",
-    color: "#fff",
+    borderRadius: 999,
+    border: "1px solid",
+    color: "var(--slop-ink)",
     cursor: "pointer",
     textAlign: "left",
     fontSize: 16,
-    fontWeight: 600,
-    transition: "background 150ms ease",
+    fontWeight: 750,
+    boxShadow: "0 5px 0 rgba(16,16,20,0.2)",
+    transition: "background 150ms ease, transform 150ms ease",
   },
   optionLetter: {
     width: 28,
     height: 28,
     borderRadius: "50%",
-    background: "rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.5)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -227,7 +250,7 @@ const styles: Record<string, React.CSSProperties> = {
   optionCheck: { fontSize: 18, fontWeight: 900 },
   expired: {
     fontSize: 14,
-    color: "var(--platform-text-dim)",
+    color: "rgba(16,16,20,0.6)",
     textAlign: "center",
     padding: 8,
   },
@@ -242,7 +265,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: "absolute",
     fontSize: 11,
     fontWeight: 800,
-    color: "#fff",
+    color: "var(--slop-ink)",
     fontVariantNumeric: "tabular-nums",
   },
 };

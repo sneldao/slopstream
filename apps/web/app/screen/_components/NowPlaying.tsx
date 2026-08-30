@@ -61,11 +61,7 @@ export function NowPlaying({
 
       <AnimatePresence>
         {activeChallenge && (
-          <ChallengeBanner
-            key={activeChallenge.id}
-            challenge={activeChallenge}
-            brandColor={primary}
-          />
+          <ChallengeBanner key={activeChallenge.id} brandColor={primary} />
         )}
       </AnimatePresence>
     </div>
@@ -80,15 +76,22 @@ function EmptyMarket() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <motion.div
+      <div style={styles.emptyKicker}>
+        Open frequency · waiting for the next bid
+      </div>
+      <motion.h1
         style={styles.emptyTitle}
         animate={{ opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
       >
-        SLOPSTREAM
-      </motion.div>
+        <span style={styles.emptyTitleSolid}>SLOP</span>
+        <span style={styles.emptyTitleOutline}>STREAM</span>
+      </motion.h1>
       <div style={styles.emptySub}>
-        The world&apos;s first live attention market.
+        Attention is moving. The next brand can own the moment.
+      </div>
+      <div style={styles.emptyPulse}>
+        <i className="empty-pulse__dot" /> Market open
       </div>
     </motion.div>
   );
@@ -192,13 +195,8 @@ function PlayingLabels({
   );
 }
 
-function ChallengeBanner({
-  challenge,
-  brandColor,
-}: {
-  challenge: PublicChallenge;
-  brandColor: string | undefined;
-}) {
+function ChallengeBanner({ brandColor }: { brandColor: string | undefined }) {
+  // Spectators must not see the question or options — answers stay on /listen.
   return (
     <motion.div
       style={styles.challenge}
@@ -206,20 +204,16 @@ function ChallengeBanner({
       animate={{ y: 0, opacity: 1, scale: 1 }}
       exit={{ y: 40, opacity: 0, scale: 0.95 }}
       transition={{ type: "spring", stiffness: 300, damping: 18 }}
+      role="status"
+      aria-live="polite"
     >
       <div style={styles.challengeHeader}>
         <span style={{ color: brandColor ?? "#fff" }}>👀 ATTENTION CHECK</span>
       </div>
-      <div style={styles.challengeQuestion}>{challenge.question}</div>
-      {challenge.options && (
-        <div style={styles.challengeOptions}>
-          {challenge.options.map((o) => (
-            <div key={o} style={styles.challengeOption}>
-              {o}
-            </div>
-          ))}
-        </div>
-      )}
+      <div style={styles.challengeQuestion}>In progress on listener phones</div>
+      <div style={styles.challengeHint}>
+        Scan the QR to prove you were here.
+      </div>
     </motion.div>
   );
 }
@@ -234,19 +228,63 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     pointerEvents: "none",
   },
-  empty: { textAlign: "center" },
-  emptyTitle: {
-    fontSize: "clamp(40px, 8vw, 110px)",
+  empty: {
+    textAlign: "center",
+    display: "flex",
+    alignItems: "center",
+    flexDirection: "column",
+    maxWidth: "min(86vw, 1100px)",
+  },
+  emptyKicker: {
+    marginBottom: 18,
+    color: "var(--slop-yellow)",
+    fontSize: "clamp(9px, 1vw, 12px)",
     fontWeight: 900,
-    letterSpacing: 8,
+    letterSpacing: 3,
+    textTransform: "uppercase",
+  },
+  emptyTitle: {
+    display: "flex",
+    margin: 0,
+    flexDirection: "column",
+    fontFamily: "var(--slop-display)",
+    fontSize: "clamp(74px, 12vw, 180px)",
+    fontWeight: 900,
+    letterSpacing: "-0.06em",
+    lineHeight: 0.7,
     color: "#fff",
-    textShadow: "0 6px 40px rgba(0,0,0,0.5)",
+    textShadow: "0 12px 50px rgba(0,0,0,0.45)",
+  },
+  emptyTitleSolid: {
+    transform: "translateX(-0.18em)",
+  },
+  emptyTitleOutline: {
+    transform: "translateX(0.16em)",
+    color: "transparent",
+    WebkitTextStroke: "2px rgba(255,255,255,0.9)",
   },
   emptySub: {
-    fontSize: "clamp(16px, 2.4vw, 28px)",
-    color: "var(--platform-text-dim)",
-    marginTop: 12,
-    fontWeight: 600,
+    maxWidth: 480,
+    fontSize: "clamp(14px, 1.8vw, 22px)",
+    color: "rgba(255,255,255,0.72)",
+    marginTop: 34,
+    fontWeight: 650,
+    lineHeight: 1.25,
+  },
+  emptyPulse: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 18,
+    padding: "8px 13px",
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 999,
+    background: "rgba(8,8,18,0.5)",
+    backdropFilter: "blur(12px)",
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
   },
   gen: {
     display: "flex",
@@ -340,13 +378,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#fff",
     marginBottom: 14,
   },
-  challengeOptions: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
-  challengeOption: {
-    padding: "10px 14px",
-    borderRadius: 10,
-    background: "rgba(255,255,255,0.08)",
+  challengeHint: {
+    fontSize: 13,
     fontWeight: 600,
-    fontSize: 15,
-    color: "#fff",
+    color: "rgba(255,255,255,0.55)",
   },
 };

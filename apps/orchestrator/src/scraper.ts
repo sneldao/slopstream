@@ -143,7 +143,6 @@ export class CompanyScraper {
       body: JSON.stringify({
         objective: SEARCH_OBJECTIVE,
         search_queries: SEARCH_QUERIES,
-        max_results: this.deps.maxResults,
       }),
     });
     if (!res.ok) {
