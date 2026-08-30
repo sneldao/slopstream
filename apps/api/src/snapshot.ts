@@ -41,7 +41,7 @@ export function composeSnapshot(
       nowPlayingRow = segment;
   }
 
-  const open = auction.openAuction();
+  const open = auction.ensureOpenAuction();
   const recentSegments = [...ledger.segments.values()]
     .filter(
       (segment) =>

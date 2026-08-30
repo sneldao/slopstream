@@ -21,6 +21,7 @@ import type {
   ProductionTier,
   Segment,
 } from "@slopstream/shared";
+import { FREE_BRAND_SUMMARY } from "@slopstream/shared";
 import {
   continuumAssetType,
   selectSceneRecipe,
@@ -173,7 +174,7 @@ function ContinuumWorld(props: SceneProps) {
         id: previous.id,
         assetUrl: previous.assetUrl,
         summary: previous.summary,
-        brandName: brand?.name ?? "Open frequency",
+        brandName: brand?.name ?? FREE_BRAND_SUMMARY.name,
         primary: brand?.primaryColor ?? "#ff5c58",
         secondary: brand?.secondaryColor ?? "#ffe45e",
       };
@@ -407,21 +408,16 @@ function ActivePortal({
             </div>
           </div>
         ) : (
-          <div className="continuum-portal__open">
-            <span>THE CONTINUUM / LIVE</span>
-            <strong>
-              SLOP
-              <br />
-              <em>STREAM</em>
-            </strong>
-            <small>Every moment leaves a trace.</small>
+          <div className="continuum-portal__open continuum-portal__open--standby">
+            <span className="continuum-portal__pulse" aria-hidden />
+            <small>Next segment incoming</small>
           </div>
         )}
       </div>
       <span className="continuum-portal__index">
-        CURRENT
+        NOW
         <br />
-        FREQUENCY
+        PLAYING
       </span>
     </div>
   );
@@ -450,7 +446,7 @@ function MediaAsset({
         }}
       >
         <span>NOW PLAYING</span>
-        <strong>{brand?.name ?? "OPEN STREAM"}</strong>
+        <strong>{brand?.name ?? FREE_BRAND_SUMMARY.name}</strong>
       </div>
     );
   }
@@ -529,7 +525,7 @@ function toArchiveItem(
     id: segment.id,
     assetUrl: segment.assetUrl,
     summary: segment.summary,
-    brandName: brand?.name ?? "Open frequency",
+    brandName: brand?.name ?? FREE_BRAND_SUMMARY.name,
     primary: brand?.primaryColor ?? "#45a7ff",
     secondary: brand?.secondaryColor ?? "#ffe45e",
   };

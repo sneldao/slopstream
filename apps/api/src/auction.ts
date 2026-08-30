@@ -75,8 +75,22 @@ export class AuctionEngine {
     return max + 1;
   }
 
+  /**
+   * Close the open auction when its deadline passed. Poll paths call this
+   * because scheduleClose uses a single timer that can be missed on restart
+   * or when the event loop was busy.
+   */
+  sweepOverdueOpenAuction(): void {
+    const open = this.openAuction();
+    if (!open) return;
+    if (this.now() >= open.closesAtMs) {
+      this.closeAuction(open.slot);
+    }
+  }
+
   /** Open (or return) the current auction for the next slot. */
   ensureOpenAuction(): AuctionRow {
+    this.sweepOverdueOpenAuction();
     const existing = this.openAuction();
     if (existing) return existing;
     const slot = this.nextSlotNumber();

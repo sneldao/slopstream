@@ -72,12 +72,36 @@ describe("auction reservations", () => {
     expect(() => h.auction.placeBid(a, 50)).toThrow(ApiError);
   });
 
-  it("rejects bids after the close deadline", () => {
+  it("auto-sweeps an overdue auction when placing a bid", () => {
     const h = setupHarness();
     const a = fundedBrand(h, "A", 100);
     h.auction.ensureOpenAuction(); // opens at t0 + 60s
     h.setTime(1_000_000_000 + 61_000);
-    expect(() => h.auction.placeBid(a, 10)).toThrow(ApiError);
+    const { bid } = h.auction.placeBid(a, 10);
+    expect(h.auction.auctionForSlot(1)?.status).toBe("closed");
+    expect(bid.slot).toBe(2);
+  });
+});
+
+describe("overdue auction sweep", () => {
+  it("closes an overdue open auction when ensureOpenAuction is called", () => {
+    const h = setupHarness();
+    h.auction.ensureOpenAuction();
+    expect(h.auction.openAuction()?.slot).toBe(1);
+    h.setTime(1_000_000_000 + 61_000);
+    const next = h.auction.ensureOpenAuction();
+    expect(next.slot).toBe(2);
+    expect(h.auction.auctionForSlot(1)?.status).toBe("closed");
+  });
+
+  it("routes new bids to the next slot after a sweep", () => {
+    const h = setupHarness();
+    const brand = fundedBrand(h, "A", 100);
+    h.auction.ensureOpenAuction();
+    h.setTime(1_000_000_000 + 61_000);
+    h.auction.ensureOpenAuction();
+    const { bid } = h.auction.placeBid(brand, 10);
+    expect(bid.slot).toBe(2);
   });
 });
 

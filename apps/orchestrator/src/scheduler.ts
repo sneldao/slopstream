@@ -78,6 +78,8 @@ export class SegmentScheduler {
   /** Hero image URL from the last generated segment — video continuity input. */
   private continuityImageUrl?: string;
   private generationInFlight = false;
+  /** In-flight guard: at most one challenge-fire loop runs at a time. */
+  private firingChallenge = false;
   private lastGenDurationMs?: number;
   private lastGenSegmentId?: string;
   private pollTimer?: NodeJS.Timeout;
@@ -216,7 +218,22 @@ export class SegmentScheduler {
     try {
       const current = await this.api.currentAuction();
       this.highSlotSeen = Math.max(this.highSlotSeen, current.slot);
+
+      // Belt-and-suspenders: if the API still reports an overdue open slot,
+      // force-close via orchestrator token (timer recovery on the API should
+      // already have swept this on GET /auctions/current).
+      if (
+        current.status === "open" &&
+        Date.parse(current.closesAt) <= Date.now()
+      ) {
+        const closed = await this.api.closeCurrentAuction();
+        if (closed) {
+          this.highSlotSeen = Math.max(this.highSlotSeen, closed.slot);
+        }
+      }
+
       await this.processClosedSlots();
+      await this.prefetchUpcoming();
     } catch {
       // API not ready yet; retry on the next tick.
     }
@@ -232,8 +249,8 @@ export class SegmentScheduler {
   /** Process every incomplete closed slot in slot order. Persisted segment
    *  status prevents a restart from regenerating or refunding settled work. */
   private async processClosedSlots(): Promise<void> {
-    if (this.driving) return;
     for (let slot = 1; slot < this.highSlotSeen; slot++) {
+      if (this.driving) return;
       try {
         const auction = await this.api.auctionForSlot(slot);
         if (!auction || auction.status !== "closed") continue;
@@ -251,25 +268,20 @@ export class SegmentScheduler {
             if (!this.playback) await this.adoptFromSnapshot();
             continue;
           }
-          this.driving = true;
-          try {
-            if (winner.segmentStatus === "ready") {
-              await this.startPlayback(winner.segmentId, winner.brandId, slot);
-              this.processed.add(winner.segmentId);
-            } else {
-              await this.driveSegment(
-                {
-                  segmentId: winner.segmentId,
-                  brandId: winner.brandId,
-                  brief: winner.brief,
-                  tier: winner.tier,
-                },
-                slot,
-              );
-            }
-          } finally {
-            this.driving = false;
+          if (winner.segmentStatus === "ready") {
+            await this.startPlayback(winner.segmentId, winner.brandId, slot);
+            this.processed.add(winner.segmentId);
+            continue;
           }
+          await this.driveSegment(
+            {
+              segmentId: winner.segmentId,
+              brandId: winner.brandId,
+              brief: winner.brief,
+              tier: winner.tier,
+            },
+            slot,
+          );
         } else if (auction.freeSegment) {
           // No winner: drive the free (scraped-company) filler segment the
           // same way — generating → ready → playing → window-closed. No bid
@@ -287,25 +299,20 @@ export class SegmentScheduler {
             if (!this.playback) await this.adoptFromSnapshot();
             continue;
           }
-          this.driving = true;
-          try {
-            if (free.segmentStatus === "ready") {
-              await this.startPlayback(free.segmentId, FREE_BRAND_ID, slot);
-              this.processed.add(free.segmentId);
-            } else {
-              await this.driveSegment(
-                {
-                  segmentId: free.segmentId,
-                  brandId: FREE_BRAND_ID,
-                  brief: free.brief,
-                  tier: free.tier,
-                },
-                slot,
-              );
-            }
-          } finally {
-            this.driving = false;
+          if (free.segmentStatus === "ready") {
+            await this.startPlayback(free.segmentId, FREE_BRAND_ID, slot);
+            this.processed.add(free.segmentId);
+            continue;
           }
+          await this.driveSegment(
+            {
+              segmentId: free.segmentId,
+              brandId: FREE_BRAND_ID,
+              brief: free.brief,
+              tier: free.tier,
+            },
+            slot,
+          );
         }
       } catch {
         // Transient read failure; the next tick retries this slot.
@@ -314,13 +321,58 @@ export class SegmentScheduler {
     }
   }
 
+  /**
+   * Keep one segment generating ahead of playback so the stream does not
+   * stall between windows when generation is slower than segmentPlaySec.
+   */
+  private async prefetchUpcoming(): Promise<void> {
+    if (this.driving || this.generationInFlight) return;
+    try {
+      const snapshot = await this.api.snapshot();
+      if (snapshot.upcomingSegments.length >= 1) return;
+    } catch {
+      return;
+    }
+    await this.processClosedSlots();
+  }
+
   // ------------------------------------------------------------ segment drive
 
   private async driveSegment(target: DriveTarget, slot: number): Promise<void> {
     const { segmentId, brandId, brief, tier } = target;
-    this.processed.add(segmentId);
     const label = brandId === FREE_BRAND_ID ? "free (scraped)" : brandId;
     console.log(`[scheduler] slot ${slot} -> segment ${segmentId} (${label})`);
+
+    try {
+      await this.runGeneration({ segmentId, brandId, brief, tier }, slot);
+      await this.startPlayback(segmentId, brandId, slot);
+    } catch (error) {
+      console.error(`[scheduler] drive failed for ${segmentId}:`, error);
+      // Lane 2 releases the reservation and emits bid.failed itself. Only
+      // once /failed lands is the segment terminal; if that call fails the
+      // segment stays OUT of processed so the next poll tick retries.
+      try {
+        await this.api.failSegment(segmentId);
+      } catch (failError) {
+        console.error(
+          `[scheduler] /failed for ${segmentId} did not land; will retry:`,
+          failError,
+        );
+        return;
+      }
+    }
+    this.processed.add(segmentId);
+  }
+
+  /** Generation only — releases the driving lock before playback waits. */
+  private async runGeneration(
+    target: DriveTarget,
+    slot: number,
+  ): Promise<void> {
+    const { segmentId, brandId, brief, tier } = target;
+    this.driving = true;
+    this.generationInFlight = true;
+    const genStartedAt = Date.now();
 
     try {
       this.gateway.emit({
@@ -339,9 +391,6 @@ export class SegmentScheduler {
         marketContext = undefined;
       }
 
-      this.generationInFlight = true;
-      const genStartedAt = Date.now();
-
       // Generation runs concurrently with the four progress beats; beats
       // complete before segment.ready so the screen's stage checkmarks land
       // in order.
@@ -358,55 +407,48 @@ export class SegmentScheduler {
       // while the beats still run, and an unattached rejection crashes the
       // process. The error is surfaced again at the await below.
       void generation.catch(() => {});
-      try {
-        for (const stage of GENERATION_STAGES) {
-          await this.delay(this.env.genStageDelayMs);
-          if (this.stopped) return;
-          this.gateway.emit({
-            type: "generation.progress",
-            slot,
-            stage,
-            done: true,
-          });
-        }
-        const result = await generation;
-        this.lastGenDurationMs = Date.now() - genStartedAt;
-        this.lastGenSegmentId = segmentId;
-        this.continuityImageUrl =
-          continuityFromResult(result) ?? this.continuityImageUrl;
-
-        // Compressed playback: the orchestrator's segmentPlaySec — not the
-        // generator's duration — is authoritative for the window timeline.
-        await this.api.markReady(segmentId, {
-          assetUrl: result.assetUrl,
-          durationSec: this.env.segmentPlaySec,
-          summary: result.summary,
-        });
+      for (const stage of GENERATION_STAGES) {
+        await this.delay(this.env.genStageDelayMs);
+        if (this.stopped) return;
         this.gateway.emit({
-          type: "segment.ready",
-          segmentId,
-          assetUrl: result.assetUrl,
-          durationSec: this.env.segmentPlaySec,
+          type: "generation.progress",
+          slot,
+          stage,
+          done: true,
         });
-        await this.api.sendChallengeSource(segmentId, {
-          transcript: result.transcript,
-          durationSec: this.env.segmentPlaySec,
-          visualMetadata: result.visualMetadata,
-          audioMetadata: result.audioMetadata,
-        });
-        this.previousSummaries = [
-          ...this.previousSummaries,
-          result.summary,
-        ].slice(-2);
-
-        await this.startPlayback(segmentId, brandId, slot);
-      } finally {
-        this.generationInFlight = false;
       }
-    } catch (error) {
-      console.error(`[scheduler] drive failed for ${segmentId}:`, error);
-      // Lane 2 releases the reservation and emits bid.failed itself.
-      await this.api.failSegment(segmentId);
+      const result = await generation;
+      this.lastGenDurationMs = Date.now() - genStartedAt;
+      this.lastGenSegmentId = segmentId;
+      this.continuityImageUrl =
+        continuityFromResult(result) ?? this.continuityImageUrl;
+
+      // Compressed playback: the orchestrator's segmentPlaySec — not the
+      // generator's duration — is authoritative for the window timeline.
+      await this.api.markReady(segmentId, {
+        assetUrl: result.assetUrl,
+        durationSec: this.env.segmentPlaySec,
+        summary: result.summary,
+      });
+      this.gateway.emit({
+        type: "segment.ready",
+        segmentId,
+        assetUrl: result.assetUrl,
+        durationSec: this.env.segmentPlaySec,
+      });
+      await this.api.sendChallengeSource(segmentId, {
+        transcript: result.transcript,
+        durationSec: this.env.segmentPlaySec,
+        visualMetadata: result.visualMetadata,
+        audioMetadata: result.audioMetadata,
+      });
+      this.previousSummaries = [
+        ...this.previousSummaries,
+        result.summary,
+      ].slice(-2);
+    } finally {
+      this.driving = false;
+      this.generationInFlight = false;
     }
   }
 
@@ -485,11 +527,28 @@ export class SegmentScheduler {
 
     // Fire every challenge whose window has opened; each broadcast pulls the
     // next one ahead so at most one challenge is held.
-    void (async () => {
+    void this.fireDueChallenges(playback);
+
+    playback.timer = setTimeout(() => this.tickPlayback(playback), 200);
+    playback.timer.unref();
+  }
+
+  /** Fire-loop for due challenges. Guarded by firingChallenge because every
+   *  200ms tick would otherwise spawn a new loop over the same shared
+   *  playback state — if nextChallenge() ever takes longer than the tick
+   *  interval, concurrent loops double-broadcast challenges and lose fetch
+   *  results. */
+  private async fireDueChallenges(playback: Playback): Promise<void> {
+    if (this.firingChallenge) return;
+    this.firingChallenge = true;
+    try {
       while (
         playback.held &&
         (Date.now() - playback.startedAtMs) / 1000 >= playback.held.validFrom
       ) {
+        // A fetch can outlive playback: re-check shared state after every
+        // await so a finished window never broadcasts stale challenges.
+        if (this.stopped || this.playback !== playback) return;
         this.gateway.emit({
           type: "challenge.fired",
           challenge: playback.held,
@@ -503,10 +562,9 @@ export class SegmentScheduler {
           playback.held = null;
         }
       }
-    })();
-
-    playback.timer = setTimeout(() => this.tickPlayback(playback), 200);
-    playback.timer.unref();
+    } finally {
+      this.firingChallenge = false;
+    }
   }
 
   private async finishPlayback(playback: Playback): Promise<void> {

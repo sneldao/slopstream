@@ -1174,6 +1174,52 @@ main.has-dock {
   font-weight: 800;
 }
 
+.continuum-portal__open--standby {
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      color-mix(in srgb, var(--slop-blue) 28%, transparent) 0%,
+      transparent 55%
+    ),
+    color-mix(in srgb, var(--slop-ink) 92%, transparent);
+  color: color-mix(in srgb, var(--slop-cream) 72%, transparent);
+  text-align: center;
+}
+
+.continuum-portal__open--standby small {
+  margin-top: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.continuum-portal__pulse {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--slop-lime);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--slop-lime) 55%, transparent);
+  animation: continuum-standby-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes continuum-standby-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
 .continuum-portal__generating {
   align-items: center;
   background: linear-gradient(135deg, var(--world-a), var(--world-b));

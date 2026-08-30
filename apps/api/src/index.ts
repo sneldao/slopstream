@@ -11,6 +11,7 @@ import { loadEnv } from "./env.js";
 import { Ledger } from "./ledger.js";
 import { MarketService } from "./market.js";
 import { apiErrorHandler, createRouter } from "./routes.js";
+import { DEMO_SCRAPED_COMPANIES } from "./demoSeed.js";
 import { centsToUsd } from "./money.js";
 import { createVerifier } from "./verifier.js";
 
@@ -73,6 +74,10 @@ if (env.seedDemo) {
     market.topUp({ brandId: brand.id, amountUsd: 500 });
   }
   console.log(`[seed] demo brands funded with ${"$"}500 each`);
+  const scraped = ledger.insertScrapedCompanies(DEMO_SCRAPED_COMPANIES);
+  console.log(
+    `[seed] ${scraped.added} scraped companies queued for free filler (${scraped.duplicates} duplicates skipped)`,
+  );
 }
 
 // The market never stalls: there is always an auction for the next slot.
