@@ -369,7 +369,7 @@ export function createRouter(deps: ApiDeps): Router {
       segment.status = "generating";
       const tier: ProductionTier =
         (segment.bidId ? ledger.bids.get(segment.bidId)?.tier : undefined) ??
-        "audio";
+        "audio_image";
       if (publishLifecycleEvents && changed) {
         bus.publish({
           type: "segment.generating",

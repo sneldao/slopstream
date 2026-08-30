@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getStreamMode } from "@/lib/streamMode";
 import { SphereField } from "./_components/SphereField";
 import { SurfaceNav } from "./_components/SurfaceNav";
 
@@ -36,8 +38,29 @@ const SURFACES = [
   },
 ] as const;
 
-export default function Home() {
-  const mode = process.env.NEXT_PUBLIC_STREAM_MODE === "live" ? "live" : "demo";
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ hub?: string }>;
+}) {
+  // NEXT_PUBLIC_STREAM_MODE is build-inlined, so in demo builds the branch
+  // below never runs and "/" stays statically prerendered: searchParams is
+  // only awaited in live mode.
+  if (getStreamMode() === "live") {
+    // Live network: skip the role-router hub and drop viewers straight into
+    // the spectacle. The hub stays reachable "via nav only" — the wordmark
+    // and dock link to /?hub=1, which bypasses this redirect.
+    const { hub } = await searchParams;
+    if (hub !== "1") redirect("/screen");
+  }
+
+  return <HomeHub />;
+}
+
+// Demo mode keeps / as the canonical map since the fixture is the product;
+// live mode lands here only via the ?hub=1 opt-out.
+function HomeHub() {
+  const mode = getStreamMode();
 
   return (
     <main className="home-shell has-dock">

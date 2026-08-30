@@ -2,8 +2,14 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { getStreamMode } from "@/lib/streamMode";
 
 export type SurfaceRole = "01" | "02" | "03";
+
+// In live mode the home hub redirects to /screen unless ?hub=1 is set, so nav
+// links that mean "take me to the hub" must carry the opt-in. Demo mode keeps
+// a clean "/" URL.
+const HOME_HREF = getStreamMode() === "live" ? "/?hub=1" : "/";
 
 const SURFACES = [
   {
@@ -88,7 +94,7 @@ export function SurfaceNav({
         <div className="slop-nav__brand">
           <a
             className="slop-wordmark-chip"
-            href="/"
+            href={HOME_HREF}
             aria-label="Slopstream home"
           >
             Slopstream
@@ -104,7 +110,7 @@ export function SurfaceNav({
             return (
               <a
                 key={surface.href}
-                href={minimal ? "/" : surface.href}
+                href={minimal ? HOME_HREF : surface.href}
                 className={`slop-nav__link${active ? " is-active" : ""}`}
                 aria-current={active ? "page" : undefined}
                 title={minimal ? "Back to home to switch surfaces" : undefined}
@@ -131,7 +137,7 @@ export function SurfaceNav({
         <nav className="slop-dock" aria-label="Quick surface switch">
           <a
             className={`slop-dock__link${pathname === "/" ? " is-active" : ""}`}
-            href="/"
+            href={HOME_HREF}
           >
             Home
           </a>

@@ -182,7 +182,7 @@ describe("free (scraped) segments — cold-start engine", () => {
     expect(state.freeSegment).toMatchObject({
       segmentId: free!.id,
       companyName: "Acme AI",
-      tier: "audio",
+      tier: "audio_image",
     });
 
     // The free pseudo-brand is registered for client palette resolution.

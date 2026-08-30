@@ -33,12 +33,8 @@ interface SceneProps {
   colorA: string;
   colorB: string;
   shockwaveKey: number;
-  quality?: number;
   leaderboard: LeaderboardEntry[];
   brandById: Record<string, BrandSummary>;
-  outbidFlashId: number;
-  outbidDisplacedBrandId?: string;
-  outbidNewBrandId?: string;
   segment: Segment | null;
   recentSegments: Segment[];
   generation: GenerationState | undefined;
@@ -47,9 +43,6 @@ interface SceneProps {
   lastClear: ClearBurst | undefined;
   fallbackBrandColor: string;
   fallbackSecondaryColor: string;
-  fallbackBurstKey: number;
-  fallbackBurstFromColor?: string;
-  fallbackBurstToColor?: string;
 }
 
 interface ArchiveItem {

@@ -29,14 +29,27 @@ export default function ScreenPage() {
   const { state, mode, connectionStatus, demo } = useStream();
   const { theater, setTheater } = useTheaterMode(true);
   // In live mode, play real audio from the segment's asset URL.
+  // Audio-tier segments have .mp3 as the asset; audio_image and video tiers
+  // have .png/.mp4 as the asset but the .mp3 TTS file always exists alongside
+  // (same segmentId prefix on the generator). Derive the audio URL so the
+  // voiceover plays even when the visual asset is the primary assetUrl.
   // In demo mode, the asset URLs are placeholders that don't exist, so
   // the hook falls back to the synthesized signal.
-  const audioUrl = state.nowPlaying?.assetUrl?.match(/\.(mp3|wav|ogg)$/i)
-    ? state.nowPlaying.assetUrl
+  const audioUrl = state.nowPlaying?.assetUrl
+    ? state.nowPlaying.assetUrl.match(/\.(mp3|wav|ogg)$/i)
+      ? state.nowPlaying.assetUrl
+      : state.nowPlaying.assetUrl.replace(/\.(mp4|png|jpe?g|webp)$/i, ".mp3")
     : undefined;
-  const { signalRef } = useAudioSignal(!!state.nowPlaying, audioUrl);
+  const { signalRef, unlock, muted, toggleMute } = useAudioSignal(
+    !!state.nowPlaying,
+    audioUrl,
+  );
   const { play } = useSoundDesign();
-  const [listenerUrl, setListenerUrl] = useState(() => listenerJoinUrl());
+  // Resolved client-side only: a prerendered/projector frame has no
+  // window.location.origin, and initializing with the localhost fallback
+  // would paint a broken QR before the hydration effect runs.
+  const [listenerUrl, setListenerUrl] = useState<string | null>(null);
+  const [audioStarted, setAudioStarted] = useState(false);
 
   useEffect(() => {
     setListenerUrl(listenerJoinUrl(window.location.origin));
@@ -89,12 +102,6 @@ export default function ScreenPage() {
   }, [state.lastClear, play]);
   // OUTBID burst trigger for the ambient canvas.
   const burstKey = state.lastOutbid?.flashId ?? 0;
-  const burstFromColor = state.lastOutbid
-    ? state.brandById[state.lastOutbid.displacedBrandId]?.primaryColor
-    : undefined;
-  const burstToColor = state.lastOutbid
-    ? state.brandById[state.lastOutbid.newBrandId]?.primaryColor
-    : undefined;
 
   const idleRecruit = !state.nowPlaying && !state.generation;
 
@@ -112,9 +119,6 @@ export default function ScreenPage() {
         shockwaveKey={burstKey}
         leaderboard={state.leaderboard}
         brandById={state.brandById}
-        outbidFlashId={state.lastOutbid?.flashId ?? 0}
-        outbidDisplacedBrandId={state.lastOutbid?.displacedBrandId}
-        outbidNewBrandId={state.lastOutbid?.newBrandId}
         // Ad surface (Phase 4)
         segment={state.nowPlaying}
         recentSegments={state.recentSegments}
@@ -124,14 +128,43 @@ export default function ScreenPage() {
         attention={state.attention}
         // Clearing streams (Phase 5)
         lastClear={state.lastClear}
-        // Canvas 2D fallback palette (used only if WebGL fails).
+        // Static colour field shown if the scene fails to render.
         fallbackBrandColor={activeBrand?.primaryColor ?? "#8f5cff"}
         fallbackSecondaryColor={activeBrand?.secondaryColor ?? "#ff5c58"}
-        fallbackBurstKey={burstKey}
-        fallbackBurstFromColor={burstFromColor}
-        fallbackBurstToColor={burstToColor}
       />
       <div className="slop-grain" />
+
+      {/* Click-to-start overlay — browsers block autoplay until a user
+          gesture. This full-screen prompt unlocks the AudioContext on the
+          first click, then disappears for the rest of the session. */}
+      {!audioStarted && mode === "live" && (
+        <button
+          className="screen-start-overlay"
+          style={styles.startOverlay}
+          onClick={() => {
+            unlock();
+            setAudioStarted(true);
+          }}
+          aria-label="Click to start the stream"
+        >
+          <span style={styles.startIcon} aria-hidden>
+            ▶
+          </span>
+          <span style={styles.startText}>Click to listen</span>
+        </button>
+      )}
+
+      {/* Mute toggle — visible after audio is unlocked. */}
+      {audioStarted && !theater && (
+        <button
+          className="screen-mute-toggle"
+          style={styles.muteToggle}
+          onClick={toggleMute}
+          aria-label={muted ? "Unmute" : "Mute"}
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
+      )}
 
       {/* Crisp editorial labels remain HTML above the moving media world. */}
       <div style={styles.stage}>
@@ -286,14 +319,25 @@ export default function ScreenPage() {
         aria-label="Join Slopstream as a listener"
       >
         <div style={styles.qrFrame}>
-          <QRCodeSVG
-            value={listenerUrl}
-            size={idleRecruit || theater ? 108 : 82}
-            bgColor="#ffffff"
-            fgColor="#0b0b1a"
-            level="M"
-            title="Listener join QR code"
-          />
+          {listenerUrl ? (
+            <QRCodeSVG
+              value={listenerUrl}
+              size={idleRecruit || theater ? 108 : 82}
+              bgColor="#ffffff"
+              fgColor="#0b0b1a"
+              level="M"
+              title="Listener join QR code"
+            />
+          ) : (
+            // Hold the space until the real join URL resolves client-side.
+            <span
+              aria-hidden
+              style={{
+                width: idleRecruit || theater ? 108 : 82,
+                height: idleRecruit || theater ? 108 : 82,
+              }}
+            />
+          )}
         </div>
         <div style={styles.joinTitle}>
           {state.activeChallenge
@@ -359,6 +403,52 @@ export default function ScreenPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  startOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 100,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    background: "rgba(11,11,26,0.72)",
+    backdropFilter: "blur(8px)",
+    border: "none",
+    cursor: "pointer",
+    color: "var(--slop-cream, #f4f1e8)",
+    fontSize: 18,
+    fontWeight: 800,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  startIcon: {
+    fontSize: 48,
+    lineHeight: 1,
+  },
+  startText: {
+    fontSize: 14,
+    letterSpacing: 3,
+    opacity: 0.8,
+  },
+  muteToggle: {
+    position: "fixed",
+    top: "clamp(16px, 3vw, 32px)",
+    right: "clamp(16px, 3vw, 40px)",
+    zIndex: 15,
+    width: 40,
+    height: 40,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    border: "1px solid rgba(16,16,20,0.22)",
+    background: "rgba(244,241,232,0.9)",
+    backdropFilter: "blur(12px)",
+    cursor: "pointer",
+    fontSize: 18,
+    boxShadow: "3px 3px 0 rgba(16,16,20,0.12)",
+  },
   main: {
     position: "relative",
     minHeight: "100vh",

@@ -389,13 +389,20 @@ function estimateDurationSec(transcript: string): number {
 /**
  * Summary for the Continuum continuity input. Includes the creative format
  * tone so the next segment's context reflects the style that was used.
+ *
+ * Free-segment briefs are templated ("Write a short, funny AI-generated ad
+ * for {company}. What they do: …") — extract just the company name so the
+ * summary reads as content, not as an instruction. Paid-segment briefs are
+ * already clean brand copy, so they're truncated as-is.
  */
 function summaryFor(
   request: GenerationRequest,
   format: CreativeFormat,
 ): string {
-  const brief = truncateWords(request.brief.trim(), 18);
-  return `[${format.tone}] ${brief}`;
+  const brief = request.brief.trim();
+  const freeAdMatch = brief.match(/ad for (.+?)\./i);
+  const subject = freeAdMatch ? freeAdMatch[1] : truncateWords(brief, 12);
+  return `${subject} — ${format.tone}`;
 }
 
 function imagePromptFor(
