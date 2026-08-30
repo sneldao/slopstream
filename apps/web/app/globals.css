@@ -1930,19 +1930,6 @@ main.has-dock {
   color: rgba(16, 16, 20, 0.55);
 }
 
-.slop-loop-status__hint {
-  margin: 0;
-  color: rgba(255, 253, 246, 0.58);
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 1.35;
-  text-align: center;
-}
-
-.slop-loop-status--light .slop-loop-status__hint {
-  color: rgba(16, 16, 20, 0.58);
-}
-
 .slop-crosslink {
   display: inline-flex;
   align-items: center;

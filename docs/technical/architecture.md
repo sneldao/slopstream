@@ -84,9 +84,9 @@ SPONSORSHIP LAYER (optional overlay)
      not WHETHER a beat exists
 ```
 
-The orchestrator should always keep **1–2 segments** generating or ready ahead of playback. Prefetch and generation/playback decoupling move toward this; full decoupling is the next architectural step.
+The orchestrator keeps segments generating or ready ahead of playback with an **adaptive prefetch depth**: an EWMA of measured generation latency sets the buffer to `ceil(ewma / segmentPlaySec)`, clamped to 1–3, so slow generators automatically get a deeper queue. Full decoupling is the next architectural step.
 
-**What plays while a sponsored segment generates.** Generation takes real wall-clock time, and the stream must never go silent. Free Continuum segments play through the queue while a winning bid's segment generates in the background. When `segment.ready` fires, the sponsored segment cuts in at the next segment boundary. The `GENERATING AD...` stage checklist is anticipation, not dead air.
+**What plays while a sponsored segment generates.** Generation takes real wall-clock time, and the stream must never go silent. Free Continuum segments play through the queue while a winning bid's segment generates in the background. If the queue still runs dry, the scheduler falls back to **encores** — replays of recently aired segments, selected least-recently-played with a brand-variety penalty, gated off while the market is hot, and cut the instant a real segment is ready. Encores run entirely in the orchestrator: they broadcast a self-contained `segment.encore` event, open no clearing window, fire no challenges, and never touch the ledger. The quiet brand-name generation state is anticipation, not dead air.
 
 ## Component responsibilities
 

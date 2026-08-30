@@ -64,7 +64,7 @@ export function composeSnapshot(
     )
     .filter((segment) => segment.id !== nowPlayingRow?.id)
     .sort((a, b) => a.slot - b.slot)
-    .slice(0, 2)
+    .slice(0, 3)
     .map(toSharedSegment);
 
   return {

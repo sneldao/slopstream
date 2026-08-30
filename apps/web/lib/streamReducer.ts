@@ -82,6 +82,9 @@ export interface OutbidFlash {
 export interface StreamState {
   asOfSequence: number;
   nowPlaying: Segment | null;
+  /** True while nowPlaying is an orchestrator encore replay. Never set by
+   *  snapshotToState, so any snapshot refetch resets it automatically. */
+  nowPlayingEncore?: boolean;
   /** Durable and event-projected Continuum history, newest first. */
   recentSegments: Segment[];
   /** Segments that are ready/generating but not yet playing — the queue. */
@@ -248,6 +251,7 @@ export function reduceStreamEvent(
       return {
         ...next,
         nowPlaying: segment,
+        nowPlayingEncore: undefined,
         recentSegments: addRecentSegment(prev.recentSegments, previousSegment),
         upcomingSegments: prev.upcomingSegments.filter(
           (s) => s.id !== event.segmentId,
@@ -265,6 +269,35 @@ export function reduceStreamEvent(
               threshold: prev.nowPlayingAttentionThreshold,
             }
           : prev.attention,
+      };
+    }
+
+    case "segment.encore": {
+      // Self-contained replay event — encores never touch the API snapshot.
+      // Keep `generation`: a concurrent generation is the normal encore
+      // scenario and its segment.ready/playing must still land.
+      const previousSegment =
+        prev.nowPlaying && prev.nowPlaying.id !== event.segmentId
+          ? { ...prev.nowPlaying, status: "done" as const }
+          : undefined;
+      return {
+        ...next,
+        nowPlaying: {
+          id: event.segmentId,
+          slot: event.slot,
+          brandId: event.brandId,
+          assetUrl: event.assetUrl,
+          durationSeconds: event.durationSec,
+          summary: event.summary,
+          status: "playing",
+        },
+        nowPlayingEncore: true,
+        nowPlayingStartedAt: event.startedAt,
+        recentSegments: addRecentSegment(prev.recentSegments, previousSegment),
+        // The Scene derives the media surface from assetUrl during encores.
+        playingTier: undefined,
+        activeChallenge: undefined,
+        attention: undefined,
       };
     }
 
@@ -309,6 +342,10 @@ export function reduceStreamEvent(
         },
         nowPlaying:
           prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
+        nowPlayingEncore:
+          prev.nowPlaying?.id === event.segmentId
+            ? undefined
+            : prev.nowPlayingEncore,
         playingTier: undefined,
         activeChallenge: undefined,
         attention: undefined,
@@ -332,6 +369,10 @@ export function reduceStreamEvent(
         },
         nowPlaying:
           prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
+        nowPlayingEncore:
+          prev.nowPlaying?.id === event.segmentId
+            ? undefined
+            : prev.nowPlayingEncore,
         playingTier: undefined,
         attention: undefined,
         activeChallenge: undefined,
@@ -352,6 +393,10 @@ export function reduceStreamEvent(
             : prev.generation,
         nowPlaying:
           prev.nowPlaying?.id === event.segmentId ? null : prev.nowPlaying,
+        nowPlayingEncore:
+          prev.nowPlaying?.id === event.segmentId
+            ? undefined
+            : prev.nowPlayingEncore,
         playingTier: undefined,
         attention: undefined,
         activeChallenge: undefined,

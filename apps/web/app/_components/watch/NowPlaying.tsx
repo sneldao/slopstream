@@ -9,12 +9,7 @@ import type {
 } from "@slopstream/shared";
 import type { GenerationState } from "@/lib/streamReducer";
 
-const STAGES: { key: GenerationStage; label: string }[] = [
-  { key: "script", label: "Script" },
-  { key: "voice", label: "Voice" },
-  { key: "image", label: "Image" },
-  { key: "video", label: "Video" },
-];
+const STAGES: GenerationStage[] = ["script", "voice", "image", "video"];
 
 /**
  * Crisp broadcast labels over the Continuum. Media and generative states
@@ -26,12 +21,14 @@ export function NowPlaying({
   brand,
   generation,
   activeChallenge,
+  encore = false,
 }: {
   nowPlaying: Segment | null;
   nowPlayingStartedAt?: string;
   brand: BrandSummary | undefined;
   generation: GenerationState | undefined;
   activeChallenge: PublicChallenge | undefined;
+  encore?: boolean;
   signalRef: React.RefObject<unknown>;
 }) {
   const primary = brand?.primaryColor;
@@ -39,15 +36,18 @@ export function NowPlaying({
   return (
     <div style={styles.stage}>
       <AnimatePresence mode="wait">
-        {generation ? (
-          <GenerationLabels key="gen" generation={generation} brand={brand} />
-        ) : nowPlaying ? (
+        {/* nowPlaying first: encores run while the next segment generates,
+            and segment.playing clears generation so live flow is unchanged. */}
+        {nowPlaying ? (
           <PlayingLabels
             key="play"
             segment={nowPlaying}
             brand={brand}
             startedAt={nowPlayingStartedAt}
+            encore={encore}
           />
+        ) : generation ? (
+          <GenerationLabels key="gen" generation={generation} brand={brand} />
         ) : (
           <EmptyMarket key="empty" />
         )}
@@ -93,34 +93,20 @@ function GenerationLabels({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
     >
-      <div style={styles.genTitle}>GENERATING AD…</div>
       <div style={styles.genBrand}>{brand?.name}</div>
-      <div style={styles.genStages}>
-        {STAGES.map((s) => {
-          const done = generation.doneStages.includes(s.key);
+      <div style={styles.genStages} aria-label="Generating ad">
+        {STAGES.map((key) => {
+          const done = generation.doneStages.includes(key);
           return (
-            <motion.div
-              key={s.key}
+            <motion.i
+              key={key}
               style={{
-                ...styles.genStage,
-                borderColor: done ? primary : "rgba(255,255,255,0.2)",
+                ...styles.genDot,
+                background: done ? primary : "rgba(16,16,20,0.18)",
               }}
-              animate={
-                done
-                  ? {
-                      scale: [1.2, 1],
-                      backgroundColor: "rgba(255,255,255,0.06)",
-                    }
-                  : {}
-              }
+              animate={done ? { scale: [1.6, 1] } : {}}
               transition={{ type: "spring", stiffness: 300, damping: 16 }}
-            >
-              <span
-                style={{ color: done ? primary : "var(--platform-text-dim)" }}
-              >
-                {done ? "✓" : "·"} {s.label}
-              </span>
-            </motion.div>
+            />
           );
         })}
       </div>
@@ -131,10 +117,12 @@ function GenerationLabels({
 function PlayingLabels({
   brand,
   startedAt,
+  encore = false,
 }: {
   segment: Segment;
   brand: BrandSummary | undefined;
   startedAt?: string;
+  encore?: boolean;
 }) {
   return (
     <motion.div
@@ -150,7 +138,7 @@ function PlayingLabels({
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        NOW PLAYING
+        {encore ? "ENCORE" : "NOW PLAYING"}
       </motion.div>
       <motion.div
         style={styles.adBrand}
@@ -254,14 +242,6 @@ const styles: Record<string, React.CSSProperties> = {
     position: "relative",
     color: "var(--slop-ink)",
   },
-  genTitle: {
-    fontSize: "clamp(28px, 5vw, 64px)",
-    fontWeight: 900,
-    letterSpacing: 4,
-    color: "var(--slop-ink)",
-    position: "relative",
-    textShadow: "0 2px 20px rgba(255,255,255,0.7)",
-  },
   genBrand: {
     fontSize: "clamp(18px, 2.6vw, 32px)",
     fontWeight: 700,
@@ -270,18 +250,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   genStages: {
     display: "flex",
-    gap: 12,
-    marginTop: 8,
+    gap: 10,
+    marginTop: 4,
     position: "relative",
-    flexWrap: "wrap",
     justifyContent: "center",
   },
-  genStage: {
-    padding: "8px 16px",
-    borderRadius: 12,
-    border: "2px solid",
-    fontWeight: 700,
-    fontSize: 15,
+  genDot: {
+    width: 12,
+    height: 12,
+    borderRadius: "50%",
   },
   adContent: {
     position: "fixed",

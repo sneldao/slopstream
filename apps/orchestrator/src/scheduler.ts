@@ -17,15 +17,23 @@ import type {
   GenerationStage,
   ProductionTier,
   PublicChallenge,
+  Segment,
   StreamOpsMetrics,
 } from "@slopstream/shared";
 import { FREE_BRAND_ID } from "@slopstream/shared";
 import type { ApiClient } from "./apiClient.js";
+import {
+  pickEncoreCandidate,
+  prefetchDepthFor,
+  updateEwma,
+  type EncoreRing,
+} from "./encore.js";
 import type { OrchestratorEnv } from "./env.js";
 import type { Gateway } from "./gateway.js";
 import {
   continuityFromResult,
   marketContextFromSnapshot,
+  marketIsHot,
 } from "./marketContext.js";
 
 type Winner = NonNullable<AuctionState["winner"]>;
@@ -57,6 +65,8 @@ interface Playback {
   startedAtMs: number;
   durationSec: number;
   held: PublicChallenge | null;
+  /** Orchestrator-only replay: no window, no challenges, no clearing. */
+  encore?: boolean;
   timer?: NodeJS.Timeout;
   done: () => void;
 }
@@ -82,6 +92,15 @@ export class SegmentScheduler {
   private firingChallenge = false;
   private lastGenDurationMs?: number;
   private lastGenSegmentId?: string;
+  /** Smoothed generation latency — drives the adaptive prefetch depth. */
+  private genDurationEwmaMs?: number;
+  /** Encore replay ring — ephemeral; restarts reset it by design. */
+  private readonly encoreRing: EncoreRing = { encoredAtMs: new Map() };
+  private encorePlaysTotal = 0;
+  private lastEncoreSegmentId?: string;
+  /** True between entering startPlayback and live playback starting — keeps
+   *  a chained encore from outrunning an in-flight live start. */
+  private liveIncoming = false;
   private pollTimer?: NodeJS.Timeout;
   private stopped = false;
 
@@ -123,11 +142,13 @@ export class SegmentScheduler {
         ? Math.max(0, playback.durationSec - elapsedSec)
         : undefined;
     const upcomingCount = snapshot?.upcomingSegments.length ?? 0;
+    const encoreActive = !!playback?.encore;
     const atRisk =
       this.generationInFlight &&
       upcomingCount === 0 &&
       remainingSec !== undefined &&
-      remainingSec < 15;
+      remainingSec < 15 &&
+      !encoreActive;
 
     return {
       asOf: new Date().toISOString(),
@@ -137,6 +158,11 @@ export class SegmentScheduler {
         lastDurationMs: this.lastGenDurationMs,
         lastSegmentId: this.lastGenSegmentId,
         atRisk,
+        ewmaDurationMs: this.genDurationEwmaMs,
+        prefetchDepth: prefetchDepthFor(
+          this.genDurationEwmaMs,
+          this.env.segmentPlaySec,
+        ),
       },
       playback: {
         active: !!playback,
@@ -149,6 +175,11 @@ export class SegmentScheduler {
           remainingSec !== undefined
             ? Math.round(remainingSec * 10) / 10
             : undefined,
+      },
+      encore: {
+        active: encoreActive,
+        totalPlays: this.encorePlaysTotal,
+        lastSegmentId: this.lastEncoreSegmentId,
       },
       queue: {
         nowPlayingStatus: snapshot?.nowPlaying?.status,
@@ -234,6 +265,7 @@ export class SegmentScheduler {
 
       await this.processClosedSlots();
       await this.prefetchUpcoming();
+      void this.maybeStartEncore();
     } catch {
       // API not ready yet; retry on the next tick.
     }
@@ -322,14 +354,19 @@ export class SegmentScheduler {
   }
 
   /**
-   * Keep one segment generating ahead of playback so the stream does not
-   * stall between windows when generation is slower than segmentPlaySec.
+   * Keep segments generating ahead of playback so the stream does not stall
+   * between windows. Depth adapts to measured generation latency: slow
+   * generators get a deeper buffer (see prefetchDepthFor).
    */
   private async prefetchUpcoming(): Promise<void> {
     if (this.driving || this.generationInFlight) return;
+    const depth = prefetchDepthFor(
+      this.genDurationEwmaMs,
+      this.env.segmentPlaySec,
+    );
     try {
       const snapshot = await this.api.snapshot();
-      if (snapshot.upcomingSegments.length >= 1) return;
+      if (snapshot.upcomingSegments.length >= depth) return;
     } catch {
       return;
     }
@@ -420,6 +457,10 @@ export class SegmentScheduler {
       const result = await generation;
       this.lastGenDurationMs = Date.now() - genStartedAt;
       this.lastGenSegmentId = segmentId;
+      this.genDurationEwmaMs = updateEwma(
+        this.genDurationEwmaMs,
+        this.lastGenDurationMs,
+      );
       this.continuityImageUrl =
         continuityFromResult(result) ?? this.continuityImageUrl;
 
@@ -457,18 +498,30 @@ export class SegmentScheduler {
     brandId: string,
     _slot: number,
   ): Promise<void> {
-    // Serialize playback: never open a second window while one plays.
-    await this.playbackSettled;
-    if (this.stopped) return;
-
-    // /playing opens the window and freezes the threshold — call exactly once.
-    const receipt = await this.api.markPlaying(segmentId);
-    await this.beginPlayback(
-      segmentId,
-      brandId,
-      Date.parse(receipt.startedAt),
-      this.env.segmentPlaySec,
-    );
+    // Block chained encores from starting while a live segment is incoming.
+    this.liveIncoming = true;
+    try {
+      if (!this.playback?.encore) {
+        // Serialize live windows: never open a second window while one plays.
+        await this.playbackSettled;
+        if (this.stopped) return;
+      }
+      // /playing opens the window and freezes the threshold — call exactly
+      // once. When an encore is on screen, open BEFORE cutting it: a failed
+      // open leaves the encore playing instead of producing dead air.
+      const receipt = await this.api.markPlaying(segmentId);
+      this.cutEncore();
+      await this.playbackSettled;
+      if (this.stopped) return;
+      await this.beginPlayback(
+        segmentId,
+        brandId,
+        Date.parse(receipt.startedAt),
+        this.env.segmentPlaySec,
+      );
+    } finally {
+      this.liveIncoming = false;
+    }
   }
 
   private async beginPlayback(
@@ -511,6 +564,7 @@ export class SegmentScheduler {
       done: settle,
     };
     this.playback = playback;
+    this.encoreRing.lastAiredSegmentId = segmentId;
     console.log(`[scheduler] segment ${segmentId} playing (${durationSec}s)`);
     this.tickPlayback(playback);
   }
@@ -568,6 +622,13 @@ export class SegmentScheduler {
   }
 
   private async finishPlayback(playback: Playback): Promise<void> {
+    // Encores live outside the clearing ledger — settle and chain the next
+    // one immediately if the queue is still empty and the market still cold.
+    if (playback.encore) {
+      playback.done();
+      void this.maybeStartEncore();
+      return;
+    }
     try {
       await this.api.closeWindow(playback.segmentId);
       console.log(`[scheduler] segment ${playback.segmentId} window closed`);
@@ -582,6 +643,85 @@ export class SegmentScheduler {
     } finally {
       playback.done();
     }
+  }
+
+  // ------------------------------------------------------------- encore queue
+
+  /**
+   * Cover dead air with a replay of a previously aired segment. Runs when
+   * nothing is playing or ready, no live segment is incoming, the market is
+   * cold, and a candidate exists. Encores bypass the economic loop entirely
+   * (no openWindow/closeWindow/challenges) and are cut the moment a real
+   * segment becomes ready (see startPlayback).
+   */
+  private async maybeStartEncore(): Promise<void> {
+    if (this.stopped || this.playback || this.liveIncoming) return;
+    let snapshot;
+    try {
+      snapshot = await this.api.snapshot();
+    } catch {
+      return;
+    }
+    // A live playback or ready segment can have started during the fetch.
+    if (this.stopped || this.playback || this.liveIncoming) return;
+    if (snapshot.nowPlaying) return;
+    if (snapshot.upcomingSegments.some((s) => s.status === "ready")) return;
+    if (marketIsHot(snapshot)) return;
+    const candidate = pickEncoreCandidate(
+      snapshot.recentSegments,
+      this.encoreRing,
+    );
+    if (!candidate) return;
+    if (this.stopped || this.playback || this.liveIncoming) return;
+    this.beginEncorePlayback(candidate);
+  }
+
+  private beginEncorePlayback(segment: Segment): void {
+    let settle!: () => void;
+    const settled = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    this.playbackSettled = settled;
+
+    const brandId = segment.brandId ?? FREE_BRAND_ID;
+    this.encoreRing.lastAiredSegmentId = segment.id;
+    this.encoreRing.lastEncoreBrandId = brandId;
+    this.encoreRing.encoredAtMs.set(segment.id, Date.now());
+    this.encorePlaysTotal += 1;
+    this.lastEncoreSegmentId = segment.id;
+
+    this.gateway.emit({
+      type: "segment.encore",
+      segmentId: segment.id,
+      brandId,
+      startedAt: new Date().toISOString(),
+      slot: segment.slot,
+      assetUrl: segment.assetUrl as string,
+      durationSec: this.env.segmentPlaySec,
+      summary: segment.summary,
+    });
+
+    const playback: Playback = {
+      segmentId: segment.id,
+      startedAtMs: Date.now(),
+      durationSec: this.env.segmentPlaySec,
+      held: null,
+      encore: true,
+      done: settle,
+    };
+    this.playback = playback;
+    console.log(`[scheduler] encore: replaying ${segment.id}`);
+    this.tickPlayback(playback);
+  }
+
+  /** Stop an in-flight encore (no API calls, no event — the incoming
+   *  segment.playing supersedes it on screen). */
+  private cutEncore(): void {
+    const playback = this.playback;
+    if (!playback?.encore) return;
+    if (playback.timer) clearTimeout(playback.timer);
+    this.playback = null;
+    playback.done();
   }
 
   private delay(ms: number): Promise<void> {

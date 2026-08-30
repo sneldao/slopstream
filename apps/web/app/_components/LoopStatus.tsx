@@ -1,30 +1,19 @@
 "use client";
 
-import { LOOP_STEPS, deriveLoopPhase, type LoopPhase } from "@/lib/loopPhase";
+import { LOOP_STEPS, deriveLoopPhase } from "@/lib/loopPhase";
 import type { StreamState } from "@/lib/streamReducer";
-
-const PHASE_HINT: Record<LoopPhase, string> = {
-  bid: "Brands compete for the next slot",
-  play: "The winning ad is on air",
-  prove: "Listeners answer attention checks",
-  clear: "Verified attention unlocks the pool",
-};
 
 /**
  * Tiny shared stepper: Bid → Play → Prove → Clear.
- * Hints are optional — screen-only by default so Listen/Brand stay quiet.
  */
 export function LoopStatus({
   state,
   tone = "dark",
   className = "",
-  showHint = false,
 }: {
   state: StreamState;
   tone?: "light" | "dark";
   className?: string;
-  /** Sentence under the stepper — keep for spectacle, off for phone/cockpit. */
-  showHint?: boolean;
 }) {
   const phase = deriveLoopPhase(state);
 
@@ -55,9 +44,6 @@ export function LoopStatus({
           );
         })}
       </ol>
-      {showHint ? (
-        <p className="slop-loop-status__hint">{PHASE_HINT[phase]}</p>
-      ) : null}
     </div>
   );
 }

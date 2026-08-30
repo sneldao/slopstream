@@ -359,6 +359,20 @@ export type WsEvent =
       brandId: string;
       startedAt: string;
     }
+  | {
+      /** Orchestrator-only replay of a previously aired segment to cover dead
+       *  air. Carries the full playable payload because the API snapshot never
+       *  reports encores and segment.playing has no assetUrl. No clearing
+       *  window, challenges, or rewards attach to an encore. */
+      type: "segment.encore";
+      segmentId: string;
+      brandId: string;
+      startedAt: string;
+      slot: number;
+      assetUrl: string;
+      durationSec: number;
+      summary: string;
+    }
   | { type: "challenge.fired"; challenge: PublicChallenge }
   | {
       type: "attention.verified";
@@ -500,12 +514,21 @@ export interface StreamOpsMetrics {
     lastSegmentId?: string;
     /** True when playback may run dry before the next segment is ready. */
     atRisk: boolean;
+    /** Smoothed generation duration driving the adaptive prefetch depth. */
+    ewmaDurationMs?: number;
+    prefetchDepth?: number;
   };
   playback: {
     active: boolean;
     segmentId?: string;
     elapsedSec?: number;
     remainingSec?: number;
+  };
+  /** Dead-air replays — orchestrator-only, outside the clearing ledger. */
+  encore?: {
+    active: boolean;
+    totalPlays: number;
+    lastSegmentId?: string;
   };
   queue: {
     nowPlayingStatus?: string;

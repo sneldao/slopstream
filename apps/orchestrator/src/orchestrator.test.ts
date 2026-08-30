@@ -12,6 +12,7 @@ import WebSocket from "ws";
 
 import type {
   PublicChallenge,
+  Segment,
   StreamSnapshot,
   WsDelivery,
 } from "@slopstream/shared";
@@ -920,4 +921,264 @@ describe("failed-segment retry", () => {
       await close(fakeApi.server);
     }
   }, 15_000);
+});
+
+// ---------------------------------------------------------------------------
+// Encore queue — dead-air replays stay outside the clearing ledger
+// ---------------------------------------------------------------------------
+
+function segmentFixture(id: string, overrides: Partial<Segment> = {}): Segment {
+  return {
+    id,
+    slot: Number(id.split("_")[1] ?? 0),
+    brandId: `brand_${id}`,
+    assetUrl: `https://cdn.test/${id}.mp4`,
+    durationSeconds: 20,
+    summary: `summary ${id}`,
+    status: "done",
+    ...overrides,
+  };
+}
+
+function coldSnapshot(overrides: Partial<StreamSnapshot> = {}): StreamSnapshot {
+  return {
+    asOfSequence: 1,
+    nowPlaying: null,
+    recentSegments: [segmentFixture("seg_2"), segmentFixture("seg_1")],
+    upcomingSegments: [],
+    brands: [],
+    leaderboard: [],
+    nextSlotPriceUsd: 0,
+    listeners: 0,
+    attentionProofs: 0,
+    listenerRewardsUsd: 0,
+    ...overrides,
+  };
+}
+
+function encoreEnv(segmentPlaySec: number): OrchestratorEnv {
+  return {
+    port: 0,
+    apiBaseUrl: "http://unused.test",
+    generatorBaseUrl: "http://unused.test",
+    orchestratorApiToken: "test-orchestrator-token",
+    generatorApiToken: "test-generator-token",
+    segmentPlaySec,
+    auctionPollMs: 60_000,
+    eventsPollMs: 60_000,
+    genStageDelayMs: 5,
+    generationTimeoutMs: 180_000,
+    parallelApiKey: "",
+    scraperPollMs: 60_000,
+    scraperMaxResults: 10,
+  };
+}
+
+type WsEventLike = { type: string; [key: string]: unknown };
+
+interface EncoreSchedulerInternals {
+  playback: (PlaybackLike & { encore?: boolean }) | null;
+  playbackSettled: Promise<void>;
+  genDurationEwmaMs?: number;
+  highSlotSeen: number;
+  maybeStartEncore: () => Promise<void>;
+  startPlayback: (
+    segmentId: string,
+    brandId: string,
+    slot: number,
+  ) => Promise<void>;
+  prefetchUpcoming: () => Promise<void>;
+}
+
+describe("encore queue", () => {
+  function makeScheduler(
+    snapshot: StreamSnapshot,
+    segmentPlaySec: number,
+    calls: {
+      markPlaying: string[];
+      closeWindow: string[];
+      nextChallenge: string[];
+    },
+  ) {
+    const events: WsEventLike[] = [];
+    const gatewayStub = {
+      emit: (event: WsEventLike) => {
+        events.push(event);
+      },
+    } as unknown as Gateway;
+    const apiStub = {
+      snapshot: async () => snapshot,
+      markPlaying: async (segmentId: string) => {
+        calls.markPlaying.push(segmentId);
+        return {
+          segmentId,
+          startedAt: new Date().toISOString(),
+          attentionThreshold: 3,
+        };
+      },
+      closeWindow: async (segmentId: string) => {
+        calls.closeWindow.push(segmentId);
+        return true;
+      },
+      nextChallenge: async (segmentId: string) => {
+        calls.nextChallenge.push(segmentId);
+        return null;
+      },
+      auctionForSlot: async () => null,
+    } as unknown as ApiClient;
+    const scheduler = new SegmentScheduler({
+      env: encoreEnv(segmentPlaySec),
+      gateway: gatewayStub,
+      api: apiStub,
+    });
+    return {
+      scheduler,
+      events,
+      internals: scheduler as unknown as EncoreSchedulerInternals,
+    };
+  }
+
+  it("fills dead air with a replay and bypasses the economic loop", async () => {
+    const calls = { markPlaying: [], closeWindow: [], nextChallenge: [] } as {
+      markPlaying: string[];
+      closeWindow: string[];
+      nextChallenge: string[];
+    };
+    const { scheduler, events, internals } = makeScheduler(
+      coldSnapshot(),
+      60,
+      calls,
+    );
+    try {
+      await internals.maybeStartEncore();
+      expect(events.map((e) => e.type)).toEqual(["segment.encore"]);
+      const encore = events[0];
+      // Least-recently-encored + older-first: seg_1, not the newest seg_2.
+      expect(encore.segmentId).toBe("seg_1");
+      expect(encore.assetUrl).toBe("https://cdn.test/seg_1.mp4");
+      expect(encore.brandId).toBe("brand_seg_1");
+      expect(internals.playback?.encore).toBe(true);
+      expect(calls.markPlaying).toEqual([]);
+      expect(calls.closeWindow).toEqual([]);
+      expect(calls.nextChallenge).toEqual([]);
+    } finally {
+      scheduler.stop();
+    }
+  });
+
+  it("chains encores without repeating the immediately previous segment", async () => {
+    const calls = { markPlaying: [], closeWindow: [], nextChallenge: [] } as {
+      markPlaying: string[];
+      closeWindow: string[];
+      nextChallenge: string[];
+    };
+    const { scheduler, events, internals } = makeScheduler(
+      coldSnapshot(),
+      1,
+      calls,
+    );
+    try {
+      await internals.maybeStartEncore();
+      await waitFor(
+        () => events.filter((e) => e.type === "segment.encore").length >= 2,
+        5000,
+      );
+      const ids = events
+        .filter((e) => e.type === "segment.encore")
+        .map((e) => e.segmentId);
+      expect(ids[0]).not.toBe(ids[1]);
+      // Economy stays untouched across the whole chain.
+      expect(calls.markPlaying).toEqual([]);
+      expect(calls.closeWindow).toEqual([]);
+      expect(calls.nextChallenge).toEqual([]);
+    } finally {
+      scheduler.stop();
+    }
+  });
+
+  it("stays quiet while the market is hot", async () => {
+    const calls = { markPlaying: [], closeWindow: [], nextChallenge: [] } as {
+      markPlaying: string[];
+      closeWindow: string[];
+      nextChallenge: string[];
+    };
+    const hot = coldSnapshot({
+      leaderboard: [{ brandId: "brand_whale", amountUsd: 50 }],
+    });
+    const { scheduler, events, internals } = makeScheduler(hot, 60, calls);
+    try {
+      await internals.maybeStartEncore();
+      expect(events).toEqual([]);
+      expect(internals.playback).toBeNull();
+    } finally {
+      scheduler.stop();
+    }
+  });
+
+  it("a live segment cuts the encore and opens exactly one window", async () => {
+    const calls = { markPlaying: [], closeWindow: [], nextChallenge: [] } as {
+      markPlaying: string[];
+      closeWindow: string[];
+      nextChallenge: string[];
+    };
+    const { scheduler, events, internals } = makeScheduler(
+      coldSnapshot(),
+      60,
+      calls,
+    );
+    try {
+      await internals.maybeStartEncore();
+      expect(internals.playback?.encore).toBe(true);
+
+      await internals.startPlayback("seg_live", "brand_live", 7);
+
+      expect(calls.markPlaying).toEqual(["seg_live"]);
+      expect(calls.closeWindow).toEqual([]);
+      expect(internals.playback?.encore).toBeFalsy();
+      expect(internals.playback?.segmentId).toBe("seg_live");
+      expect(events.map((e) => e.type)).toEqual([
+        "segment.encore",
+        "segment.playing",
+      ]);
+    } finally {
+      scheduler.stop();
+    }
+  });
+
+  it("prefetch depth adapts to smoothed generation latency", async () => {
+    const auctionSlots: number[] = [];
+    const snapshot = coldSnapshot({
+      upcomingSegments: [
+        segmentFixture("seg_9", { status: "generating" }),
+        segmentFixture("seg_8", { status: "generating" }),
+      ],
+    });
+    const gatewayStub = { emit: () => {} } as unknown as Gateway;
+    const apiStub = {
+      snapshot: async () => snapshot,
+      auctionForSlot: async (slot: number) => {
+        auctionSlots.push(slot);
+        return null;
+      },
+    } as unknown as ApiClient;
+    const scheduler = new SegmentScheduler({
+      env: encoreEnv(20),
+      gateway: gatewayStub,
+      api: apiStub,
+    });
+    const internals = scheduler as unknown as EncoreSchedulerInternals;
+    try {
+      // No latency data: depth 1 — two upcoming segments satisfy the gate.
+      internals.highSlotSeen = 2;
+      await internals.prefetchUpcoming();
+      expect(auctionSlots).toEqual([]);
+
+      // Slow generator (EWMA 45s vs 20s window): depth 3 — drive more work.
+      internals.genDurationEwmaMs = 45_000;
+      await internals.prefetchUpcoming();
+      expect(auctionSlots).toEqual([1]);
+    } finally {
+      scheduler.stop();
+    }
+  });
 });

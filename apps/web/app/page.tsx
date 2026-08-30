@@ -169,6 +169,7 @@ export default function HomePage() {
           brand={activeBrand}
           generation={state.generation}
           activeChallenge={state.activeChallenge}
+          encore={!!state.nowPlayingEncore}
           signalRef={signalRef}
         />
         <OutbidFlashOverlay
@@ -206,12 +207,7 @@ export default function HomePage() {
       />
 
       {!theater && (
-        <LoopStatus
-          state={state}
-          tone="light"
-          className="screen-loop-status"
-          showHint
-        />
+        <LoopStatus state={state} tone="light" className="screen-loop-status" />
       )}
 
       {!theater && (
