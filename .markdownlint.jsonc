@@ -1,0 +1,5 @@
+{
+  // Long prose lines and ASCII-art diagrams are both common in these docs.
+  "MD013": false,
+  "MD033": false
+}

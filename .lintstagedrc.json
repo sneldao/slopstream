@@ -1,0 +1,4 @@
+{
+  "*.md": ["markdownlint-cli2 --fix"],
+  "*.{json,yml,yaml,ts,tsx,js,jsx,css}": ["prettier --write"]
+}
