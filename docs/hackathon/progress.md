@@ -48,11 +48,16 @@ context }` request.
 - **ElevenLabs generation provider** (`apps/generator/src/elevenlabsProvider.ts`)
   — a full `GenerationProvider` that generates real ad content via the
   ElevenLabs API:
-  - TTS via `textToSpeech.convert` with `eleven_v3` model (all tiers).
+  - TTS via `textToSpeech.convert` — model configurable via
+    `ELEVENLABS_TTS_MODEL` (defaults to `eleven_flash_v2_5` for cost;
+    `eleven_v3` for expressive delivery).
   - Image generation via `flows.image` with `gemini-3-pro-image`
     (audio_image tier).
   - Video generation via `flows.video` with `veo-3.1-fast-generate-001`
     (video + premium tiers).
+  - Spend mitigation via `ELEVENLABS_MAX_TIER` — caps the generation tier,
+    downgrading higher tiers to the cap. Set to `audio` to skip image/video
+    generation entirely (TTS-only, cheapest path).
   - Template-based ad script generation from the brand brief (no separate
     LLM API key needed).
   - Assets saved locally and served by the generator's `/assets/` static
@@ -67,21 +72,51 @@ context }` request.
   `AttentionProofVerificationResult`, `AttentionProofVerificationFailure`,
   `StubAttentionProofPayload`, and `createServerStubAttentionProof` all
   defined in `packages/shared`.
+- **Real Midnight contract** (`contracts/src/ProofOfAttention.compact`) —
+  compiled with `compactc 0.31.1` (Compact 0.23 / runtime 0.16.0, matched to
+  the Midnight preprod testnet). Nullifier-based replay protection
+  (`persistentHash` of an ephemeral `listenerSecret` witness + segmentId +
+  challengeId), public `verifiedCount` counter, and a threshold flag that
+  flips when enough verified attention lands. Segment/challenge binding is
+  proven in-circuit and never disclosed on-chain. Artifacts (TS bindings,
+  zkir, prover/verifier keys) committed under
+  `packages/midnight/contract/src/managed/proofofattention`.
+- **Midnight SDK stack** (`packages/midnight/`) — full provider wiring for
+  preprod: LevelDB private state, indexer public data, node zk-config,
+  remote proof server (`httpClientProofProvider`), testkit wallet with
+  faucet auto-funding and tDUST generation. Scripts: `deploy` (fund + dust
+  - deploy, prints wallet seed + contract address), `state` (read ledger),
+  `submit-proof` (smoke-test a circuit call). The listener secret is
+  rotated to fresh randomness in private state before every submission.
+- **Midnight verifier mode** (`apps/verifier/src/midnightVerifier.ts`) —
+  `VERIFIER_MODE=midnight` joins the deployed contract and records each
+  structurally valid proof on-chain via `submitAttentionProof`, returning
+  `verifierMode: "midnight"` with `proofId = midnight_<nullifier>`. On-chain
+  failure surfaces as `recording_failed`; startup fails fast without
+  `MIDNIGHT_WALLET_SEED` + `PROOF_OF_ATTENTION_CONTRACT_ADDRESS`.
 
 ### Lane 1: stubbed / not yet implemented
 
-- **Midnight Compact contracts** — all four `.compact` files
-  (`ProofOfAttention`, `BidClearing`, `RewardClearing`,
-  `PreviewRightsThreshold`) are comment-only interface sketches. No Compact
-  toolchain, no compilation, no on-chain logic.
-- **Midnight verifier mode** — type support exists in shared, but selecting it
-  is intentionally rejected until a real verifier is installed.
+- **Settlement contracts** — `BidClearing`, `RewardClearing`, and
+  `PreviewRightsThreshold` remain comment-only interface sketches. Only
+  `ProofOfAttention` is compiled and deployable.
+- **Preprod deployment** — the contract, SDK stack, and midnight verifier
+  mode are wired and tested offline; the live deployment to Midnight preprod
+  needs a running proof server (`midnightntwrk/proof-server:8.0.3`, planned
+  on the team VPS behind an SSH tunnel) plus faucet funds.
+- **ProofOfAttention timing facts** — challenge timing windows are still
+  validated off-chain by the verifier; the contract proves segment/challenge
+  binding and replay protection only.
 - **Daytona generation pipeline** — the provider/job interfaces exist, but
   the Daytona sandbox path is not yet configured. The ElevenLabs direct
   mode (`GENERATOR_MODE=elevenlabs`) provides real TTS/image/video
   generation without a sandbox. A durable job store (beyond
   `InMemoryGenerationJobStore`) is not yet wired.
-- **Scraper** — no `ScrapedCompany` ingestion for free-ad cold start.
+- **Scraper** — `CompanyScraper` is wired in the orchestrator
+  (`apps/orchestrator/src/index.ts`); when `PARALLEL_API_KEY` is set it
+  periodically queries the Parallel Search API for newly launched companies
+  and ingests them into the API's free-ad queue. Without the key the scraper
+  is disabled and the stream falls back to the demo fixture.
 
 ### Lane 1: known handoffs and inconsistencies
 
@@ -110,16 +145,17 @@ challenge-source`, verifies the returned canonical segment ID, and posts
 
 ### Lane 1: next steps
 
-1. Wire the Compact compiler/runtime, network/deployment configuration, and a
-   witness/nullifier design; then implement and test `ProofOfAttention.compact`
-   before enabling Midnight mode.
+1. ~~Wire the Compact toolchain and implement `ProofOfAttention.compact`~~ —
+   done; remaining: run the proof server on the VPS, deploy to preprod, and
+   smoke-test with `submit-proof`.
 2. Replace the process-local verifier nonce set and generation job store with
    durable shared storage before more than one service instance is used.
 3. Choose and configure Daytona/model/asset providers, then implement a real
    `GenerationProvider` behind the existing request/result contract.
 4. Have the Lane 3 scheduler invoke `SegmentPreparationService` against live
    API and generator services, then verify the full playback/window-close path.
-5. Build the scraper for free-ad cold start.
+5. ~~Build the scraper for free-ad cold start.~~ — done; `CompanyScraper` is
+   wired and active when `PARALLEL_API_KEY` is set.
 
 ---
 
@@ -381,38 +417,44 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
    generation → playback → challenge answer → remote verification →
    threshold clear → `bid.cleared` + 80/20 reward) runs through the gateway
    with zero UI changes.
-5. Wire the real generation pipeline (TTS, image gen, video gen) after the 3D
-   world is stable. API keys provided by the user when ready.
+5. ~~Wire the real generation pipeline (TTS, image gen, video gen)~~ — done;
+   the ElevenLabs provider is wired with spend-mitigation env vars
+   (`ELEVENLABS_TTS_MODEL`, `ELEVENLABS_MAX_TIER`). Initial testing uses
+   `eleven_flash_v2_5` TTS with tier capped at `audio`; raise the cap to
+   unlock image/video generation.
 
 ---
 
 ## Cross-lane integration status
 
-| Integration point                | Status                                                                                                                               |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Shared types (`packages/shared`) | Frozen — all three lanes code against it                                                                                             |
-| Demo fixture → UI                | Working (Lane 3 owns player + fixture)                                                                                               |
-| Lane 2 API → Lane 1 verifier     | Working — authenticated remote handoff is covered by a real API-route → verifier HTTP integration test                               |
-| Lane 2 API → UI (live mode)      | Working — all three surfaces consume the API through the gateway's reverse proxy + WS feed                                           |
-| Orchestrator → generator         | Working — scheduler calls `POST /v1/generations` directly; generation failure → `/failed` → `bid.failed` + refund                    |
-| Orchestrator → Lane 2 auction    | Working — polls `GET /auctions/current` + `GET /auctions/:slot`, drives the full lifecycle                                           |
-| Orchestrator → WebSocket gateway | Working — same process; sole emitter of the five runtime event types when the API runs `PUBLISH_LIFECYCLE_EVENTS=0`                  |
-| Proof receipt end-to-end         | Working in live mode (server-issued stub attestation, `verifierMode` provenance on receipts); Midnight mode pending Lane 1 contracts |
+| Integration point                | Status                                                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------                      |
+| Shared types (`packages/shared`) | Frozen — all three lanes code against it                                                                                                                  |
+| Demo fixture → UI                | Working (Lane 3 owns player + fixture)                                                                                                                    |
+| Lane 2 API → Lane 1 verifier     | Working — authenticated remote handoff is covered by a real API-route → verifier HTTP integration test                                                    |
+| Lane 2 API → UI (live mode)      | Working — all three surfaces consume the API through the gateway's reverse proxy + WS feed                                                                |
+| Orchestrator → generator         | Working — scheduler calls `POST /v1/generations` directly; generation failure → `/failed` → `bid.failed` + refund                                         |
+| Orchestrator → Lane 2 auction    | Working — polls `GET /auctions/current` + `GET /auctions/:slot`, drives the full lifecycle                                                                |
+| Orchestrator → WebSocket gateway | Working — same process; sole emitter of the five runtime event types when the API runs `PUBLISH_LIFECYCLE_EVENTS=0`                                       |
+| Proof receipt end-to-end         | Working in live mode (server-issued stub attestation, `verifierMode` provenance on receipts); Midnight mode fully wired — pending the live preprod deploy |
 
 ## What demos today
 
 Two full paths, sharing the exact same UI code:
 
-- **Live mode (the P0 slice)** — with verifier (:4100), generator (:4300),
-  API (:4000, `PROOF_VERIFIER_MODE=remote`, `PUBLISH_LIFECYCLE_EVENTS=0`),
-  orchestrator (:4200), and web (:3000, `NEXT_PUBLIC_STREAM_MODE=live`)
-  running, the real loop plays: a brand bids from `/brand`, the auction
-  closes, the orchestrator generates through the stub generator, the ad
-  plays on `/screen` with brand tint, a listener on `/listen` answers a real
+- **Live mode (the P0 slice)** — with verifier (:4100), generator (:4300,
+  `GENERATOR_MODE=elevenlabs`), API (:4000, `PROOF_VERIFIER_MODE=remote`,
+  `PUBLISH_LIFECYCLE_EVENTS=0`), orchestrator (:4200, optional
+  `PARALLEL_API_KEY` for cold-start scraping), and web (:3000,
+  `NEXT_PUBLIC_STREAM_MODE=live`) running, the real loop plays: a brand bids
+  from `/brand`, the auction closes, the orchestrator generates through the
+  ElevenLabs provider (real TTS, optional image/video), the ad plays on
+  `/screen` with brand tint, a listener on `/listen` answers a real
   challenge, the proof verifies through `apps/verifier`, the attention
   threshold clears the bid with the 80/20 reward split, and the next auction
   opens. Kill the generator mid-flight and the bid fails gracefully with a
-  refund.
+  refund. Spend is mitigated via `ELEVENLABS_MAX_TIER` (cap at `audio` for
+  TTS-only) and `ELEVENLABS_TTS_MODEL` (defaults to `eleven_flash_v2_5`).
 - **Demo mode (the insurance policy)** — the demo-mode harness drives all
   three surfaces end-to-end with no backend:
 
