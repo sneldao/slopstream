@@ -405,6 +405,9 @@ function VideoPlane({
     video.src = url;
     video.crossOrigin = "anonymous";
     video.loop = true;
+    // Muted: the audio is played separately by useAudioSignal for the
+    // fluid visualization. This avoids double audio and lets the audio
+    // analyser drive the 3D scene.
     video.muted = true;
     video.playsInline = true;
     videoRef.current = video;
