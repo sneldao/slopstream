@@ -46,6 +46,7 @@ const EMPTY_STATE: StreamState = snapshotToState({
   asOfSequence: 0,
   nowPlaying: null,
   recentSegments: [],
+  upcomingSegments: [],
   brands: [],
   leaderboard: [],
   nextSlotPriceUsd: 0,

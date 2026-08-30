@@ -7,7 +7,7 @@ Product design and technical architecture for a live, infinite AI-generated adve
 - [overview.md](product/overview.md) — the core idea, what makes Slopstream different, positioning, the central product principle, and the proof-of-use / agent-channel future direction.
 - [economics.md](product/economics.md) — the economic model: verified spend, the 80/20 split, the attention reward pool (don't pay per question), bid clearing semantics, auction strategy and theory, and the anti-gaming layer.
 - [surfaces.md](product/surfaces.md) — the three main surfaces: the big screen, the listener experience (QR + mobile web), and the brand bidding console, plus the proof receipt.
-- [design-language.md](product/design-language.md) — the living canvas aesthetic: fluid event reactions, audio-reactive backgrounds, per-brand color palettes, the pragmatic build stack (Framer Motion + Canvas 2D + Web Audio), and the full event-to-screen behavior spec.
+- [design-language.md](product/design-language.md) — the authoritative Continuum design system: colourful media portals, archive fragments, composition recipes, event language, theater mode, and opt-in Earn Mode.
 - [content.md](product/content.md) — The Continuum (evolving ad-story continuity), randomized attention challenge types, and the free-AI-ads cold-start engine with company claim pages.
 
 ## Technical
@@ -23,4 +23,4 @@ Product design and technical architecture for a live, infinite AI-generated adve
 - [build-order.md](hackathon/build-order.md) — P0 must-work, P1 makes-the-demo-excellent, P2 stretch goals.
 - [team-split.md](hackathon/team-split.md) — splitting the work across three parallel development lanes.
 - [progress.md](hackathon/progress.md) — per-lane status: what's implemented, what's stubbed, known inconsistencies, and cross-lane integration status.
-- [3d-overhaul-plan.md](hackathon/3d-overhaul-plan.md) — phased build plan for the big-screen 3D fluid world (R3F + metaball shader + Rapier physics).
+- [3d-overhaul-plan.md](hackathon/3d-overhaul-plan.md) — archived decision record for the earlier 3D fluid-world prototype.

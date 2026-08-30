@@ -77,6 +77,7 @@ const INITIAL_SNAPSHOT: StreamSnapshot = {
       status: "done",
     },
   ],
+  upcomingSegments: [],
   brands: DEMO_BRANDS,
   leaderboard: [],
   nextSlotPriceUsd: 5,

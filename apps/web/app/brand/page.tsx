@@ -10,6 +10,8 @@ import { requestJson } from "@/lib/liveApi";
 import { SphereField } from "../_components/SphereField";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
+import { LoopStatus } from "../_components/LoopStatus";
+import { ScreenCrossLink } from "../_components/ScreenCrossLink";
 import { tierForAmount, tierMin } from "@/lib/tierForAmount";
 
 /**
@@ -183,6 +185,13 @@ export default function BrandPage() {
                   : "Market offline"}
             </span>
           }
+        />
+
+        <LoopStatus state={state} />
+        <ScreenCrossLink
+          brandId={brandId}
+          state={state}
+          leading={bidPlaced}
         />
 
         <FirstRunCoach

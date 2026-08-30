@@ -18,6 +18,110 @@
     "Avenir Next Condensed", "Avenir Next", "Helvetica Neue", sans-serif;
   --slop-body: "Avenir Next", "Helvetica Neue", sans-serif;
 
+  /* ---------------------------------------------------------------------
+     Form tokens.
+
+     Before these existed, every radius / shadow / veil / type size was a
+     literal at its call site, which is precisely why card-shaped panels
+     multiplied: pasting `borderRadius: 20, rgba(255,255,255,0.06),
+     blur(10px)` was cheaper than thinking about hierarchy. The scales below
+     are deliberately short so that reaching for a box is a decision rather
+     than a reflex, and so the non-box primitives (rules, veils, scale steps)
+     are equally cheap to reach for.
+     --------------------------------------------------------------------- */
+
+  /* Spacing — 4px base. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 32px;
+  --s-8: 44px;
+
+  /* Radius. `--r-pill` and `--r-round` carry most of the chrome; the boxy
+     steps exist for the few surfaces that genuinely need to be objects
+     (the proof receipt, the payout sheet, the portal). */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --r-2xl: 32px;
+  --r-pill: 999px;
+  --r-round: 50%;
+  --r-portal: clamp(22px, 3vw, 48px);
+
+  /* Backdrop blur. */
+  --blur-sm: 8px;
+  --blur-md: 14px;
+  --blur-lg: 20px;
+
+  /* Veils — translucent fills. Dark for the product surfaces, cream for the
+     big screen's daylight world, light for raised tiles on dark. */
+  --veil-dark-1: rgba(8, 8, 18, 0.5);
+  --veil-dark-2: rgba(8, 8, 18, 0.58);
+  --veil-dark-3: rgba(8, 8, 18, 0.72);
+  --veil-dark-4: rgba(8, 8, 18, 0.88);
+  --veil-light-1: rgba(255, 255, 255, 0.04);
+  --veil-light-2: rgba(255, 255, 255, 0.06);
+  --veil-light-3: rgba(255, 255, 255, 0.08);
+  --veil-cream-1: rgba(244, 241, 232, 0.78);
+  --veil-cream-2: rgba(244, 241, 232, 0.9);
+
+  /* Edges. The hairline tokens are the primary card replacement: a rule
+     groups content without drawing a container around it. */
+  --edge-light: rgba(255, 255, 255, 0.12);
+  --edge-light-strong: rgba(255, 255, 255, 0.2);
+  --edge-ink: rgba(16, 16, 20, 0.18);
+  --edge-ink-strong: rgba(16, 16, 20, 0.32);
+
+  /* Shadows. `sticker` is the brutalist hard offset that gives the physical
+     objects their weight; `ambient` is the soft cast that lifts a floating
+     element off a moving background. The sticker family is offset-only —
+     set `--sticker-color` on an element to change how hard it reads. */
+  --sticker-color: rgba(16, 16, 20, 0.2);
+  --shadow-sticker-sm: 3px 3px 0 var(--sticker-color);
+  --shadow-sticker-md: 5px 6px 0 var(--sticker-color);
+  --shadow-sticker-lg: 9px 10px 0 var(--sticker-color);
+  --shadow-sticker-xl: 14px 16px 0 var(--sticker-color);
+  --shadow-ambient-sm: 0 12px 32px rgba(0, 0, 0, 0.28);
+  --shadow-ambient-md: 0 16px 40px rgba(0, 0, 0, 0.34);
+  --shadow-ambient-lg: 0 30px 80px rgba(0, 0, 0, 0.42);
+  --shadow-glow-accent: 0 8px 24px rgba(255, 228, 94, 0.24);
+
+  /* Type scale. Fluid from `--t-lead` up, because the surfaces that carry
+     the identity are the ones where type has to do the work a box used to. */
+  --t-micro: 9px;
+  --t-eyebrow: 10px;
+  --t-caption: 12px;
+  --t-body: 13px;
+  --t-body-lg: 15px;
+  --t-lead: clamp(16px, 4.4vw, 19px);
+  --t-title: clamp(22px, 6.5vw, 30px);
+  --t-display: clamp(30px, 9vw, 46px);
+  --t-hero: clamp(44px, 13vw, 72px);
+  --t-monument: clamp(68px, 10vw, 170px);
+
+  /* Tracking + weight. */
+  --track-tight: -0.05em;
+  --track-wide: 0.08em;
+  --track-wider: 0.16em;
+  --track-widest: 0.22em;
+  --w-body: 650;
+  --w-strong: 750;
+  --w-black: 900;
+
+  /* Motion. Enter and exit are deliberately asymmetric — the
+     EaseReverseClipMenu lesson: a reversed animation played back at the
+     same curve and duration reads as sloppy, so exits are faster and
+     ease in rather than mirroring the entrance. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-quick: cubic-bezier(0.4, 0, 1, 1);
+  --dur-enter: 420ms;
+  --dur-exit: 240ms;
+
   /* Brand palette hooks — driven at runtime by the active brand.
      Defaults are the platform aurora so empty-market state looks right. */
   --brand-primary: var(--platform-bg-2);
@@ -93,7 +197,7 @@ a {
 .slop-kicker::before {
   width: 0.55rem;
   height: 0.55rem;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   background: currentColor;
   box-shadow: 0 0 18px currentColor;
   content: "";
@@ -104,18 +208,18 @@ a {
   display: inline-flex;
   align-items: center;
   min-height: 36px;
-  padding: 8px 12px;
-  border: 1px solid rgba(16, 16, 20, 0.18);
-  border-radius: 999px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--edge-ink);
+  border-radius: var(--r-pill);
   background: var(--slop-cream);
   color: var(--slop-ink);
   font-family: var(--slop-display);
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wider);
   text-decoration: none;
   text-transform: uppercase;
-  box-shadow: 3px 3px 0 rgba(16, 16, 20, 0.18);
+  box-shadow: var(--shadow-sticker-sm);
 }
 
 /* Cross-surface navigation */
@@ -158,17 +262,17 @@ a {
 .slop-nav__switcher {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  background: rgba(8, 8, 18, 0.58);
-  backdrop-filter: blur(14px);
+  gap: var(--s-1);
+  padding: var(--s-1);
+  border: 1px solid var(--edge-light-strong);
+  border-radius: var(--r-pill);
+  background: var(--veil-dark-2);
+  backdrop-filter: blur(var(--blur-md));
 }
 
 .slop-nav--light .slop-nav__switcher {
-  border-color: rgba(16, 16, 20, 0.16);
-  background: rgba(244, 241, 232, 0.78);
+  border-color: var(--edge-ink);
+  background: var(--veil-cream-1);
 }
 
 .slop-nav__link {
@@ -176,12 +280,12 @@ a {
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
+  padding: 0 var(--s-3);
+  border-radius: var(--r-pill);
   color: rgba(255, 253, 246, 0.62);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
   text-decoration: none;
   text-transform: uppercase;
   transition:
@@ -231,77 +335,17 @@ a {
   display: contents;
 }
 
-.slop-value-prop {
-  margin: 0;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  background: rgba(8, 8, 18, 0.5);
-  backdrop-filter: blur(12px);
-  color: rgba(255, 253, 246, 0.72);
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.4;
-}
-
 .slop-value-prop__dismiss {
   display: inline-flex;
   margin-left: 10px;
   border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
-  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  padding: var(--s-1) 10px;
   background: transparent;
   color: var(--slop-yellow);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.slop-wallet {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 18px;
-  background: rgba(8, 8, 18, 0.58);
-  backdrop-filter: blur(16px);
-}
-
-.slop-wallet__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  color: rgba(255, 253, 246, 0.72);
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.slop-wallet__row strong {
-  color: #fff;
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-
-.slop-wallet__row--mute {
-  opacity: 0.7;
-  font-size: 12px;
-}
-
-.slop-wallet__cta {
-  margin-top: 4px;
-  border: none;
-  border-radius: 999px;
-  min-height: 44px;
-  padding: 12px 16px;
-  background: var(--slop-yellow);
-  color: var(--slop-ink);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -313,32 +357,32 @@ a {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: var(--s-4);
+  padding-bottom: calc(var(--s-4) + env(safe-area-inset-bottom, 0px));
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--blur-sm));
 }
 
 .slop-payout-sheet {
   width: min(420px, 100%);
-  padding: 22px 20px 18px;
+  padding: 22px var(--s-5) 18px;
   border: 2px solid var(--slop-ink);
-  border-radius: 24px 24px 18px 18px;
+  border-radius: var(--r-xl) var(--r-xl) var(--r-lg) var(--r-lg);
   background: var(--slop-cream);
   color: var(--slop-ink);
-  box-shadow: 8px 10px 0 rgba(16, 16, 20, 0.2);
+  box-shadow: var(--shadow-sticker-lg);
 }
 
 .slop-payout-sheet__kicker {
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wider);
   text-transform: uppercase;
   color: rgba(16, 16, 20, 0.5);
 }
 
 .slop-payout-sheet h2 {
-  margin: 8px 0 10px;
+  margin: var(--s-2) 0 10px;
   font-family: var(--slop-display);
   font-size: 28px;
   line-height: 0.95;
@@ -348,7 +392,7 @@ a {
 .slop-payout-sheet p {
   margin: 0;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: var(--w-body);
   line-height: 1.4;
   color: rgba(16, 16, 20, 0.72);
 }
@@ -363,13 +407,13 @@ a {
 .slop-payout-sheet__rows > div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: var(--s-3);
+  padding: var(--s-3) 14px;
   border: 1px solid rgba(16, 16, 20, 0.14);
-  border-radius: 14px;
+  border-radius: var(--r-sm);
   background: rgba(255, 255, 255, 0.45);
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--t-body);
+  font-weight: var(--w-body);
 }
 
 .slop-payout-sheet__rows strong {
@@ -381,8 +425,8 @@ a {
 .slop-payout-sheet__close {
   width: 100%;
   min-height: 48px;
-  border-radius: 999px;
-  font-weight: 900;
+  border-radius: var(--r-pill);
+  font-weight: var(--w-black);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -441,78 +485,55 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--s-2);
   min-height: 36px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  background: rgba(8, 8, 18, 0.58);
-  backdrop-filter: blur(14px);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--edge-light-strong);
+  border-radius: var(--r-pill);
+  background: var(--veil-dark-2);
+  backdrop-filter: blur(var(--blur-md));
   color: rgba(255, 253, 246, 0.78);
-  font-size: 10px;
+  font-size: var(--t-eyebrow);
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   cursor: pointer;
-}
-
-.slop-meter {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  background: rgba(8, 8, 18, 0.58);
-  backdrop-filter: blur(16px);
-}
-
-.slop-meter__bar {
-  height: 14px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.slop-meter__fill {
-  height: 100%;
-  border-radius: 999px;
 }
 
 .slop-coach {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 14px var(--s-4);
   border: 1px solid rgba(255, 228, 94, 0.35);
-  border-radius: 16px;
+  border-radius: var(--r-md);
   background: color-mix(in srgb, var(--slop-cream) 92%, transparent);
   color: var(--slop-ink);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-ambient-md);
 }
 
 .slop-coach__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--s-3);
 }
 
 .slop-coach__top strong {
   font-family: var(--slop-display);
-  font-size: 15px;
+  font-size: var(--t-body-lg);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .slop-coach__dismiss {
   border: 1px solid var(--slop-ink);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 6px 10px;
   background: var(--slop-yellow);
   color: var(--slop-ink);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -522,9 +543,9 @@ a {
   padding-left: 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  font-weight: 650;
+  gap: var(--s-1);
+  font-size: var(--t-body);
+  font-weight: var(--w-body);
   line-height: 1.35;
 }
 
@@ -546,11 +567,11 @@ main.has-dock {
   z-index: 3;
   width: min(100%, 480px);
   margin: 0 auto;
-  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 28px
-    max(16px, env(safe-area-inset-left, 0px));
+  padding: var(--s-2) max(var(--s-4), env(safe-area-inset-right, 0px)) 28px
+    max(var(--s-4), env(safe-area-inset-left, 0px));
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--s-4);
 }
 
 .slop-frame--wide {
@@ -567,13 +588,13 @@ main.has-dock {
   bottom: max(12px, env(safe-area-inset-bottom, 0px));
   left: max(12px, env(safe-area-inset-left, 0px));
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  gap: var(--s-1);
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 22px;
-  background: rgba(8, 8, 18, 0.88);
+  background: var(--veil-dark-4);
   backdrop-filter: blur(18px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-ambient-md);
 }
 
 .slop-nav--screen {
@@ -583,7 +604,7 @@ main.has-dock {
   left: 0;
   z-index: 40;
   background: color-mix(in srgb, var(--slop-cream) 82%, transparent);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--blur-md));
 }
 
 .screen-continuum-shell {
@@ -601,10 +622,10 @@ main.has-dock {
   justify-content: center;
   gap: 2px;
   min-height: 48px;
-  border-radius: 16px;
+  border-radius: var(--r-md);
   color: rgba(255, 253, 246, 0.58);
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
   letter-spacing: 0.06em;
   text-decoration: none;
   text-transform: uppercase;
@@ -612,7 +633,7 @@ main.has-dock {
 
 .slop-dock__link span {
   color: var(--slop-yellow);
-  font-size: 9px;
+  font-size: var(--t-micro);
   letter-spacing: 0.12em;
 }
 
@@ -1816,8 +1837,8 @@ main.has-dock {
   }
 
   .slop-value-prop {
-    font-size: 12px;
-    padding: 10px 12px;
+    font-size: var(--t-caption);
+    padding-left: 10px;
   }
 
   .slop-coach {
@@ -1962,6 +1983,539 @@ main.has-dock {
 
 .listen-spheres .sphere-field__orb:nth-child(n + 8) {
   display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Listener surface — non-card primitives.
+
+   A card does four jobs: group, separate, rank, and offer a hit target. On a
+   phone it does them badly, because a bounded rectangle inside a bounded
+   rectangle wastes the only axis you have. The primitives below do the same
+   four jobs without drawing a container:
+
+     · group     -> a hairline rule and whitespace
+     · separate  -> a rule between rows, not a box around each
+     · rank      -> type scale; the number that matters is simply biggest
+     · hit target-> full-bleed rows at >= 56px, so the target is the row
+
+   Nothing here has a background fill, a border box or a radius except the
+   controls (pills) and the proof receipt, which stays a card on purpose —
+   it is a receipt, and it is the one still moment in the stream.
+   --------------------------------------------------------------------------- */
+
+.slop-loop-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+}
+
+.slop-loop-status--dark {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 8, 18, 0.45);
+}
+
+.slop-loop-status--light {
+  border: 1px solid rgba(16, 16, 20, 0.12);
+  background: rgba(255, 253, 246, 0.72);
+}
+
+.slop-loop-status__steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slop-loop-status__step {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  min-width: 0;
+}
+
+.slop-loop-status__step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: calc(50% + 8px);
+  width: calc(100% - 16px);
+  height: 1px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.slop-loop-status--light .slop-loop-status__step:not(:last-child)::after {
+  background: rgba(16, 16, 20, 0.14);
+}
+
+.slop-loop-status__step.is-done:not(:last-child)::after {
+  background: var(--slop-lime);
+  opacity: 0.55;
+}
+
+.slop-loop-status__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+}
+
+.slop-loop-status--light .slop-loop-status__dot {
+  border-color: rgba(16, 16, 20, 0.22);
+}
+
+.slop-loop-status__step.is-done .slop-loop-status__dot {
+  border-color: var(--slop-lime);
+  background: color-mix(in srgb, var(--slop-lime) 35%, transparent);
+}
+
+.slop-loop-status__step.is-active .slop-loop-status__dot {
+  border-color: var(--slop-yellow);
+  background: var(--slop-yellow);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--slop-yellow) 55%, transparent);
+}
+
+.slop-loop-status__label {
+  color: rgba(255, 253, 246, 0.42);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.slop-loop-status--light .slop-loop-status__label {
+  color: rgba(16, 16, 20, 0.42);
+}
+
+.slop-loop-status__step.is-active .slop-loop-status__label {
+  color: var(--slop-yellow);
+}
+
+.slop-loop-status--light
+  .slop-loop-status__step.is-active
+  .slop-loop-status__label {
+  color: #9a6b00;
+}
+
+.slop-loop-status__step.is-done .slop-loop-status__label {
+  color: rgba(255, 253, 246, 0.62);
+}
+
+.slop-loop-status--light
+  .slop-loop-status__step.is-done
+  .slop-loop-status__label {
+  color: rgba(16, 16, 20, 0.55);
+}
+
+.slop-loop-status__hint {
+  margin: 0;
+  color: rgba(255, 253, 246, 0.58);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.slop-loop-status--light .slop-loop-status__hint {
+  color: rgba(16, 16, 20, 0.58);
+}
+
+.slop-crosslink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(8, 8, 18, 0.5);
+  color: rgba(255, 253, 246, 0.82);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.slop-crosslink:hover {
+  border-color: var(--slop-lime);
+  background: rgba(8, 8, 18, 0.72);
+  transform: translateY(-1px);
+}
+
+.slop-crosslink strong {
+  color: var(--slop-lime);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.screen-loop-status {
+  position: fixed;
+  top: calc(72px + env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  z-index: 12;
+  max-width: min(360px, calc(100vw - 32px));
+  margin: 0;
+}
+
+/* A note, not a panel: a rule in the margin instead of a box. */
+.slop-value-prop {
+  margin: 0;
+  padding: 2px 0 2px var(--s-3);
+  border-left: 2px solid var(--slop-yellow);
+  color: rgba(255, 253, 246, 0.76);
+  font-size: var(--t-body);
+  font-weight: var(--w-body);
+  line-height: 1.45;
+}
+
+/* The stream state as one continuous readout. Replaces the reward-pool card
+   and the attention-meter card: the amount is the largest thing on the
+   surface, the threshold is the width of a rule, and the detail is a caption
+   underneath. No container. */
+.listen-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.listen-readout__label {
+  color: rgba(255, 253, 246, 0.5);
+  font-size: var(--t-micro);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-widest);
+  text-transform: uppercase;
+}
+
+.listen-readout__amount {
+  color: var(--slop-yellow);
+  font-family: var(--slop-display);
+  font-size: var(--t-display);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-tight);
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The threshold is the extent of a rule, not a bar inside a box. */
+.listen-readout__rule {
+  position: relative;
+  height: 3px;
+  background: var(--veil-light-3);
+}
+
+.listen-readout__rule > i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--fill, 0));
+  transition: transform var(--dur-enter) var(--ease-out-expo);
+}
+
+.listen-readout__rule--met > i {
+  background: linear-gradient(
+    90deg,
+    var(--threshold-bright),
+    var(--threshold-warm)
+  );
+}
+
+.listen-readout__note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s-2);
+  margin: 0;
+  color: rgba(255, 253, 246, 0.58);
+  font-size: var(--t-caption);
+  font-weight: var(--w-body);
+  line-height: 1.4;
+}
+
+.listen-readout__note b {
+  color: rgba(255, 253, 246, 0.92);
+  font-weight: var(--w-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The wallet as a ledger: rows divided by rules, no surrounding panel. */
+.listen-ledger {
+  display: flex;
+  flex-direction: column;
+}
+
+.listen-ledger__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+  border-top: 1px solid var(--edge-light);
+  color: rgba(255, 253, 246, 0.72);
+  font-size: var(--t-body);
+  font-weight: var(--w-body);
+}
+
+.listen-ledger__row strong {
+  color: #fff;
+  font-size: var(--t-lead);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.listen-ledger__row--mute {
+  color: rgba(255, 253, 246, 0.5);
+  font-size: var(--t-caption);
+}
+
+.listen-ledger__cta {
+  margin-top: var(--s-4);
+  border: none;
+  border-radius: var(--r-pill);
+  min-height: var(--s-8);
+  padding: var(--s-3) var(--s-4);
+  background: var(--slop-yellow);
+  color: var(--slop-ink);
+  font-size: var(--t-caption);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+   The attention check — full-bleed, no card.
+
+   The veil is edge-to-edge and ungraduated at the bottom, so the type band
+   is guaranteed contrast while the visualizer still reads through the top.
+   Content sits at the bottom: densest veil and closest to the thumb.
+   --------------------------------------------------------------------------- */
+.attn {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.attn:focus {
+  outline: none;
+}
+
+.attn__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      120% 52% at 50% 6%,
+      color-mix(in srgb, var(--brand-primary), transparent 62%),
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(8, 8, 18, 0.42) 0%,
+      rgba(8, 8, 18, 0.88) 34%,
+      rgba(8, 8, 18, 0.96) 62%,
+      rgba(8, 8, 18, 0.98) 100%
+    );
+  backdrop-filter: blur(var(--blur-lg)) saturate(1.1);
+}
+
+/* The countdown is the width of the viewport, not a ring in a header. */
+.attn__clock {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: var(--veil-light-3);
+}
+
+.attn__clock > i {
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--left, 1));
+  transition:
+    transform 120ms linear,
+    background 300ms ease;
+}
+
+.attn__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-6) 0 calc(var(--s-6) + env(safe-area-inset-bottom, 0px));
+}
+
+.attn__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-4);
+  padding-inline: max(var(--s-5), env(safe-area-inset-left, 0px));
+  color: rgba(255, 253, 246, 0.62);
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-widest);
+  text-transform: uppercase;
+}
+
+.attn__eyebrow > i {
+  width: var(--s-2);
+  height: var(--s-2);
+  border-radius: var(--r-round);
+  box-shadow: 0 0 12px currentColor;
+}
+
+.attn__remaining {
+  margin-left: auto;
+  color: rgba(255, 253, 246, 0.92);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--track-wide);
+}
+
+/* The question is the largest thing on the surface. That is the hierarchy —
+   there is no box telling you it matters. */
+.attn__question {
+  margin: 0 0 var(--s-6);
+  padding-inline: max(var(--s-5), env(safe-area-inset-left, 0px));
+  max-width: 18ch;
+  color: var(--platform-text);
+  font-family: var(--slop-display);
+  font-size: var(--t-hero);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-tight);
+  line-height: 0.94;
+  text-wrap: balance;
+}
+
+.attn__options {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--edge-light);
+}
+
+/* Each answer is a full-bleed row separated by a rule. The row IS the hit
+   target, so it is unavoidably large without a button-shaped box. */
+.attn__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  width: 100%;
+  min-height: 62px;
+  padding: var(--s-3) max(var(--s-5), env(safe-area-inset-left, 0px));
+  border: 0;
+  border-bottom: 1px solid var(--edge-light);
+  border-radius: 0;
+  background: none;
+  color: var(--platform-text);
+  font-family: var(--slop-body);
+  font-size: var(--t-lead);
+  font-weight: var(--w-strong);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Confirmation is a clip wash across the row rather than a fill swap. The
+   reveal eases out slowly; the reverse (below) is faster and eases in, so a
+   reversed state never reads as the entrance played backwards. */
+.attn__option::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--wash, var(--slop-yellow));
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform var(--dur-exit) var(--ease-in-quick);
+  content: "";
+}
+
+.attn__option.is-picked::before {
+  transform: scaleX(1);
+  transition: transform var(--dur-enter) var(--ease-out-expo);
+}
+
+.attn__option.is-picked {
+  color: var(--slop-ink);
+}
+
+.attn__option:disabled {
+  cursor: default;
+}
+
+.attn__option:not(.is-picked):disabled {
+  opacity: 0.4;
+}
+
+.attn__marker {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--r-round);
+  color: var(--slop-ink);
+  font-size: var(--t-caption);
+  font-weight: var(--w-black);
+}
+
+.attn__answer {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+
+.attn__tick {
+  position: relative;
+  z-index: 1;
+  font-size: var(--t-lead);
+  font-weight: var(--w-black);
+}
+
+.attn__expired {
+  margin: var(--s-4) 0 0;
+  padding-inline: max(var(--s-5), env(safe-area-inset-left, 0px));
+  color: rgba(255, 253, 246, 0.6);
+  font-size: var(--t-body);
+  font-weight: var(--w-body);
+}
+
+/* Landscape phones have almost no vertical room; drop the display step so
+   the question and every answer still fit without scrolling. */
+@media (max-height: 520px) {
+  .attn__question {
+    margin-bottom: var(--s-4);
+    font-size: var(--t-title);
+  }
+
+  .attn__body {
+    padding-top: var(--s-4);
+  }
+
+  .attn__option {
+    min-height: 52px;
+  }
 }
 
 .brand-spheres {

@@ -55,10 +55,24 @@ export function composeSnapshot(
     .slice(0, 8)
     .map(toSharedSegment);
 
+  // Upcoming queue — segments that are ready/generated but not yet playing.
+  // These are the next 1-2 segments the scheduler will air.
+  const upcomingSegments = [...ledger.segments.values()]
+    .filter(
+      (segment) =>
+        segment.status === "ready" ||
+        segment.status === "generating",
+    )
+    .filter((segment) => segment.id !== nowPlayingRow?.id)
+    .sort((a, b) => a.slot - b.slot)
+    .slice(0, 2)
+    .map(toSharedSegment);
+
   return {
     asOfSequence: bus.sequence,
     nowPlaying: nowPlayingRow ? toSharedSegment(nowPlayingRow) : null,
     recentSegments,
+    upcomingSegments,
     nowPlayingStartedAt:
       nowPlayingRow?.windowOpenedAtMs !== undefined
         ? new Date(nowPlayingRow.windowOpenedAtMs).toISOString()

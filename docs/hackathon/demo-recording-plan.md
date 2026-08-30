@@ -93,7 +93,7 @@ Before recording, run through the full loop once to verify everything works
 and pre-cache the ElevenLabs voice model:
 
 1. Open `http://localhost:3000/brand` — verify ACME AI balance shows $500
-2. Open `http://localhost:3000/listen` in a second tab — verify listener joins
+2. Open `http://localhost:3000/listen` in a second tab — verify listener joins and enable Earn Mode
 3. Place a $15 bid (audio tier) from the brand console
 4. Wait for the auction to close (~10s) and generation to complete (~5s)
 5. Answer the challenge on the listener tab
@@ -122,7 +122,7 @@ This gives you a clean ledger with fresh $500 balances for the recording.
 
 | Time | Action | Narration                                                                                                                                                                                                                                        |
 |------|--------|-----------                                                                                                                                                                                                                                       |
-| 0-5s | Show the big screen — 3D fluid world, empty market, "Slopstream" title | "Brands spend billions on ads people scroll past. Slopstream is a live attention market — brands bid for verified attention, and listeners earn up to 80% of the cleared spend." |
+| 0-5s | Show the big screen — colourful Continuum world, empty market, "Slopstream" title | "Brands spend billions on ads people scroll past. Slopstream is a live attention market — brands bid for verified attention, and listeners earn up to 80% of the cleared spend." |
 | 5-12s | Switch to brand console — show balance, bid input | "A brand bids for the next slot in a live auction. This is not an impression — it's a verifiable attention contract."                                                                                |
 
 ### Phase 2: Bid + auction (12-25s)
@@ -139,13 +139,13 @@ This gives you a clean ledger with fresh $500 balances for the recording.
 |------|--------|-----------                                                                                                                                                                                                                                                    |
 | 25-30s | Big screen shows generation progress: Script ✓ → Voice ✓ | "ElevenLabs generates the voiceover — a real AI ad, not a pre-recorded clip."                                                                                                                             |
 | 30-32s | Generation completes, segment.ready fires | "The ad is ready."                                                                                                                                                                                                       |
-| 32-45s | Ad plays on the big screen — real TTS audio drives the fluid shader. Brand colors flood the metaball field. Show the listener tab reacting to the same audio. | "The ad plays. The audio drives the 3D fluid world in real time. Listeners hear it on their phones." |
+| 32-45s | Ad plays in the Continuum portal — brand colour, type and spheres react subtly. Show the listener tab reacting to the same audio. | "The ad plays in a living media world. Listeners hear it on their phones." |
 
 ### Phase 4: Challenge + verification (45-65s)
 
 | Time | Action | Narration                                                                                                                                               |
 |------|--------|-----------                                                                                                                                              |
-| 45-50s | Challenge card appears on listener tab | "A challenge fires: 'What did ACME say it supports?' The listener must prove they engaged."                           |
+| 45-50s | Enable Earn Mode, then show the challenge card on the listener tab | "Listeners choose to earn. An attention check asks: 'What did ACME say it supports?'"                           |
 | 50-55s | Answer the challenge on the listener tab | "One correct answer. The proof is verified — segment binding, timing window, replay protection."                    |
 | 55-60s | Big screen — attention threshold fills (1/1), proof receipt condenses | "The attention threshold is met. The proof is recorded."                               |
 | 60-65s | Big screen — bid clears, 80/20 split animation | "The bid clears. Fifteen dollars splits into twelve for the listener reward pool and three for the platform." |
@@ -156,7 +156,7 @@ This gives you a clean ledger with fresh $500 balances for the recording.
 |------|--------|-----------                                                                                                                                                                                                                                                 |
 | 65-70s | Switch to brand console — place $25 bid (video tier) | "The market doesn't stop. The next bid comes in — this time for a full video ad."                                                                                                                          |
 | 70-78s | Big screen — generation progress: Script ✓ → Voice ✓ → Image ✓ → Video ✓. **In post: cut the 1-3 min wait to ~5s.** The progress beats make the cut invisible. | "ElevenLabs generates the video — voice, image, and a cinematic clip, all from the brand brief." |
-| 78-88s | Video plays on the big screen — video-textured plane in the 3D fluid world, audio driving the shader | "The video ad plays inside the fluid world. The audio still drives the scene."                                                                             |
+| 78-88s | Video plays in the central portal — cinema recipe with archive fragments at the edge | "The video ad plays in the Continuum. The world keeps its memory as the next story begins."                                                                             |
 | 88-90s | Closing shot — the loop continues | "Brands bid. People prove attention. Value flows back to the audience. The market starts again."                                                                                                                              |
 
 ## Post-production
@@ -181,9 +181,9 @@ This gives you a clean ledger with fresh $500 balances for the recording.
 
 | Risk | Mitigation                                                                                                                                                                                     |
 |------|------------                                                                                                                                                                                    |
-| ElevenLabs TTS fails | Fall back to `GENERATOR_MODE=stub` — the stub generates instantly with placeholder assets. The 3D scene still works.                                                           |
+| ElevenLabs TTS fails | Fall back to `GENERATOR_MODE=stub` — the stub generates instantly with placeholder assets. The Continuum still works.                                                           |
 | Video generation times out | Cut the video segment entirely. End the demo after the audio segment clears. 65s is still a complete loop.                                                               |
-| Listener challenge doesn't fire | Ensure the listener tab is open BEFORE the segment starts playing. The challenge is generated from the transcript at `segment.ready` time.                          |
+| Listener challenge doesn't fire | Ensure Earn Mode is enabled and the listener tab is open before the segment starts. The challenge is generated from the transcript at `segment.ready` time.                          |
 | Threshold doesn't clear | With 1 listener and `THRESHOLD_FRACTION=0.6`, threshold = 1. One correct answer clears. If it doesn't, check that the listener session was created before playback started. |
 | Services crash | Restart the failed service. The orchestrator is resilient — it'll pick up where it left off on the next poll.                                                                        |
 | Auction doesn't close | Verify `AUCTION_DURATION_SEC=10` in the API `.env`. The auction auto-closes on a timer.                                                                                       |

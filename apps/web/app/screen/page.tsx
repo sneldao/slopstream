@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
@@ -16,8 +16,10 @@ import { BlobChip } from "./_components/SoftBlob";
 import { DemoControls } from "./_components/DemoControls";
 import { ProofReceipt3D } from "./_components/ProofReceipt3D";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
+import { LoopStatus } from "../_components/LoopStatus";
+import { listenerJoinUrl } from "@/lib/listenerJoinUrl";
 
-// 3D scene — loaded client-only to avoid SSR issues with WebGL.
+// The Continuum reads browser-only animation and pointer state.
 const Scene = dynamic(
   () => import("./_components/Scene").then((m) => m.Scene),
   { ssr: false },
@@ -34,9 +36,11 @@ export default function ScreenPage() {
     : undefined;
   const { signalRef } = useAudioSignal(!!state.nowPlaying, audioUrl);
   const { play } = useSoundDesign();
-  const listenerUrl =
-    process.env.NEXT_PUBLIC_LISTENER_URL ??
-    "http://localhost:3000/listen?earn=1";
+  const [listenerUrl, setListenerUrl] = useState(() => listenerJoinUrl());
+
+  useEffect(() => {
+    setListenerUrl(listenerJoinUrl(window.location.origin));
+  }, []);
 
   // Active brand drives the now-playing surface. Free segments (scraped
   // companies with no bid) have brandId null — map them to the FREE SLOP
@@ -71,7 +75,6 @@ export default function ScreenPage() {
   // Sound design — fire on event changes.
   const lastOutbidId = useRef(0);
   const lastClearId = useRef(0);
-  const lastChallengeId = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (state.lastOutbid && state.lastOutbid.flashId !== lastOutbidId.current) {
       lastOutbidId.current = state.lastOutbid.flashId;
@@ -84,16 +87,6 @@ export default function ScreenPage() {
       play("clear");
     }
   }, [state.lastClear, play]);
-  useEffect(() => {
-    if (
-      state.activeChallenge &&
-      state.activeChallenge.id !== lastChallengeId.current
-    ) {
-      lastChallengeId.current = state.activeChallenge.id;
-      play("challenge");
-    }
-  }, [state.activeChallenge, play]);
-
   // OUTBID burst trigger for the ambient canvas.
   const burstKey = state.lastOutbid?.flashId ?? 0;
   const burstFromColor = state.lastOutbid
@@ -190,6 +183,14 @@ export default function ScreenPage() {
       />
 
       {!theater && (
+        <LoopStatus
+          state={state}
+          tone="light"
+          className="screen-loop-status"
+        />
+      )}
+
+      {!theater && (
         <motion.div
           className="screen-leaderboard"
           style={styles.leaderboardFloat}
@@ -238,6 +239,43 @@ export default function ScreenPage() {
         </motion.div>
       )}
 
+      {/* Coming Up — the next 1-2 segments in the queue. */}
+      {!theater && state.upcomingSegments.length > 0 && (
+        <motion.div
+          className="screen-coming-up"
+          style={styles.comingUp}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5, type: "spring", stiffness: 200, damping: 22 }}
+        >
+          <div style={styles.comingUpHeader}>COMING UP</div>
+          <div style={styles.comingUpList}>
+            {state.upcomingSegments.map((seg, i) => {
+              const b = seg.brandId ? state.brandById[seg.brandId] : undefined;
+              const name = b?.name ?? "Free Ad";
+              return (
+                <div key={seg.id} style={styles.comingUpItem}>
+                  <span
+                    style={{
+                      ...styles.comingUpDot,
+                      background: b?.primaryColor ?? "#888",
+                    }}
+                  />
+                  <span style={styles.comingUpName}>{name}</span>
+                  {seg.status === "generating" && (
+                    <span style={styles.comingUpStatus}>generating</span>
+                  )}
+                  {seg.status === "ready" && (
+                    <span style={styles.comingUpStatus}>ready</span>
+                  )}
+                  {i === 0 && <span style={styles.comingUpNext}>next</span>}
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
       <aside
         className={`screen-join${idleRecruit || state.activeChallenge ? " slop-join-pulse" : ""}${theater ? " screen-join--theater" : ""}`}
         style={styles.joinPanel}
@@ -255,14 +293,14 @@ export default function ScreenPage() {
         </div>
         <div>
           <div style={styles.joinTitle}>
-            {idleRecruit ? "SCAN TO LISTEN" : "OPTIONAL EARN MODE"}
+            {idleRecruit ? "SCAN TO EARN" : "PROOF MOMENT"}
           </div>
           <div style={styles.joinCopy}>
             {state.activeChallenge
               ? "A proof moment is open on listener phones."
               : idleRecruit
-                ? "Join the room. Opt into Earn Mode when you want rewards."
-                : "Listen freely. Opt in to attention checks if you want rewards."}
+                ? "Scan to join — Earn Mode turns on automatically."
+                : "Listeners can verify attention and earn from the pool."}
           </div>
         </div>
       </aside>
@@ -422,6 +460,74 @@ const styles: Record<string, React.CSSProperties> = {
     color: "rgba(16,16,20,0.58)",
     fontStyle: "italic",
     padding: 12,
+  },
+  comingUp: {
+    position: "fixed",
+    top: "auto",
+    bottom: "clamp(110px, 18vh, 180px)",
+    right: "clamp(16px, 3vw, 40px)",
+    zIndex: 10,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    maxWidth: 260,
+    padding: "12px 14px",
+    borderRadius: 16,
+    background: "rgba(8,8,18,0.64)",
+    backdropFilter: "blur(14px)",
+    border: "1px solid rgba(255,255,255,0.14)",
+  },
+  comingUpHeader: {
+    fontSize: 10,
+    letterSpacing: 2.5,
+    fontWeight: 900,
+    color: "rgba(255,255,255,0.5)",
+    textTransform: "uppercase",
+  },
+  comingUpList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  comingUpItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    color: "rgba(255,255,255,0.88)",
+  },
+  comingUpDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  comingUpName: {
+    flex: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  comingUpStatus: {
+    fontSize: 9,
+    fontWeight: 800,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: "var(--slop-yellow)",
+    padding: "2px 6px",
+    borderRadius: 999,
+    background: "rgba(255,228,94,0.12)",
+  },
+  comingUpNext: {
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: "var(--slop-ink)",
+    background: "var(--slop-yellow)",
+    padding: "2px 7px",
+    borderRadius: 999,
   },
   thresholdLabel: {
     position: "fixed",

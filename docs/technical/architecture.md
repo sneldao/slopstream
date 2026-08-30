@@ -107,8 +107,15 @@ Each generation receives:
 
 - brand brief
 - production tier
-- previous 1–2 segment summaries (the Continuum continuity input)
+- previous 1–2 segment summaries (the Continuity continuity input)
 - campaign constraints
+
+The generator deterministically selects a **creative format** per segment
+(FNV-1a hash of the segment ID — see [content.md](../product/content.md#creative-format-rotation)).
+The format drives the script template, the ElevenLabs voice ID, and the visual
+style hint in image/video prompts. Eight formats rotate across comedy, anthem,
+radio, infomercial, intimate, hype, documentary, and news tones so consecutive
+ads feel varied without requiring an LLM call.
 
 The sandbox is then destroyed. This retains the isolation rationale: brand-submitted prompts are untrusted input, so generation runs should not share mutable state.
 
@@ -163,11 +170,10 @@ The verifier checks that the server-issued stub payload matches the listener/seg
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Frontend         | Next.js                                                                                                                                                      |
 | Screen rendering | HTML media + CSS Continuum field — central portal, archive cards, typography, spheres and event ripples (see [design language](../product/design-language.md)) |
-| 3D physics       | `@react-three/rapier` (WASM rigid-body physics) — brand blobs collide and spring                                                                             |
-| Post-processing  | `@react-three/postprocessing` — bloom, depth of field, chromatic aberration                                                                                  |
-| Fluid shader     | GLSL ray-marching SDF metaballs (primary) + mesh fallback with quality switch                                                                                |
+| Optional 3D experiments | Retained R3F / Rapier prototype; not required by the shipped screen                                                                                   |
+| Optional material effects | Retained post-processing and metaball experiments; progressive enhancement only                                                                       |
 | 2D animation     | Framer Motion — spring physics for listener + brand surfaces and the floating HUD overlay                                                                    |
-| Audio reactivity | Web Audio API `AnalyserNode` → shader uniforms + physics forces                                                                                              |
+| Audio reactivity | Web Audio API `AnalyserNode` → subtle CSS/DOM motion, portal treatment and listener visuals                                                                  |
 | Live transport   | HTTPS / REST commands + WebSocket projections                                                                                                                |
 | Backend          | Node + TypeScript                                                                                                                                            |
 | Queue            | Redis                                                                                                                                                        |
@@ -184,4 +190,4 @@ The verifier checks that the server-issued stub payload matches the listener/seg
 
 **Authentication scope.** Listeners join via QR with a lightweight, anonymous bearer session — no account needed — and the browser stores its token plus commitment in `sessionStorage`. The brand console moves real money (Stripe top-ups, bids), so production requires a stronger identity (email/OAuth). The local hackathon profile is an intentional exception: it seeds ACME with `DEMO_ACME_BRAND_TOKEN`, exposed as `NEXT_PUBLIC_DEMO_BRAND_TOKEN` only for a deterministic demo. That token is not production authentication. Full KYC is explicitly out of scope (see [economics](../product/economics.md#listener-rewards-start-with-an-internal-balance)).
 
-**Current-state caveat.** The table above is the target stack. For the hackathon, two rows are not yet real: the **Database** is an in-memory `Map` store shaped like the Postgres schema (`DATABASE_URL` is decorative; no migrations), and the **Queue** (Redis) is an in-process pub/sub fallback unless `REDIS_URL` is set. See [backend ledger](backend.md#backend-ledger) and [progress](../hackathon/progress.md). The 3D-rendering / 3D-physics / post-processing rows describe the retained prototype; the shipped big screen is now the HTML/CSS Continuum media world with Framer Motion overlays (see [design language](../product/design-language.md)).
+**Current-state caveat.** The table above is the target stack. For the hackathon, two rows are not yet real: the **Database** is an in-memory `Map` store shaped like the Postgres schema (`DATABASE_URL` is decorative; no migrations), and the **Queue** (Redis) is an in-process pub/sub fallback unless `REDIS_URL` is set. See [backend ledger](backend.md#backend-ledger) and [progress](../hackathon/progress.md). The shipped big screen is the HTML/CSS Continuum media world with Framer Motion overlays; the 3D rows are retained prototype experiments.

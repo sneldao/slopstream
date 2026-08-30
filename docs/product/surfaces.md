@@ -43,7 +43,7 @@ LIVE SLOPSTREAM
 └──────────────────────────────────────────────┘
 ```
 
-The screen is an autonomous media field. The current asset occupies a framed central portal; previous segments persist as colourful archive cards; oversized type, dotted routes and homepage-style spheres provide depth. The camera motion is slow by default and reacts subtly to pointer/audio input. The HUD leaderboard remains a readable market layer, while bid changes and clears create ripples through the world. Generated assets can be images, video, audio-led editorial cards or typography; the composition should never depend on one orb treatment.
+The screen is an autonomous media field. The current asset occupies a framed central portal; the eight most recent completed segments persist through the stream snapshot and appear as colourful archive cards after refresh or reconnect. One or two generated/ready segments can appear as a quiet **Coming up** cue, so the stream has anticipation as well as memory. Oversized type, dotted routes and homepage-style spheres provide depth. A stable segment ID selects one of five composition recipes — editorial, orbit, cascade, constellation or cinema — so the world varies without changing randomly on reload. The camera motion is slow by default and reacts subtly to pointer/audio input. The HUD leaderboard remains a readable market layer, while bid changes and clears create ripples through the world. Generated assets can be images, video, audio-led editorial cards or typography; the composition should never depend on one orb treatment.
 
 When a brand gets outbid, the screen's color **washes** from the old leader's palette to the new leader's, the displaced chip wobbles and drops, the new leader's chip swells and glows, and a splash particle effect ripples outward:
 
@@ -58,7 +58,10 @@ $31 → $38
 NOW MOVING TO NEXT SLOT
 ```
 
-See [design language](design-language.md#a-the-big-screen--a-living-canvas-not-a-scoreboard) for the full event-to-screen behavior spec.
+See the [Continuum design language](design-language.md#the-big-screen) for the
+full event-to-screen behavior spec. A viewer can also enter theater mode with
+the `T` key or `?theater=1`; it removes navigation and market chrome while
+keeping the QR code available for joining.
 
 ## B. The listener experience
 
@@ -120,7 +123,12 @@ Estimated reward:
 ~$0.37 (pending pool close)
 ```
 
-Then the ad continues. See [economics](economics.md) for how the estimated reward becomes a pool share, [content](content.md) for challenge design, and [design language](design-language.md#b-the-listener-client--playful-urgent-satisfying) for the full interaction behavior.
+Then the ad continues. The listener wallet distinguishes a **pending** reward
+from an **available** balance; in the live path it refreshes after settlement.
+See [economics](economics.md) for how the estimated reward becomes a pool
+share, [content](content.md) for challenge design, and the [listener experience
+in the design language](design-language.md#listener-experience) for the full
+interaction behavior.
 
 ## C. The brand bidding console
 
@@ -182,7 +190,7 @@ The bid controls more than position. Higher bids can unlock:
 - premium placement
 - more elaborate story integration
 
-This matches the free/low → image → video production escalation in the [generation pipeline](../technical/architecture.md#generation-pipeline). See [design language](design-language.md#c-the-brand-bidding-console--stakes-and-pressure) for the full interaction behavior.
+This matches the free/low → image → video production escalation in the [generation pipeline](../technical/architecture.md#generation-pipeline). See the [design language](design-language.md#event-language) for the shared interaction behavior.
 
 ### What the brand sees after a segment clears
 
@@ -214,7 +222,7 @@ Every verified interaction produces a beautiful receipt — the one calm moment 
 └─────────────────────────────┘
 ```
 
-The receipt animates in: card fades and scales up with a spring, "ATTENTION VERIFIED" stamps in as a rotating seal, the proof hash types in character by character, and the reward amount counts up from $0.00. See [design language](design-language.md#d-the-proof-receipt--the-calm-center) for the full animation sequence.
+The receipt animates in: card fades and scales up with a spring, "ATTENTION VERIFIED" stamps in as a rotating seal, the proof hash types in character by character, and the reward amount counts up from $0.00. The [design language](design-language.md#listener-experience) defines the calm-versus-energetic interaction balance.
 
 This is the moment to demonstrate **why Midnight exists**. The audience doesn't need to understand the cryptography first. They see:
 

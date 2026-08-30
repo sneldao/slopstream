@@ -219,6 +219,7 @@ function createFakeApi(): FakeApi {
         asOfSequence: 999,
         nowPlaying: null,
         recentSegments: [],
+        upcomingSegments: [],
         brands: [],
         leaderboard: [],
         nextSlotPriceUsd: 5,

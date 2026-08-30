@@ -12,12 +12,13 @@ import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { AudioVisualizer } from "./_components/AudioVisualizer";
-import { ChallengeCard } from "./_components/ChallengeCard";
+import { AttentionCheck } from "./_components/AttentionCheck";
 import { ProofReceipt } from "./_components/ProofReceipt";
 import { requestJson } from "@/lib/liveApi";
 import { SphereField } from "../_components/SphereField";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
+import { LoopStatus } from "../_components/LoopStatus";
 import { PayoutSheet } from "./_components/PayoutSheet";
 import { continuumBlurb, continuumChapter } from "@/lib/continuum";
 
@@ -309,6 +310,7 @@ export default function ListenPage() {
       />
 
       <div className="slop-frame">
+        <LoopStatus state={state} />
         <AnimatePresence mode="wait">
           {!joined ? (
             <JoinSplash key="splash" onJoin={handleJoin} />
@@ -388,77 +390,68 @@ export default function ListenPage() {
                 signalRef={signalRef}
               />
 
-              <div className="slop-meter" style={styles.poolCard}>
-                <div style={styles.meterLabel}>Listener reward pool</div>
-                <div style={styles.poolAmount} aria-live="polite">
+              {/* Stream state as one continuous readout. The reward pool and
+                  the attention threshold used to be two separate glass cards;
+                  they are one typographic block with a rule now — the amount
+                  is the largest thing here, so nothing has to box it to say
+                  it matters. */}
+              <section className="listen-readout">
+                <span className="listen-readout__label">
+                  Listener reward pool
+                </span>
+                <span className="listen-readout__amount" aria-live="polite">
                   ${state.listenerRewardsUsd.toFixed(2)}
-                </div>
-                <div style={styles.meterHint}>
-                  {state.lastClear
-                    ? `Last clear unlocked $${state.lastClear.listenerPoolUsd.toFixed(2)} for listeners (80%).`
-                    : attention
-                      ? "When the meter fills, this segment’s rewards unlock."
-                      : "Rewards unlock when verified attention clears a segment."}
-                </div>
-              </div>
+                </span>
 
-              {/* Live attention meter — liquid fill */}
-              {attention && (
-                <motion.div
-                  className="slop-meter"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div style={styles.meterLabel}>Live attention meter</div>
-                  <div style={styles.meterHint}>
-                    When this fills, rewards unlock for the segment.
-                  </div>
-                  <div style={styles.meterCount}>
-                    <span className="slop-figures">
-                      {attention.verifiedCount}
-                    </span>
-                    <span style={styles.meterDim}> / </span>
-                    <span className="slop-figures" style={styles.meterDim}>
-                      {attention.threshold}
-                    </span>
-                    <span style={styles.meterDim}> verified</span>
-                  </div>
-                  <div className="slop-meter__bar">
-                    <motion.div
-                      className="slop-meter__fill"
-                      style={{
-                        background:
-                          attention.verifiedCount >= attention.threshold
-                            ? "linear-gradient(90deg, #ffe066, #ff9d4a)"
-                            : `linear-gradient(90deg, ${brandColor}, ${activeBrand?.secondaryColor ?? brandColor})`,
-                      }}
-                      animate={{
-                        width: `${Math.min(
-                          (attention.verifiedCount / attention.threshold) * 100,
-                          100,
-                        )}%`,
-                      }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 90,
-                        damping: 18,
-                      }}
+                {attention && (
+                  <div
+                    className={`listen-readout__rule${
+                      attention.verifiedCount >= attention.threshold
+                        ? " listen-readout__rule--met"
+                        : ""
+                    }`}
+                    style={{
+                      ["--fill" as string]: Math.min(
+                        attention.threshold > 0
+                          ? attention.verifiedCount / attention.threshold
+                          : 0,
+                        1,
+                      ),
+                    }}
+                    aria-hidden="true"
+                  >
+                    <i
+                      style={
+                        attention.verifiedCount >= attention.threshold
+                          ? undefined
+                          : {
+                              background: `linear-gradient(90deg, ${brandColor}, ${
+                                activeBrand?.secondaryColor ?? brandColor
+                              })`,
+                            }
+                      }
                     />
                   </div>
-                </motion.div>
-              )}
-
-              {/* Challenge cards belong to the optional earning layer. */}
-              <AnimatePresence>
-                {earnMode && challenge && !receipt && (
-                  <ChallengeCard
-                    key={challenge.id}
-                    challenge={challenge}
-                    brandColor={brandColor}
-                    onAnswer={handleAnswer}
-                  />
                 )}
-              </AnimatePresence>
+
+                <p className="listen-readout__note">
+                  {attention && (
+                    <span>
+                      <b className="slop-figures">{attention.verifiedCount}</b>
+                      {" of "}
+                      <b className="slop-figures">{attention.threshold}</b>
+                      {" verified"}
+                    </span>
+                  )}
+                  <span>
+                    {state.lastClear
+                      ? `Last clear unlocked $${state.lastClear.listenerPoolUsd.toFixed(2)} for listeners (80%).`
+                      : attention
+                        ? "Rewards unlock for this segment when the rule fills."
+                        : "Rewards unlock when verified attention clears a segment."}
+                  </span>
+                </p>
+              </section>
 
               {submissionError && (
                 <div role="alert" style={styles.submissionError}>
@@ -466,31 +459,50 @@ export default function ListenPage() {
                 </div>
               )}
 
-              <div className="slop-wallet" aria-live="polite">
-                <div className="slop-wallet__row">
+              {/* The wallet as a ledger — rows divided by rules, no panel
+                  around them. The CTA stays a pill: it is a control, not a
+                  container. */}
+              <section className="listen-ledger" aria-live="polite">
+                <div className="listen-ledger__row">
                   <span>Pending</span>
                   <strong>${pendingUsd.toFixed(2)}</strong>
                 </div>
-                <div className="slop-wallet__row">
+                <div className="listen-ledger__row">
                   <span>Available</span>
                   <strong>${availableUsd.toFixed(2)}</strong>
                 </div>
-                <div className="slop-wallet__row slop-wallet__row--mute">
+                <div className="listen-ledger__row listen-ledger__row--mute">
                   <span>Today verified</span>
                   <span>+${todayVerified.toFixed(2)}</span>
                 </div>
                 <button
                   type="button"
-                  className="slop-wallet__cta"
+                  className="listen-ledger__cta"
                   onClick={() => setPayoutOpen(true)}
                 >
                   {availableUsd > 0 ? "Request payout" : "How payouts work"}
                 </button>
-              </div>
+              </section>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* The attention check owns the whole viewport when it fires, so it
+          lives outside the column rather than inside it. Keeping a
+          position:fixed overlay out of `.slop-frame` also means no future
+          transform on an ancestor can silently reparent its containing
+          block. */}
+      <AnimatePresence>
+        {joined && earnMode && challenge && !receipt && (
+          <AttentionCheck
+            key={challenge.id}
+            challenge={challenge}
+            brandColor={brandColor}
+            onAnswer={handleAnswer}
+          />
+        )}
+      </AnimatePresence>
 
       {receipt && (
         <ProofReceipt
@@ -716,11 +728,6 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 0,
     pointerEvents: "none",
   },
-  frame: {
-    position: "relative",
-    zIndex: 3,
-    width: "100%",
-  },
   splash: {
     display: "flex",
     flexDirection: "column",
@@ -728,20 +735,20 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     minHeight: "70svh",
     position: "relative",
-    paddingBottom: 24,
+    paddingBottom: "var(--s-6)",
   },
   splashOrb: {
     position: "absolute",
     width: 200,
     height: 200,
-    borderRadius: "50%",
+    borderRadius: "var(--r-round)",
     background:
       "radial-gradient(circle, var(--platform-accent), transparent 70%)",
-    filter: "blur(20px)",
+    filter: "blur(var(--blur-lg))",
   },
   splashTitle: {
     fontFamily: "var(--slop-display)",
-    fontSize: 28,
+    fontSize: "var(--t-title)",
     fontWeight: 900,
     letterSpacing: 1,
     color: "#fff",
@@ -750,9 +757,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   splashSub: {
     maxWidth: "28ch",
-    fontSize: 16,
+    fontSize: "var(--t-lead)",
     color: "var(--platform-text-dim)",
-    marginTop: 8,
+    marginTop: "var(--s-2)",
     position: "relative",
     textAlign: "center",
     lineHeight: 1.35,
@@ -762,13 +769,13 @@ const styles: Record<string, React.CSSProperties> = {
     position: "relative",
     marginTop: 28,
     border: "none",
-    borderRadius: 999,
+    borderRadius: "var(--r-pill)",
     minHeight: 52,
     width: "min(100%, 280px)",
-    padding: "16px 28px",
+    padding: "var(--s-4) 28px",
     background: "var(--slop-yellow)",
     color: "var(--slop-ink)",
-    fontSize: 15,
+    fontSize: "var(--t-body-lg)",
     fontWeight: 900,
     letterSpacing: "0.04em",
     textTransform: "uppercase" as const,
@@ -777,7 +784,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   splashHint: {
     position: "relative",
-    marginTop: 12,
+    marginTop: "var(--s-3)",
     fontSize: 11,
     fontWeight: 700,
     letterSpacing: "0.12em",
@@ -785,27 +792,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "rgba(255,255,255,0.45)",
   },
   content: { display: "flex", flexDirection: "column", gap: 18 },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 2,
-    padding: "8px 0",
-  },
-  headerBrand: { display: "flex", flexDirection: "column", gap: 4 },
-  logo: {
-    fontSize: 16,
-    fontWeight: 900,
-    color: "#fff",
-    textDecoration: "none",
-  },
-  channel: {
-    color: "rgba(255,255,255,0.48)",
-    fontSize: 8,
-    fontWeight: 900,
-    letterSpacing: 1.8,
-    textTransform: "uppercase",
-  },
   chapter: {
     marginTop: 10,
     color: "var(--slop-yellow)",
@@ -816,30 +802,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   blurb: {
     maxWidth: "34ch",
-    margin: "8px auto 0",
+    margin: "var(--s-2) auto 0",
     color: "rgba(255,253,246,0.62)",
-    fontSize: 13,
+    fontSize: "var(--t-body)",
     fontWeight: 650,
     lineHeight: 1.35,
-  },
-  poolCard: { gap: 6 },
-  poolAmount: {
-    fontSize: 28,
-    fontWeight: 900,
-    color: "var(--slop-yellow)",
-    fontVariantNumeric: "tabular-nums",
-  },
-  valueProp: {
-    margin: 0,
-    padding: "10px 14px",
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: 14,
-    background: "rgba(8,8,18,0.5)",
-    backdropFilter: "blur(12px)",
-    color: "rgba(255,253,246,0.72)",
-    fontSize: 13,
-    fontWeight: 650,
-    lineHeight: 1.4,
   },
   balancePill: {
     border: "none",
@@ -849,9 +816,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "flex-end",
     background: "var(--slop-yellow)",
     color: "var(--slop-ink)",
-    padding: "8px 13px",
-    borderRadius: 999,
-    boxShadow: "0 8px 24px rgba(255,228,94,0.24)",
+    padding: "var(--s-2) 13px",
+    borderRadius: "var(--r-pill)",
+    boxShadow: "var(--shadow-glow-accent)",
   },
   earnModeOn: {
     borderColor: "var(--slop-lime)",
@@ -860,7 +827,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 0 20px rgba(184,255,101,0.26)",
   },
   balanceLabel: {
-    fontSize: 10,
+    fontSize: "var(--t-eyebrow)",
     letterSpacing: 1,
     color: "rgba(16,16,20,0.62)",
     fontWeight: 600,
@@ -875,14 +842,14 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: "9px 12px",
+    gap: "var(--s-2)",
+    padding: "9px var(--s-3)",
     border: "1px solid rgba(255,228,94,0.3)",
-    borderRadius: 999,
+    borderRadius: "var(--r-pill)",
     color: "var(--slop-yellow)",
-    background: "rgba(8,8,18,0.58)",
-    backdropFilter: "blur(14px)",
-    fontSize: 9,
+    background: "var(--veil-dark-2)",
+    backdropFilter: "blur(var(--blur-md))",
+    fontSize: "var(--t-micro)",
     fontWeight: 900,
     letterSpacing: 1.4,
     textTransform: "uppercase",
@@ -890,13 +857,13 @@ const styles: Record<string, React.CSSProperties> = {
   signalDot: {
     width: 7,
     height: 7,
-    borderRadius: "50%",
+    borderRadius: "var(--r-round)",
     background: "currentColor",
     boxShadow: "0 0 12px currentColor",
   },
   nowPlaying: { textAlign: "center", marginTop: 10 },
   listeningLabel: {
-    fontSize: 9,
+    fontSize: "var(--t-micro)",
     color: "rgba(255,255,255,0.62)",
     fontWeight: 900,
     letterSpacing: 2,
@@ -904,11 +871,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   brandName: {
     fontFamily: "var(--slop-display)",
-    fontSize: 44,
+    // Fluid rather than a fixed 44px: brand names vary wildly in length and
+    // this is the surface's largest standing type.
+    fontSize: "var(--t-display)",
     fontWeight: 900,
-    letterSpacing: -1.5,
+    letterSpacing: "var(--track-tight)",
     lineHeight: 0.95,
-    marginTop: 8,
+    marginTop: "var(--s-2)",
     textTransform: "uppercase",
     textShadow: "0 8px 30px rgba(0,0,0,0.36)",
   },
@@ -916,65 +885,13 @@ const styles: Record<string, React.CSSProperties> = {
     width: 42,
     height: 4,
     margin: "14px auto 0",
-    borderRadius: 999,
+    borderRadius: "var(--r-pill)",
     background: "currentColor",
   },
-  meter: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    padding: 16,
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: 18,
-    background: "rgba(8,8,18,0.58)",
-    backdropFilter: "blur(16px)",
-  },
-  meterLabel: {
-    fontSize: 12,
-    letterSpacing: 1.5,
-    fontWeight: 700,
-    color: "var(--platform-text-dim)",
-  },
-  meterHint: {
-    fontSize: 12,
-    fontWeight: 650,
-    color: "rgba(255,253,246,0.58)",
-    lineHeight: 1.35,
-  },
-  meterCount: { fontSize: 20, fontWeight: 800 },
-  meterDim: { color: "var(--platform-text-dim)", fontWeight: 600 },
-  meterBar: {
-    height: 14,
-    borderRadius: 999,
-    background: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
-  },
-  meterFill: { height: "100%", borderRadius: 999 },
   submissionError: {
-    fontSize: 13,
+    fontSize: "var(--t-body)",
     color: "#ff9b9b",
     textAlign: "center",
     fontWeight: 700,
-  },
-  todayRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    padding: "15px 16px",
-    border: "1px solid rgba(255,255,255,0.14)",
-    borderRadius: 18,
-    background: "rgba(255,255,255,0.08)",
-    backdropFilter: "blur(16px)",
-  },
-  todayLabel: {
-    fontSize: 13,
-    color: "var(--platform-text-dim)",
-    fontWeight: 600,
-  },
-  todayAmount: {
-    fontSize: 22,
-    fontWeight: 800,
-    color: "#4ade80",
-    fontVariantNumeric: "tabular-nums",
   },
 };

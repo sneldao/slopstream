@@ -3,6 +3,19 @@
 Snapshot of all three lanes as of the latest review. Each lane lists what's
 implemented, what's stubbed, known inconsistencies, and next steps.
 
+## Current experience baseline (2026-08-30)
+
+This is a chronological implementation log, so older entries below describe
+the superseded 3D fluid-world prototype. The current product baseline is the
+HTML/CSS **Continuum**: a colourful central media portal, persistent archive
+fragments, oversized typography, spheres and event ripples. The public stream
+snapshot keeps the eight newest completed segments so that visual continuity
+survives reconnects. Challenges are available only after a listener explicitly
+enables **Earn Mode**; passive listening remains uninterrupted. See the
+[design language](../product/design-language.md) for the authoritative UI
+specification and the [archived 3D decision record](3d-overhaul-plan.md) for
+the previous direction.
+
 ---
 
 ## Lane 1: Contracts & Clearing
@@ -395,18 +408,11 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 
 ### Lane 3: next steps
 
-1. **3D visual overhaul — Phases 8–9.** Phases 1–7 are live (ray-marched
-   metaball fluid shader, audio → uniforms, Rapier physics brand blobs with
-   a manual critically-damped spring, OUTBID color flood + velocity kick,
-   error boundary → Canvas 2D fallback, `dpr` capped at 1; tier-evolving
-   ad surface with orb/image/video planes and a generating orb with
-   progress rings; 3D glass threshold basin with wave shader + glow on
-   clear; instanced clearing streams with 80/20 split; `ProofReceipt3D`
-   glass card condensing from vapor; mesh fallback + capability
-   detection). Remaining: listener/brand refinement (Phase 8), generation
-   pipeline (Phase 9). See
-   [3D overhaul plan](./3d-overhaul-plan.md) for the status table and
-   Phase 4–7 implementation notes.
+1. **Continuum refinement.** The shipped screen is the colourful media world
+   described in the [design language](../product/design-language.md): improve
+   its content diversity, asset quality and deterministic recipes as new
+   formats arrive. The earlier 3D experiment is retained only as an
+   [archived reference](./3d-overhaul-plan.md).
 2. ~~Wire the orchestrator~~ — done (gateway + feed + scheduler, see
    implemented). Follow-ups: Redis subscription as an optional fast path
    (polling stays as the correctness layer), and durable state if more than
@@ -458,14 +464,11 @@ Two full paths, sharing the exact same UI code:
 - **Demo mode (the insurance policy)** — the demo-mode harness drives all
   three surfaces end-to-end with no backend:
 
-- Big screen plays the 8-scene fixture as a 3D fluid world — ray-marched
-  metaball background, Rapier physics brand blobs, tier-evolving ad surface
-  (orb / image plane / video plane), 3D glass threshold basin that fills
-  with brand fluid, instanced clearing streams with 80/20 split, glass
-  proof receipt condensing from vapor, synthesized sound design. Falls back
-  to mesh-based fluid on weak GPUs, and to Canvas 2D if WebGL is
-  unavailable.
-- Listener client renders challenges + proof receipts from canned data.
+- Big screen plays the 8-scene fixture as a Continuum media world — central
+  portal, recipe-driven archive fragments, colourful spheres, typography,
+  event ripples, proof receipt and synthesized sound design.
+- Listener client renders challenges only in explicit Earn Mode, plus proof
+  receipts from canned data.
 - Brand console shows live auction pressure from the fixture.
 
 Setting `NEXT_PUBLIC_STREAM_MODE=live` + `NEXT_PUBLIC_API_BASE_URL` switches

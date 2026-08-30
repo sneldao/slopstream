@@ -9,6 +9,7 @@ import type {
 } from "@slopstream/shared";
 
 import type { GenerationProvider } from "./generator.js";
+import { pickFormat, voiceForFormat, type CreativeFormat } from "./creativeFormats.js";
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -166,16 +167,25 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     // Cap the tier to the configured maximum (spend mitigation).
     const tier = capTier(request.tier, this.config.maxTier);
 
-    // Stage 1: Script — generate a compelling ad transcript from the brief.
-    const transcript = scriptFor(request);
+    // Pick a creative format for this segment — rotates voices, tones, and
+    // script structures so consecutive ads feel varied.
+    const format = pickFormat(request.segmentId);
+    const voiceId = voiceForFormat(format, this.config.voiceId);
 
-    // Stage 2: Voice — TTS via ElevenLabs.
-    const audioBytes = await this.synthesizeVoice(transcript);
+    // Stage 1: Script — format-specific transcript from the brand brief.
+    const transcript = format.script({
+      brand: request.brandId ?? "this company",
+      brief: request.brief.trim(),
+      context: request.previousSummaries.at(-1),
+    });
+
+    // Stage 2: Voice — TTS via ElevenLabs with the format's voice.
+    const audioBytes = await this.synthesizeVoice(transcript, voiceId);
     const audioKey = `${request.segmentId}.mp3`;
     await writeFile(join(this.config.assetsDir, audioKey), audioBytes);
 
     const durationSec = estimateDurationSec(transcript);
-    const summary = summaryFor(request);
+    const summary = summaryFor(request, format);
 
     // For audio tier, the asset is the MP3 itself.
     if (tier === "audio") {
@@ -187,16 +197,18 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         summary,
         audioMetadata: {
           provider: "elevenlabs",
-          voiceId: this.config.voiceId,
+          voiceId,
           modelId: this.config.ttsModel,
           format: "mp3_44100_128",
+          creativeFormat: format.name,
+          tone: format.tone,
         },
       };
     }
 
     // Stage 3: Image — generate a visual for audio_image and above.
     if (tier === "audio_image") {
-      const imagePrompt = imagePromptFor(request, transcript);
+      const imagePrompt = imagePromptFor(request, transcript, format);
       const imageBytes = await this.generateImage(imagePrompt);
       const imageKey = `${request.segmentId}.png`;
       await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
@@ -214,16 +226,18 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         },
         audioMetadata: {
           provider: "elevenlabs",
-          voiceId: this.config.voiceId,
+          voiceId,
           modelId: this.config.ttsModel,
           format: "mp3_44100_128",
           file: audioKey,
+          creativeFormat: format.name,
+          tone: format.tone,
         },
       };
     }
 
     // Stage 4: Video — generate a video for video and premium tiers.
-    const videoPrompt = videoPromptFor(request, transcript);
+    const videoPrompt = videoPromptFor(request, transcript, format);
     const videoBytes = await this.generateVideo(videoPrompt, durationSec);
     const videoKey = `${request.segmentId}.mp4`;
     await writeFile(join(this.config.assetsDir, videoKey), videoBytes);
@@ -241,19 +255,21 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       },
       audioMetadata: {
         provider: "elevenlabs",
-        voiceId: this.config.voiceId,
+        voiceId,
         modelId: this.config.ttsModel,
         format: "mp3_44100_128",
         file: audioKey,
+        creativeFormat: format.name,
+        tone: format.tone,
       },
     };
   }
 
   // --- ElevenLabs API calls ---
 
-  private async synthesizeVoice(text: string): Promise<Uint8Array> {
+  private async synthesizeVoice(text: string, voiceId: string): Promise<Uint8Array> {
     const audioStream = await this.client.textToSpeech.convert(
-      this.config.voiceId,
+      voiceId,
       {
         text,
         modelId: this.config.ttsModel,
@@ -351,62 +367,43 @@ function estimateDurationSec(transcript: string): number {
 }
 
 /**
- * Template-based ad script generator. Produces a compelling 15-30 second
- * voiceover from the brand brief, incorporating Continuum continuity.
- *
- * This avoids requiring a separate LLM API key for the hackathon. The
- * templates produce natural-sounding ad copy that works well with ElevenLabs
- * expressive TTS.
+ * Summary for the Continuum continuity input. Includes the creative format
+ * tone so the next segment's context reflects the style that was used.
  */
-function scriptFor(request: GenerationRequest): string {
-  const brand = request.brandId ?? "this company";
+function summaryFor(request: GenerationRequest, format: CreativeFormat): string {
+  const context = request.previousSummaries.at(-1);
   const brief = request.brief.trim();
-  const context = request.previousSummaries.at(-1);
-
-  // The script follows a proven ad structure: hook → problem → solution → cta.
-  const hook = context
-    ? `Last time, ${context}. Now, ${brand} is back with something even bigger.`
-    : `Hey. Stop scrolling. ${brand} is about to change how you work.`;
-
-  const body =
-    brief.length > 120
-      ? brief
-      : `${brief} It's fast, it's smart, and it's built for people who move first.`;
-
-  const cta = `Don't get left behind. ${brand} — the future, live right now.`;
-
-  return `${hook} ${body} ${cta}`;
-}
-
-function summaryFor(request: GenerationRequest): string {
-  const context = request.previousSummaries.at(-1);
+  const tone = format.tone;
   return context
-    ? `Continuation after "${context}": ${request.brief.trim()}`
-    : `Introduction: ${request.brief.trim()}`;
+    ? `[${tone}] Continuation after "${context}": ${brief}`
+    : `[${tone}] Introduction: ${brief}`;
 }
 
 function imagePromptFor(
   request: GenerationRequest,
   transcript: string,
+  format: CreativeFormat,
 ): string {
   const brand = request.brandId ?? "a startup";
   const brief = request.brief.trim();
   return (
-    `A striking, cinematic advertisement image for ${brand}. ${brief}. ` +
-    `The image should feel premium, modern, and attention-grabbing. ` +
-    `16:9 aspect ratio, photorealistic style with dramatic lighting. ` +
-    `The mood matches this voiceover: "${transcript.slice(0, 100)}..."`
+    `A striking advertisement image for ${brand}. ${brief}. ` +
+    `Visual style: ${format.imageStyle}. ` +
+    `The mood is ${format.tone} and matches this voiceover: "${transcript.slice(0, 100)}...". ` +
+    `16:9 aspect ratio, high quality, attention-grabbing composition.`
   );
 }
 
 function videoPromptFor(
   request: GenerationRequest,
   transcript: string,
+  format: CreativeFormat,
 ): string {
   const brand = request.brandId ?? "a startup";
   const brief = request.brief.trim();
   return (
-    `A dynamic premium 4-to-8-second motion-design advertisement for ${brand}. ${brief}. ` +
+    `A dynamic 4-to-8-second motion-design advertisement for ${brand}. ${brief}. ` +
+    `Visual style: ${format.imageStyle}. The tone is ${format.tone}. ` +
     `Match Slopstream's live UI world: midnight-blue liquid data, electric violet and cyan ` +
     `particles, glowing auction bids, a threshold basin filling with verified attention, ` +
     `a brief QR-code pulse, then a clean proof signal resolving into a confident brand lockup. ` +

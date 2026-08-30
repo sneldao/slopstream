@@ -2,15 +2,17 @@
 
 ## Randomized attention challenges
 
-This should become one of Slopstream's signature features. Questions should **not** always appear at the same point.
+This can become one of Slopstream's signature features, but it must remain an
+invitation rather than an interruption. Challenges are shown only to listeners
+who explicitly enable **Earn Mode**; everyone else can simply watch and hear
+the stream.
 
-The challenge engine randomly selects:
+The challenge engine randomly selects, for eligible Earn Mode listeners:
 
-- when to interrupt
+- when an opportunity opens
 - question type
 - difficulty
 - information being tested
-- whether a response is required
 
 Possible challenge types:
 
@@ -46,7 +48,9 @@ Possible challenge types:
 
 > Show three images: which one appeared in the ad?
 
-The important thing is that **the challenge itself becomes part of the entertainment**.
+The important thing is that earning feels playful without turning the broadcast
+into a questionnaire. A correct response produces a private proof receipt and
+an estimated reward; it does not stop or alter the public segment.
 
 Technical details of the challenge engine live in [backend](../technical/backend.md#attention-challenge-engine).
 
@@ -96,9 +100,42 @@ SEGMENT 6
 Acme AI tries to buy it back.
 ```
 
-This builds on the continuity mechanism in the architecture and turns it into an explicit product feature.
+This has two complementary continuity layers:
+
+- **Story continuity:** the orchestrator passes recent summaries into the next
+  generation request so the next segment can continue the premise.
+- **Visual continuity:** the public stream snapshot retains the eight newest
+  completed segments. The screen renders them as archive fragments with a
+  deterministic composition recipe, so refresh and reconnect preserve the
+  world already built.
+
+This builds on the continuity mechanism in the architecture and turns it into
+an explicit product feature.
 
 **Call this: The Continuum** — the ad stream continuously mutates into increasingly absurd stories.
+
+### Creative format rotation
+
+No two consecutive ads should sound the same. The generator deterministically
+assigns each segment one of eight creative formats (FNV-1a hash of the segment
+ID, so replays are stable):
+
+| Format              | Tone          | Voice       | Visual style                  |
+| ------------------- | ------------- | ----------- | ----------------------------- |
+| Comedy Monologue    | comedy        | Domi        | playful, absurd               |
+| Cinematic Anthem    | anthem        | Antoni      | epic, hero shot               |
+| Late Night Radio    | radio         | Josh        | nocturnal, neon               |
+| Infomercial Parody  | infomercial   | Arnold      | 90s TV ad                     |
+| Soft Launch         | intimate      | Elli        | minimal, elegant              |
+| Hype Drop           | hype          | Bella       | graffiti-meets-tech           |
+| Documentary Voice   | documentary   | George      | nature-doc-meets-tech         |
+| News Bulletin       | news          | Rachel      | clean, editorial              |
+
+Each format has its own script template (hook → body → CTA structure varies
+by tone), a distinct ElevenLabs voice, and a visual style hint that feeds the
+image/video prompt. The format name and tone are included in
+`audioMetadata` so the UI can display them, and the tone prefix is carried
+into the Continuity summary so the next segment knows what style came before.
 
 ## Free AI-generated ads (cold-start engine)
 

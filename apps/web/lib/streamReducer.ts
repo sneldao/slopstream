@@ -85,6 +85,8 @@ export interface StreamState {
   nowPlaying: Segment | null;
   /** Durable and event-projected Continuum history, newest first. */
   recentSegments: Segment[];
+  /** Segments that are ready/generating but not yet playing — the queue. */
+  upcomingSegments: Segment[];
   nowPlayingStartedAt?: string;
   nowPlayingAttentionThreshold?: number;
   brands: BrandSummary[];
@@ -117,6 +119,7 @@ export function snapshotToState(snapshot: StreamSnapshot): StreamState {
     asOfSequence: snapshot.asOfSequence,
     nowPlaying: snapshot.nowPlaying,
     recentSegments: snapshot.recentSegments,
+    upcomingSegments: snapshot.upcomingSegments ?? [],
     nowPlayingStartedAt: snapshot.nowPlayingStartedAt,
     nowPlayingAttentionThreshold: snapshot.nowPlayingAttentionThreshold,
     brands: snapshot.brands,
@@ -247,6 +250,9 @@ export function reduceStreamEvent(
         ...next,
         nowPlaying: segment,
         recentSegments: addRecentSegment(prev.recentSegments, previousSegment),
+        upcomingSegments: prev.upcomingSegments.filter(
+          (s) => s.id !== event.segmentId,
+        ),
         nowPlayingStartedAt: event.startedAt,
         // Carry the tier from generation into playback so the 3D AdSurface
         // knows whether to render an orb, image plane, or video plane.

@@ -14,6 +14,7 @@ const snapshot: StreamSnapshot = {
     status: "playing",
   },
   recentSegments: [],
+  upcomingSegments: [],
   nowPlayingAttentionThreshold: 2,
   brands: [],
   leaderboard: [{ brandId: "brand_1", amountUsd: 10 }],

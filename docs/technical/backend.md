@@ -53,15 +53,17 @@ The live-event stream is the single integration seam between the orchestrator/ba
 
 The WebSocket is a **server-to-client projection**, not a mutation API. Clients use authenticated HTTPS endpoints for every state-changing or private operation:
 
-| Operation                        | Transport                                      | Result                                                                                                                            |
-| -------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Create a brand account           | `POST /brands`                                 | `BrandSummary` + one-time bearer token                                                                                            |
-| Top up a brand balance           | `POST /top-ups`                                | Mock-Stripe charge (hackathon) + updated balance                                                                                  |
-| Place or raise a bid             | `POST /bids`                                   | Persisted bid; API later publishes `bid.*` events                                                                                 |
-| Create/resume a listener session | `POST /listener-sessions`                      | Session token / identity (bearer resumes the same session)                                                                        |
-| Submit a challenge response      | `POST /attention-proofs`                       | Private verification result / receipt                                                                                             |
-| Load or recover stream state     | `GET /stream/snapshot`                         | Current segment, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
-| Poll auction state               | `GET /auctions/current`, `GET /auctions/:slot` | `AuctionState` (status, deadline, standing bid, winner + `segmentId` after close)                                                 |
+| Operation                        | Transport                                      | Result                                                                                                                                                             |
+| -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Create a brand account           | `POST /brands`                                 | `BrandSummary` + one-time bearer token                                                                                                                             |
+| Top up a brand balance           | `POST /top-ups`                                | Mock-Stripe charge (hackathon) + updated balance                                                                                                                   |
+| Place or raise a bid             | `POST /bids`                                   | Persisted bid; API later publishes `bid.*` events                                                                                                                  |
+| Create/resume a listener session | `POST /listener-sessions`                      | Session token / identity (bearer resumes the same session)                                                                                                         |
+| Read listener balance           | `GET /listener-sessions/me`                    | Authenticated available/pending balance and verification total                                                                                                     |
+| Submit a challenge response      | `POST /attention-proofs`                       | Private verification result / receipt                                                                                                                              |
+| Request a listener payout       | `POST /listener-sessions/me/payout-request`    | Records a hackathon payout request and debits the available internal balance; no external payout rail yet                                                          |
+| Load or recover stream state     | `GET /stream/snapshot`                         | Current segment, eight recent completed segments, the next generated/ready queue, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
+| Poll auction state               | `GET /auctions/current`, `GET /auctions/:slot` | `AuctionState` (status, deadline, standing bid, winner + `segmentId` after close)                                                                                  |
 
 Brand and listener commands authenticate with their bearer token. The orchestrator additionally authenticates with `ORCHESTRATOR_API_TOKEN` and drives the per-segment lifecycle against Lane 2 — `POST /segments/:id/generating`, `/ready`, `/challenge-source`, `/challenges/next` (Lane 3 decides when to fire; the response is a `PublicChallenge`, never the answer), `/playing` (opens the attention window and freezes `required_events`), `/window-closed` (exactly-once clearing evaluation), and `/failed` — so clearing state stays in the ledger even though playback lives in Lane 3. Invoking the generator similarly requires `GENERATOR_API_TOKEN`; production processes refuse to start with the checked-in demo defaults.
 
@@ -69,17 +71,17 @@ Commands are authenticated and validated at the API boundary; the API persists t
 
 ### Listener session identity
 
-`POST /listener-sessions` creates an anonymous listener session and returns an opaque session token. The listener client stores that token and its browser-generated commitment in `sessionStorage`, then presents the token as a bearer credential on every listener API call (`POST /attention-proofs`, balance and receipt fetches). The API binds the commitment at session creation and rejects a proof whose commitment does not match the authenticated session. Reconnecting within the browser session with the same token resumes the session — same balance, same attention history; a new token means a new listener. For the hackathon this is the entire identity story: no accounts, no device attestation. The token is also the unit anti-fraud scoring operates on — `uniqueness_score` weights attention events by how plausible it is that the session is one distinct human, which is why session resumption matters even though it is invisible in the UI.
+`POST /listener-sessions` creates an anonymous listener session and returns an opaque session token. The listener client stores that token and its browser-generated commitment in `sessionStorage`, then presents the token as a bearer credential on every listener API call (`POST /attention-proofs`, `GET /listener-sessions/me`, and payout request). The API binds the commitment at session creation and rejects a proof whose commitment does not match the authenticated session. Reconnecting within the browser session with the same token resumes the session — same balance, same attention history; a new token means a new listener. For the hackathon this is the entire identity story: no accounts, no device attestation. The token is also the unit anti-fraud scoring operates on — `uniqueness_score` weights attention events by how plausible it is that the session is one distinct human, which is why session resumption matters even though it is invisible in the UI.
 
 ### WebSocket projections, audiences, and reconnects
 
-The current `WsEvent` union contains only public/aggregate events: now playing, leaderboard, generation, public challenge, aggregate attention, and clearing. Listener proof receipts/balances and brand balance/campaign state are returned through authenticated HTTPS responses and snapshots for the hackathon; they are never put on the public live feed.
+The current `WsEvent` union contains only public/aggregate events: now playing, leaderboard, generation, public challenge, aggregate attention, and clearing. The listener client renders a public challenge only when the person has enabled Earn Mode; the event itself carries neither a response requirement nor listener identity. Listener proof receipts/balances and brand balance/campaign state are returned through authenticated HTTPS responses and snapshots for the hackathon; they are never put on the public live feed.
 
 If a later release adds a private WebSocket update, it must define a separately scoped event type, authenticate the target listener session or brand account, and authorize delivery at the gateway. Do not add a private field to a public `WsEvent`.
 
 Every gateway delivery wraps a `WsEvent` in a `WsDelivery` envelope carrying a monotonic `sequence` and opaque `eventId`. `WsDelivery` is defined in `packages/shared`, so all clients deduplicate and order deliveries against one shared shape. The sequence is transport metadata; the underlying `WsEvent` remains the business-event union described below.
 
-For the hackathon, Redis pub/sub does **not** need to become a durable replay log. On initial load or reconnect, the client fetches `GET /stream/snapshot` — a `StreamSnapshot` from `packages/shared` (`asOfSequence`, now playing, brands, leaderboard, open auction deadline, stats, active `PublicChallenge`) — renders that authoritative state, and records its `asOfSequence`. It applies only later events; a duplicate is ignored, and a sequence gap triggers another snapshot fetch. This makes a dropped mobile connection recoverable without making the socket itself durable.
+For the hackathon, Redis pub/sub does **not** need to become a durable replay log. On initial load or reconnect, the client fetches `GET /stream/snapshot` — a `StreamSnapshot` from `packages/shared` (`asOfSequence`, now playing, recent completed segments, a small generated/ready queue, brands, leaderboard, open auction deadline, stats, active `PublicChallenge`) — renders that authoritative state, and records its `asOfSequence`. It applies only later events; a duplicate is ignored, and a sequence gap triggers another snapshot fetch. This makes a dropped mobile connection recoverable without making the socket itself durable. `recentSegments` is newest-first and capped at eight so the visual Continuum survives recovery without turning the public snapshot into an unbounded archive; `upcomingSegments` is limited to the next two queue entries for the screen’s “Coming up” cue.
 
 ### Public event reference
 
@@ -200,7 +202,11 @@ listener_pool       = $8.00
 platform_revenue    = $2.00
 ```
 
-Listener rewards start as an **internal balance** — payout rails are a later feature. See [economics](../product/economics.md#listener-rewards-start-with-an-internal-balance).
+Listener rewards begin **pending** while the segment settles and become
+**available** when the reward pool is distributed. The listener UI may request
+a payout against the available balance, but the hackathon endpoint only records
+that request and debits the internal ledger; external payout rails remain a
+later feature. See [economics](../product/economics.md#listener-rewards-start-with-an-internal-balance).
 
 ### Uncleared and failed bids
 
