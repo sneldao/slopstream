@@ -119,7 +119,7 @@ expected cost = bid × P(threshold met | audience, ad quality, slot)
 This means brands are effectively bidding on an *option* on verified attention, not a guaranteed impression. Two consequences:
 
 - **Brands should bid higher than in a pay-per-impression model**, because they only pay on verified delivery. The auction is selling a conditional claim, not a sure thing.
-- **The threshold is the hidden price-setting parameter** — arguably more important than the auction format. Set it too high and bids rarely clear (Slopstream earns nothing, brands leave). Set it too low and attention is meaningless (listeners are rewarded for nothing, the proof is theater). The threshold is what actually prices verified attention; the auction just allocates the slot.
+- **The threshold is the hidden price-setting parameter** — arguably more important than the auction format. Set it too high and bids rarely clear (Slopstream earns nothing, brands leave). Set it too low and attention is meaningless (listeners are rewarded for nothing, the proof is theater). The threshold is what actually prices verified attention; the auction just allocates the slot. Concrete mechanics — where it's stored, the frozen denominator, and when the window opens/closes — are pinned down in the [threshold spec](../technical/backend.md#attention-threshold-and-the-attention-window).
 
 ### Auction format: English ascending; first-price now, second-price later
 

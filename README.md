@@ -74,7 +74,7 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:orchestr
 | [docs/product/content.md](docs/product/content.md) | Infinite Slop™, attention challenges, free-AI-ads growth engine |
 | [docs/technical/architecture.md](docs/technical/architecture.md) | System architecture, tech stack, generation pipeline |
 | [docs/technical/contracts.md](docs/technical/contracts.md) | Midnight smart contracts |
-| [docs/technical/backend.md](docs/technical/backend.md) | Money architecture, ledger schema, challenge engine |
+| [docs/technical/backend.md](docs/technical/backend.md) | Money architecture, ledger schema, threshold/window mechanics, challenge engine |
 | [docs/hackathon/demo-script.md](docs/hackathon/demo-script.md) | User flows and the live demo sequence |
 | [docs/hackathon/build-order.md](docs/hackathon/build-order.md) | P0 / P1 / P2 build priorities |
 | [docs/hackathon/team-split.md](docs/hackathon/team-split.md) | Three parallel development lanes and shared-type seams |

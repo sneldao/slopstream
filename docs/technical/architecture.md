@@ -112,6 +112,8 @@ Each generation receives:
 
 The sandbox is then destroyed. This retains the isolation rationale: brand-submitted prompts are untrusted input, so generation runs should not share mutable state.
 
+**What plays while the winner generates.** Generation takes real wall-clock time, and the stream must never go silent. The segment scheduler keeps playing queued segments — typically free Infinite Slop filler ads — while the winning bid's segment generates in the background. When `segment.ready` fires, the generated segment cuts into the stream at the next segment boundary. This is also why the free-ad queue is load-bearing, not just a cold-start nicety: it is the filler that keeps the stream alive between paid slots. The `GENERATING AD...` stage checklist plays as an overlay/preview, not as dead air.
+
 ## Tech stack
 
 | Layer | Technology |

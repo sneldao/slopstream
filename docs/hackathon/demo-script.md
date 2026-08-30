@@ -29,7 +29,7 @@ LISTENERS ANSWER QUESTIONS
    ↓
 ATTENTION VERIFIED
    ↓
-$20 CLEARED
+$25 CLEARED
 ```
 
 ### Listener
@@ -72,15 +72,17 @@ Two companies are sitting in the queue.
 
 ### Scene 2 — First bid
 
-ACME AI: `$5 → $10 → $15`. The leaderboard moves.
+ACME AI: `$5 → $10 → $15 → $20`. The leaderboard moves.
 
 ### Scene 3 — Outbid
 
-COOLSTARTUP: `$18`. Huge animation:
+COOLSTARTUP: `$22`. Huge animation:
 
 ```text
 ⚡ OUTBID ⚡
 ```
+
+ACME comes back: `$25` — wins the slot.
 
 ### Scene 4 — AI generation
 
@@ -117,7 +119,7 @@ ATTENTION VERIFIED
 
 ██████████████████░░
 
-$18 CLEARED
+$25 CLEARED
 ```
 
 ### Scene 7 — Money
@@ -125,12 +127,12 @@ $18 CLEARED
 The full bid clears once the threshold is met; the listener share becomes a reward pool distributed across the valid attention events. Animation:
 
 ```text
-$18 CLEARED SPEND
+$25 CLEARED SPEND
 
-$3.60
+$5.00
 SLOPSTREAM
 
-$14.40
+$20.00
 LISTENER REWARD POOL
 ```
 
@@ -141,7 +143,7 @@ Someone bids again.
 ```text
 ⚡ NEW BID ⚡
 
-$18 → $22
+$25 → $30
 ```
 
 The next ad starts generating. And the entire cycle begins again.

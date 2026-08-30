@@ -59,7 +59,7 @@ The big screen is the centerpiece. It should feel like a lava lamp crossed with 
 4. A splash particle effect ripples outward from the new bid amount.
 5. "OUTBID" text bursts in with spring overshoot, then settles.
 
-**The attention threshold as liquid.** Not a striped progress bar. A container filling with liquid — the verified count rises, the liquid level rises, it sloshes slightly when it hits the threshold. When the threshold is met, the liquid glows and the "$18 CLEARED" moment fires.
+**The attention threshold as liquid.** Not a striped progress bar. A container filling with liquid — the verified count rises, the liquid level rises, it sloshes slightly when it hits the threshold. When the threshold is met, the liquid glows and the "$25 CLEARED" moment fires.
 
 **The clearing animation.** When a bid clears:
 
@@ -138,7 +138,7 @@ Every WebSocket event produces a visible reaction. This is the actual UX spec fo
 | `segment.playing` | Ad full-screen, audio-reactive background activates, brand color palette floods screen | Audio visualizer activates, screen tints to brand color | — |
 | `challenge.fired` | Challenge banner overlay on big screen | Challenge card pops in with spring + haptic + sound, countdown timer starts | — |
 | `attention.verified` | Verified counter ticks up, liquid threshold fills, pulse effect | Attention meter updates, personal verified indicator | — |
-| `bid.cleared` | Full-screen "$18 CLEARED", particle split into 80/20 streams, pool counter ticks up | — | Bid cleared confirmation |
+| `bid.cleared` | Full-screen "$25 CLEARED", particle split into 80/20 streams, pool counter ticks up | — | Bid cleared confirmation |
 | `bid.uncleared` | "THRESHOLD NOT MET" — somber but clear, bid returned | — | Bid returned notification |
 | `reward.pool.updated` | Listener rewards stat counts up | Estimated reward updates on receipt | — |
 | `stats.updated` | All footer stats count up smoothly | — | — |
