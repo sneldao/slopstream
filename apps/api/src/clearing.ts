@@ -7,6 +7,7 @@
 import type {
   AttentionProofReceipt,
   AttentionProofSubmission,
+  AttentionProofVerificationContext,
 } from "@slopstream/shared";
 import type { EventBus } from "./bus.js";
 import { isoNow, newId } from "./ids.js";
@@ -114,7 +115,20 @@ export class ClearingEngine {
     );
     assert(!already, 409, "challenge already answered by this session");
 
-    const outcome = await this.verifier.verify(submission, challenge);
+    const createdAt = isoNow();
+    const context: AttentionProofVerificationContext = {
+      segmentStartedAt: new Date(
+        segment.windowOpenedAtMs ?? Date.now(),
+      ).toISOString(),
+      submittedAt: createdAt,
+      challenge: {
+        id: challenge.id,
+        segmentId: challenge.segmentId,
+        validFrom: challenge.validFrom,
+        validUntil: challenge.validUntil,
+      },
+    };
+    const outcome = await this.verifier.verify(submission, challenge, context);
     const event: AttentionEventRow = {
       id: newId("evt"),
       listenerSessionId: session.id,
@@ -128,7 +142,7 @@ export class ClearingEngine {
           : 0,
       uniquenessScore: 1,
       proofRef: outcome.proofId ?? "stub",
-      createdAt: isoNow(),
+      createdAt,
     };
     this.ledger.attentionEvents.set(event.id, event);
 
@@ -156,6 +170,7 @@ export class ClearingEngine {
       estimatedRewardUsd: outcome.verified
         ? this.estimateShare(segment, event)
         : undefined,
+      verifierMode: outcome.verifierMode,
       createdAt: event.createdAt,
     };
   }
@@ -291,7 +306,7 @@ export class ClearingEngine {
     pool.status = "closed";
   }
 
-  /** Threshold missed (or generation failed): return the reservation, no pool. */
+  /** Threshold missed after playback: return the reservation, no pool. */
   unclearBid(bid: BidRow, segment: SegmentRow): void {
     const balance = this.ledger.balances.get(bid.brandId);
     if (balance) {
@@ -322,7 +337,7 @@ export class ClearingEngine {
     }
     bid.status = "failed";
     this.bus.publish({
-      type: "bid.uncleared",
+      type: "bid.failed",
       bidId: bid.id,
       segmentId: segment.id,
       returnedAmountUsd: centsToUsd(bid.amountCents),

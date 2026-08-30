@@ -61,7 +61,7 @@ Slopstream uses a **hybrid transport model**: HTTP is the authoritative command 
 | State           | HTTPS / REST | Authoritative initial load and recovery after a missed event or reconnect  | `GET /stream/snapshot`, brand balance/campaign state, listener receipt/balance                         |
 | Live projection | WebSocket    | Server → client updates after state is persisted or stream runtime changes | leaderboard, OUTBID, generation progress, now playing, public challenge, aggregate attention, clearing |
 
-A typical listener flow is: create or resume a session through the API, fetch the current stream snapshot, connect to the socket, then render subsequent events. A challenge response is posted to the API; the API persists it, routes it through the verifier, and only then causes an aggregate `attention.verified` event to reach the screen. Browser clients do not send marketplace mutations as ad-hoc WebSocket events.
+A typical listener flow is: generate one browser-local commitment, create or resume a bearer session through the API, fetch the current stream snapshot, connect to the socket, then render subsequent events. The API binds that commitment to the issued session and requires both on proof submission. A challenge response is posted to the API; the API persists it, routes it through the verifier, and only then causes an aggregate `attention.verified` event to reach the screen. Browser clients do not send marketplace mutations as ad-hoc WebSocket events.
 
 The gateway currently fans out only the **public** `WsEvent` stream: now playing, leaderboard, aggregate stats, generation, public challenges, and clearing animations. Listener proof receipts/balances and brand balances/campaign state remain on authenticated HTTPS responses and snapshots for the hackathon; they are never placed in the public live feed.
 
@@ -125,37 +125,52 @@ Until the Daytona pipeline and Compact contracts are wired, Lane 1 exposes two l
 
 ### JSON-stub proof verifier
 
-- `GET /health` returns service health.
+- `GET /health` returns service health plus `verifierMode: "stub"`.
 - `POST /v1/attention-proofs/verify` accepts an `AttentionProofVerificationRequest` and returns an `AttentionProofVerificationResult`.
-- The API, not the browser, calls this endpoint. Lane 2 authenticates the listener, owns the full challenge (including the answer), supplies the timing/binding context, persists the outcome, then emits any aggregate marketplace event.
-- The stub expects `submission.resultProof` to be a JSON-encoded `StubAttentionProofPayload`. It checks listener/segment/challenge binding, that issue and submission timestamps fall in the challenge window, and rejects a reused nonce for the life of its process. A well-formed but invalid proof returns `200` with `verified: false`; malformed requests return `400`.
+- Only the API calls this endpoint. The browser submits its answer to Lane 2; Lane 2 authenticates the listener, keeps the complete challenge/answer private, and controls ledger writes and settlement.
 
-**Security boundary:** the stub payload's `valid` flag is self-reported. It is a deterministic demo/integration harness, **not cryptographic verification**, and must never authorize a production clearing decision or real payout. Process restarts also clear its in-memory replay set. Replacing the stub with the Midnight verifier must preserve the shared request/result contract while removing those assumptions.
+**Lane 2 integration sequence:**
+
+1. Receive the browser answer and validate it against Lane 2's private `Challenge`.
+2. For a correct answer only, call `createServerStubAttentionProof()` from `@slopstream/shared` with a fresh nonce, `issuedAt`, listener commitment, segment ID, and challenge ID. Assign its return value to `submission.resultProof`.
+3. Send `{ submission, context }` to the verifier. `context` must include `segmentStartedAt`, `submittedAt`, and `{ id, segmentId, validFrom, validUntil }` for the challenge.
+4. Persist the `AttentionProofVerificationResult`; only a `verified: true` result may create a valid attention event. Return its `verifierMode` in the private receipt so the UI can label the receipt truthfully.
+
+The verifier checks that the server-issued stub payload matches the listener/segment/challenge bindings, that issue and submission timestamps fall in the challenge window, and that its nonce has not been used in the current process. A well-formed but invalid proof returns `200` with `verified: false`; malformed requests return `400`.
+
+**Security boundary:** `createServerStubAttentionProof()` is a deterministic demo attestation, not a cryptographic signature. It must run only after Lane 2 has checked a private answer, and it must never authorize a production clearing decision or payout. Process restarts clear the in-memory replay set. `VERIFIER_MODE=midnight` deliberately fails at startup until a real Midnight implementation exists, so a JSON verifier can never be mislabeled as Midnight.
 
 ### Stub generator
 
 - `GET /health` returns service health.
 - `POST /v1/generations` accepts a `GenerationRequest` and returns a `201` `GenerationResult`; malformed requests return `400`.
-- The result includes a fresh stub `segmentId`, tier-appropriate placeholder asset URL, transcript, continuity summary, and optional audio/visual metadata. Lane 3 queues the result; Lane 2 consumes the transcript to pre-generate challenges.
-- `GENERATOR_MODE=stub` makes no provider calls. A future Daytona implementation replaces the internals of `generate()` while retaining this HTTP boundary and shared types.
+- Lane 2 allocates the canonical segment ID when it realizes an auction winner. The orchestrator sends that ID as the required `GenerationRequest.segmentId`; the generator echoes it unchanged in `GenerationResult.segmentId`. It never mints a competing stream segment ID.
+- This same rule applies to a free segment: its authoritative owner allocates the ID before calling the generator. The result carries a tier-appropriate placeholder asset URL, transcript, continuity summary, and optional audio/visual metadata. Lane 3 queues the result; Lane 2 consumes the transcript to pre-generate challenges.
+- `GENERATOR_MODE=stub` makes no provider calls. A future Daytona implementation replaces the internals of `generate()` while retaining this HTTP boundary and segment correlation rule.
 
 ## Tech stack
 
-| Layer           | Technology                                                                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Frontend        | Next.js                                                                                                                                                      |
-| Live transport  | HTTPS / REST commands + WebSocket projections                                                                                                                |
-| Backend         | Node + TypeScript                                                                                                                                            |
-| Queue           | Redis                                                                                                                                                        |
-| Database        | Postgres                                                                                                                                                     |
-| Generation      | Model-driven generation pipeline                                                                                                                             |
-| Sandboxing      | Daytona (disposable cloud dev sandboxes — each generation run gets a fresh, isolated environment that's destroyed after)                                     |
-| Contracts       | Compact / Midnight (Compact is Midnight's smart-contract language; Midnight is a privacy-preserving blockchain with private state and zero-knowledge proofs) |
-| Payments        | Stripe                                                                                                                                                       |
-| Audio           | TTS                                                                                                                                                          |
-| Visuals         | Image generation                                                                                                                                             |
-| Premium         | Video generation                                                                                                                                             |
-| Listener client | Mobile web / QR                                                                                                                                              |
-| Authentication  | Lightweight session identity (listener); email/OAuth for brand console                                                                                       |
+| Layer            | Technology                                                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Frontend         | Next.js                                                                                                                                                      |
+| 3D rendering     | Three.js + React Three Fiber (`@react-three/fiber`) — the big screen is a 3D fluid world (see [design language](../product/design-language.md))              |
+| 3D physics       | `@react-three/rapier` (WASM rigid-body physics) — brand blobs collide and spring                                                                             |
+| Post-processing  | `@react-three/postprocessing` — bloom, depth of field, chromatic aberration                                                                                  |
+| Fluid shader     | GLSL ray-marching SDF metaballs (primary) + mesh fallback with quality switch                                                                                |
+| 2D animation     | Framer Motion — spring physics for listener + brand surfaces and the floating HUD overlay                                                                    |
+| Audio reactivity | Web Audio API `AnalyserNode` → shader uniforms + physics forces                                                                                              |
+| Live transport   | HTTPS / REST commands + WebSocket projections                                                                                                                |
+| Backend          | Node + TypeScript                                                                                                                                            |
+| Queue            | Redis                                                                                                                                                        |
+| Database         | Postgres                                                                                                                                                     |
+| Generation       | Model-driven generation pipeline                                                                                                                             |
+| Sandboxing       | Daytona (disposable cloud dev sandboxes — each generation run gets a fresh, isolated environment that's destroyed after)                                     |
+| Contracts        | Compact / Midnight (Compact is Midnight's smart-contract language; Midnight is a privacy-preserving blockchain with private state and zero-knowledge proofs) |
+| Payments         | Stripe                                                                                                                                                       |
+| Audio            | TTS                                                                                                                                                          |
+| Visuals          | Image generation                                                                                                                                             |
+| Premium          | Video generation                                                                                                                                             |
+| Listener client  | Mobile web / QR                                                                                                                                              |
+| Authentication   | Lightweight session identity (listener); email/OAuth for brand console                                                                                       |
 
-**Authentication scope.** Listeners join via QR with a lightweight, anonymous session — no account needed. The brand console moves real money (Stripe top-ups, bids), so it requires a stronger identity (email/OAuth). For the hackathon, brand auth can be a simple email magic link; full KYC is explicitly out of scope (see [economics](../product/economics.md#listener-rewards-start-with-an-internal-balance)).
+**Authentication scope.** Listeners join via QR with a lightweight, anonymous bearer session — no account needed — and the browser stores its token plus commitment in `sessionStorage`. The brand console moves real money (Stripe top-ups, bids), so production requires a stronger identity (email/OAuth). The local hackathon profile is an intentional exception: it seeds ACME with `DEMO_ACME_BRAND_TOKEN`, exposed as `NEXT_PUBLIC_DEMO_BRAND_TOKEN` only for a deterministic demo. That token is not production authentication. Full KYC is explicitly out of scope (see [economics](../product/economics.md#listener-rewards-start-with-an-internal-balance)).

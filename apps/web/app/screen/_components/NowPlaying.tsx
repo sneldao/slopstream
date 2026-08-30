@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type {
   BrandSummary,
@@ -8,6 +9,7 @@ import type {
   Segment,
 } from "@slopstream/shared";
 import type { GenerationState } from "@/lib/streamReducer";
+import type { AudioSignal } from "@/lib/useAudioSignal";
 
 const STAGES: { key: GenerationStage; label: string }[] = [
   { key: "script", label: "Script" },
@@ -17,10 +19,12 @@ const STAGES: { key: GenerationStage; label: string }[] = [
 ];
 
 /**
- * The now-playing area: full-screen ad while playing, the generation sequence
- * while generating, and the challenge banner when a challenge is active.
- * Previous segments recede behind the current ad (spatial depth is a P1
- * refinement; here the receding trail is implied by the canvas).
+ * The now-playing area: full-screen ad while playing, the generation
+ * sequence while generating, and the challenge banner overlay.
+ *
+ * The playing ad has an audio-reactive background canvas that pulses with
+ * the shared audio signal — the room feels the stream. Previous segments
+ * recede behind the current ad with perspective + blur (spatial depth).
  */
 export function NowPlaying({
   nowPlaying,
@@ -28,12 +32,14 @@ export function NowPlaying({
   brand,
   generation,
   activeChallenge,
+  signalRef,
 }: {
   nowPlaying: Segment | null;
   nowPlayingStartedAt?: string;
   brand: BrandSummary | undefined;
   generation: GenerationState | undefined;
   activeChallenge: PublicChallenge | undefined;
+  signalRef: React.RefObject<AudioSignal>;
 }) {
   const primary = brand?.primaryColor;
 
@@ -48,13 +54,13 @@ export function NowPlaying({
             segment={nowPlaying}
             brand={brand}
             startedAt={nowPlayingStartedAt}
+            signalRef={signalRef}
           />
         ) : (
           <EmptyMarket key="empty" />
         )}
       </AnimatePresence>
 
-      {/* Challenge banner overlays the ad. */}
       <AnimatePresence>
         {activeChallenge && (
           <ChallengeBanner
@@ -76,7 +82,13 @@ function EmptyMarket() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <div style={styles.emptyTitle}>SLOPSTREAM</div>
+      <motion.div
+        style={styles.emptyTitle}
+        animate={{ opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      >
+        SLOPSTREAM
+      </motion.div>
       <div style={styles.emptySub}>
         The world&apos;s first live attention market.
       </div>
@@ -123,7 +135,7 @@ function GenerationSequence({
                 done
                   ? {
                       scale: [1.2, 1],
-                      backgroundColor: `rgba(255,255,255,0.06)`,
+                      backgroundColor: "rgba(255,255,255,0.06)",
                     }
                   : {}
               }
@@ -146,33 +158,138 @@ function PlayingAd({
   segment,
   brand,
   startedAt,
+  signalRef,
 }: {
   segment: Segment;
   brand: BrandSummary | undefined;
   startedAt?: string;
+  signalRef: React.RefObject<AudioSignal>;
 }) {
   const primary = brand?.primaryColor ?? "#444";
   const secondary = brand?.secondaryColor ?? "#222";
+  const bgRef = useRef<HTMLCanvasElement>(null);
+
+  // Audio-reactive background canvas — pulses with the signal.
+  useEffect(() => {
+    const canvas = bgRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let raf = 0;
+    const render = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+      const signal = signalRef.current;
+      const amp = signal.smoothAmplitude;
+      const beat = signal.beat;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Audio-reactive radial gradient — the background breathes.
+      const pulseRadius = 0.4 + amp * 0.3 + beat * 0.15;
+      const cx = w / 2;
+      const cy = h * 0.4;
+      const maxR = Math.max(w, h);
+      const grad = ctx.createRadialGradient(
+        cx,
+        cy,
+        0,
+        cx,
+        cy,
+        maxR * pulseRadius,
+      );
+      grad.addColorStop(0, hexA(primary, 0.5 + amp * 0.3));
+      grad.addColorStop(0.4, hexA(secondary, 0.3 + amp * 0.15));
+      grad.addColorStop(1, "rgba(5, 5, 15, 0.95)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Beat ripple — expanding ring on each beat.
+      if (beat > 0.5) {
+        ctx.strokeStyle = hexA(primary, beat * 0.3);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, maxR * 0.3 * (1 - beat), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      raf = requestAnimationFrame(render);
+    };
+    render();
+    return () => cancelAnimationFrame(raf);
+  }, [primary, secondary, signalRef]);
+
   return (
     <motion.div
-      style={{
-        ...styles.ad,
-        background: `radial-gradient(120% 120% at 50% 40%, ${secondary}, ${primary} 60%, #05050f 110%)`,
-      }}
+      style={styles.ad}
       initial={{ opacity: 0, scale: 1.04 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
     >
-      <div style={styles.adBadge}>NOW PLAYING</div>
-      <div style={styles.adBrand}>{brand?.name ?? "Free Ad"}</div>
-      <div style={styles.adSegment}>segment {segment.id}</div>
-      {startedAt && (
-        <div style={styles.adTime}>
-          live · {new Date(startedAt).toLocaleTimeString()}
-        </div>
-      )}
+      <canvas ref={bgRef} width={1920} height={1080} style={styles.adCanvas} />
+
+      {/* Spatial depth — receding previous segment ghosts. */}
+      <RecedingSegments brand={brand} />
+
+      <div style={styles.adContent}>
+        <motion.div
+          style={styles.adBadge}
+          initial={{ y: -10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          NOW PLAYING
+        </motion.div>
+        <motion.div
+          style={styles.adBrand}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{
+            delay: 0.3,
+            type: "spring",
+            stiffness: 200,
+            damping: 16,
+          }}
+        >
+          {brand?.name ?? "Free Ad"}
+        </motion.div>
+        <div style={styles.adSegment}>segment {segment.id}</div>
+        {startedAt && (
+          <div style={styles.adTime}>
+            live · {new Date(startedAt).toLocaleTimeString()}
+          </div>
+        )}
+      </div>
     </motion.div>
+  );
+}
+
+/** Receding segment ghosts — the Infinite Slop trail behind the current ad. */
+function RecedingSegments({ brand }: { brand: BrandSummary | undefined }) {
+  // In demo mode we don't have real previous segments, so we render
+  // abstract receding cards tinted to the brand color — the visual
+  // suggestion of depth and history. With real data these would be
+  // actual previous segment thumbnails.
+  const primary = brand?.primaryColor ?? "#333";
+  const secondary = brand?.secondaryColor ?? "#222";
+
+  return (
+    <div style={styles.receding}>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          style={{
+            ...styles.recedingCard,
+            transform: `translateZ(${-100 - i * 80}px) scale(${1 - i * 0.1})`,
+            opacity: 0.15 - i * 0.04,
+            background: `linear-gradient(135deg, ${hexA(secondary, 0.3)}, ${hexA(primary, 0.2)})`,
+            filter: `blur(${2 + i * 2}px)`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -208,14 +325,30 @@ function ChallengeBanner({
   );
 }
 
+function hexA(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const full =
+    h.length === 3
+      ? h
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : h;
+  const r = parseInt(full.slice(0, 2), 16) || 255;
+  const g = parseInt(full.slice(2, 4), 16) || 255;
+  const b = parseInt(full.slice(4, 6), 16) || 255;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 const styles: Record<string, React.CSSProperties> = {
   stage: {
     position: "relative",
     flex: 1,
-    minHeight: 320,
+    minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    perspective: 1000,
   },
   empty: { textAlign: "center" },
   emptyTitle: {
@@ -277,12 +410,36 @@ const styles: Record<string, React.CSSProperties> = {
   ad: {
     position: "absolute",
     inset: 0,
-    borderRadius: 24,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    transformStyle: "preserve-3d",
+  },
+  adCanvas: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  receding: {
+    position: "absolute",
+    inset: 0,
+    transformStyle: "preserve-3d",
+    pointerEvents: "none",
+  },
+  recedingCard: {
+    position: "absolute",
+    inset: "10%",
+    borderRadius: 24,
+    transformStyle: "preserve-3d",
+  },
+  adContent: {
+    position: "relative",
+    zIndex: 2,
+    textAlign: "center",
   },
   adBadge: {
     fontSize: 13,
@@ -293,6 +450,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "4px 12px",
     borderRadius: 999,
     marginBottom: 16,
+    display: "inline-block",
   },
   adBrand: {
     fontSize: "clamp(36px, 7vw, 96px)",

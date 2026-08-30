@@ -197,8 +197,11 @@ export function activeChallenge(
       continue;
     for (const challenge of ledger.challengesForSegment(segment.id)) {
       if (challenge.firedAtMs === undefined) continue;
+      // Answerable only inside [validFrom, validUntil] of playback, so a
+      // challenge fired early can't surface before it's answerable.
+      const opensAt = segment.windowOpenedAtMs + challenge.validFrom * 1000;
       const closesAt = segment.windowOpenedAtMs + challenge.validUntil * 1000;
-      if (nowMs < closesAt) return toPublic(challenge);
+      if (nowMs >= opensAt && nowMs < closesAt) return toPublic(challenge);
     }
   }
   return undefined;

@@ -60,7 +60,11 @@ if (env.seedDemo) {
         "DOGFOOD — the project management tool we use to build the project management tool.",
     },
   ]) {
-    const { brand } = market.createBrand(seed);
+    const identity =
+      seed.name === "ACME AI"
+        ? { id: "brand_acme", token: env.demoAcmeBrandToken }
+        : undefined;
+    const { brand } = market.createBrand(seed, identity);
     market.topUp({ brandId: brand.id, amountUsd: 500 });
   }
   console.log(`[seed] demo brands funded with ${"$"}500 each`);
@@ -93,7 +97,16 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(express.json());
-app.use(createRouter({ ledger, bus, auction, clearing, market }));
+app.use(
+  createRouter({
+    ledger,
+    bus,
+    auction,
+    clearing,
+    market,
+    windowGraceSec: env.windowGraceSec,
+  }),
+);
 app.use(apiErrorHandler);
 
 app.listen(env.port, () => {

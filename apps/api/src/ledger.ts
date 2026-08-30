@@ -62,6 +62,8 @@ export interface SegmentRow {
   requiredEvents?: number;
   /** Playback start — opens the attention window. */
   windowOpenedAtMs?: number;
+  /** Set when a grace-period close is scheduled but not yet evaluated. */
+  windowClosingAtMs?: number;
   windowClosed: boolean;
 }
 
@@ -82,7 +84,10 @@ export interface ChallengeRow {
 
 export interface ListenerSessionRow {
   id: string;
+  /** Opaque bearer credential for this anonymous session. */
   token: string;
+  /** Browser-generated commitment bound once when the session is created. */
+  commitment: string;
   joinedAt: string;
   balanceCents: number;
   todayVerifiedCents: number;

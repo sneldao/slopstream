@@ -11,10 +11,10 @@ import type { AttentionProofReceipt, BrandSummary } from "@slopstream/shared";
  *
  * Animation sequence:
  *  1. Card fades in with a slight scale-up spring.
- *  2. "ATTENTION VERIFIED" stamp effect — a circular seal that rotates in.
+ *  2. A result-specific stamp effect — verified or rejected.
  *  3. Proof hash types in character by character.
- *  4. Estimated reward amount counts up from $0.00.
- *  5. "VERIFIED BY MIDNIGHT" appears with a faint glow.
+ *  4. Estimated reward amount counts up for a verified proof.
+ *  5. Verifier provenance appears with a faint glow.
  *  6. Card holds for 3s, then fades out.
  */
 export function ProofReceipt({
@@ -29,6 +29,13 @@ export function ProofReceipt({
   const [visible, setVisible] = useState(true);
   const [typedHash, setTypedHash] = useState("");
   const [reward, setReward] = useState(0);
+  const isVerified = receipt.verified;
+  const verifierLabel =
+    receipt.verifierMode === "midnight"
+      ? "VERIFIED BY MIDNIGHT"
+      : receipt.verifierMode === "stub"
+        ? "VERIFIED IN DEMO MODE"
+        : "VERIFIER PROVENANCE UNAVAILABLE";
 
   // Proof hash types in character by character.
   useEffect(() => {
@@ -86,7 +93,15 @@ export function ProofReceipt({
           >
             {/* Seal stamp */}
             <motion.div
-              style={styles.seal}
+              style={{
+                ...styles.seal,
+                background: isVerified
+                  ? "linear-gradient(135deg, #4ade80, #22c55e)"
+                  : "linear-gradient(135deg, #fb7185, #ef4444)",
+                boxShadow: isVerified
+                  ? "0 8px 24px rgba(34,197,94,0.5)"
+                  : "0 8px 24px rgba(239,68,68,0.45)",
+              }}
               initial={{ scale: 0, rotate: -45, opacity: 0 }}
               animate={{ scale: 1, rotate: 0, opacity: 1 }}
               transition={{
@@ -101,11 +116,13 @@ export function ProofReceipt({
                 animate={{ rotate: [0, 5, 0] }}
                 transition={{ duration: 0.4, delay: 0.3 }}
               >
-                ✓
+                {isVerified ? "✓" : "×"}
               </motion.div>
             </motion.div>
 
-            <div style={styles.verified}>ATTENTION VERIFIED</div>
+            <div style={styles.verified}>
+              {isVerified ? "ATTENTION VERIFIED" : "ATTENTION NOT VERIFIED"}
+            </div>
 
             <div style={styles.brand}>{brand?.name ?? receipt.brandId}</div>
             <div style={styles.segment}>Segment {receipt.segmentId}</div>
@@ -118,8 +135,13 @@ export function ProofReceipt({
             </div>
             <div style={styles.row}>
               <span style={styles.rowLabel}>Result</span>
-              <span style={{ ...styles.rowValue, color: "#4ade80" }}>
-                VALID
+              <span
+                style={{
+                  ...styles.rowValue,
+                  color: isVerified ? "#4ade80" : "#ef4444",
+                }}
+              >
+                {isVerified ? "VALID" : "NOT VERIFIED"}
               </span>
             </div>
 
@@ -138,19 +160,25 @@ export function ProofReceipt({
 
             <div style={styles.proofRow}>
               <span style={styles.rowLabel}>Proof</span>
-              <span style={styles.proofHash}>
+              <span style={styles.proofHash} title={receipt.proofId}>
                 {typedHash}
                 <span style={styles.cursor}>…</span>
               </span>
             </div>
+            <div style={styles.fullProofId}>{receipt.proofId}</div>
 
-            <div style={styles.rewardBox}>
-              <div style={styles.rewardLabel}>ESTIMATED REWARD</div>
-              <div style={styles.rewardAmount}>
-                ~${reward.toFixed(2)}
-                <span style={styles.rewardPending}> (pending pool close)</span>
+            {isVerified && (
+              <div style={styles.rewardBox}>
+                <div style={styles.rewardLabel}>ESTIMATED REWARD</div>
+                <div style={styles.rewardAmount}>
+                  ~${reward.toFixed(2)}
+                  <span style={styles.rewardPending}>
+                    {" "}
+                    (pending pool close)
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             <motion.div
               style={styles.verifiedBy}
@@ -158,7 +186,7 @@ export function ProofReceipt({
               animate={{ opacity: 1 }}
               transition={{ delay: 1.2 }}
             >
-              VERIFIED BY MIDNIGHT
+              {verifierLabel}
             </motion.div>
           </motion.div>
         </motion.div>
@@ -238,6 +266,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 700,
     color: "#333",
+  },
+  fullProofId: {
+    width: "100%",
+    color: "#555",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    fontSize: 10,
+    lineHeight: 1.4,
+    overflowWrap: "anywhere",
+    userSelect: "text",
   },
   cursor: { opacity: 0.4 },
   rewardBox: {

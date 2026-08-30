@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StreamSnapshot, WsDelivery } from "@slopstream/shared";
+import { apiBaseUrl, apiUrl } from "./liveApi";
 import {
   reduceStreamEvent,
   snapshotToState,
@@ -26,9 +27,6 @@ import {
 const SNAPSHOT_PATH = "/stream/snapshot";
 const DEFAULT_WS_PATH = "/ws";
 
-function resolveApiBase(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? "";
-}
 function resolveWsUrl(): string | null {
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
   if (explicit) return explicit;
@@ -58,9 +56,8 @@ export function useLiveStream(): StreamState {
   const lastSequence = useRef<number>(0);
 
   const fetchSnapshot = useCallback(async (): Promise<StreamState | null> => {
-    const base = resolveApiBase();
     try {
-      const res = await fetch(`${base}${SNAPSHOT_PATH}`);
+      const res = await fetch(apiUrl(SNAPSHOT_PATH));
       if (!res.ok) return null;
       const snapshot = (await res.json()) as StreamSnapshot;
       const next = snapshotToState(snapshot);
@@ -123,7 +120,7 @@ export function useLiveStream(): StreamState {
   useEffect(() => {
     // Only attempt live connection if a snapshot URL is resolvable.
     // In demo mode this env var is unset, so the hook stays inert.
-    if (!process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_WS_URL) {
+    if (!apiBaseUrl() && !process.env.NEXT_PUBLIC_WS_URL) {
       return;
     }
     void fetchSnapshot().then((s) => {

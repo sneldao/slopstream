@@ -10,3 +10,5 @@ dist/
 *.tsbuildinfo
 # Tool-specific local settings
 .qoder/
+# Review artifacts
+semantic-review/

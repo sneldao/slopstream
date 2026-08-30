@@ -65,7 +65,10 @@ export function toListenerSession(row: ListenerSessionRow): ListenerSession {
 export class MarketService {
   constructor(private readonly ledger: Ledger) {}
 
-  createBrand(cmd: CreateBrandCommand): { brand: BrandRow; token: string } {
+  createBrand(
+    cmd: CreateBrandCommand,
+    identity?: { id: string; token: string },
+  ): { brand: BrandRow; token: string } {
     assert(
       typeof cmd?.name === "string" && cmd.name.trim().length > 0,
       400,
@@ -90,14 +93,20 @@ export class MarketService {
     );
 
     const brand: BrandRow = {
-      id: newId("brand"),
+      id: identity?.id ?? newId("brand"),
       name: cmd.name.trim(),
       primaryColor: cmd.primaryColor.trim(),
       secondaryColor: cmd.secondaryColor.trim(),
       brief: cmd.brief.trim(),
-      token: newToken(),
+      token: identity?.token ?? newToken(),
       createdAt: isoNow(),
     };
+    assert(!this.ledger.brands.has(brand.id), 409, "brand id already exists");
+    assert(
+      !this.ledger.brandTokens.has(brand.token),
+      409,
+      "brand token already exists",
+    );
     this.ledger.brands.set(brand.id, brand);
     this.ledger.brandTokens.set(brand.token, brand.id);
     this.ledger.balances.set(brand.id, {
@@ -137,16 +146,27 @@ export class MarketService {
   }
 
   /** Create or resume a listener session (bearer token = identity). */
-  createListenerSession(resumed?: ListenerSessionRow): {
+  createListenerSession(
+    resumed?: ListenerSessionRow,
+    commitment?: string,
+  ): {
     session: ListenerSessionRow;
     token: string;
     resumed: boolean;
   } {
-    if (resumed)
+    if (resumed) {
+      assert(
+        !commitment || commitment === resumed.commitment,
+        403,
+        "listener commitment does not match this session",
+      );
       return { session: resumed, token: resumed.token, resumed: true };
+    }
+    const token = newToken();
     const session: ListenerSessionRow = {
       id: newId("lstn"),
-      token: newToken(),
+      token,
+      commitment: commitment ?? token,
       joinedAt: isoNow(),
       balanceCents: 0,
       todayVerifiedCents: 0,

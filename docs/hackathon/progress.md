@@ -14,23 +14,32 @@ generation pipeline.
 
 - **JSON-stub proof verifier** (`apps/verifier/`) — a working HTTP service
   that validates `AttentionProofVerificationRequest` payloads:
-  - `parseVerificationRequest` structurally validates the request.
+  - `parseVerificationRequest` structurally validates the full `{ submission,
+context }` request.
   - `createStubAttentionProofVerifier` checks listener/segment/challenge
     binding, challenge timing (issue + submission within the window), and
     rejects reused nonces (in-memory).
+  - `createServerStubAttentionProof` in `packages/shared` gives Lane 2 the
+    canonical server-issued demo payload to create only after it privately
+    grades a correct answer.
+  - `VERIFIER_MODE=stub` is read at startup; unsupported modes, including
+    `midnight`, fail fast rather than mislabeling the JSON stub.
   - Returns `AttentionProofVerificationResult` with `verifierMode: "stub"`,
     a SHA-256-derived `proofId`, and failure codes matching
     `AttentionProofVerificationFailure`.
   - `GET /health`, `POST /v1/attention-proofs/verify`.
 - **Stub generator** (`apps/generator/`) — HTTP service accepting
   `GenerationRequest` and returning a valid `GenerationResult`:
-  - Runtime validation of `brandId`, `brief`, `tier`, `previousSummaries`.
+  - Runtime validation includes required `segmentId`.
+  - Lane 2 allocates the canonical segment ID when it realizes a winner; the
+    caller supplies it and the generator echoes it rather than minting one.
   - Tier-appropriate placeholder asset URLs.
   - `GET /health`, `POST /v1/generations` (201 on success, 400 on invalid).
 - **Shared types** — `AttentionProofSubmission`,
   `AttentionProofVerificationContext`, `AttentionProofVerificationRequest`,
   `AttentionProofVerificationResult`, `AttentionProofVerificationFailure`,
-  `StubAttentionProofPayload` all defined in `packages/shared`.
+  `StubAttentionProofPayload`, and `createServerStubAttentionProof` all
+  defined in `packages/shared`.
 
 ### Lane 1: stubbed / not yet implemented
 
@@ -38,15 +47,22 @@ generation pipeline.
   (`ProofOfAttention`, `BidClearing`, `RewardClearing`,
   `PreviewRightsThreshold`) are comment-only interface sketches. No Compact
   toolchain, no compilation, no on-chain logic.
+- **Midnight verifier mode** — type support exists in shared, but selecting it
+  is intentionally rejected until a real verifier is installed.
 - **Daytona generation pipeline** — `generate()` returns stub content; no
   LLM/TTS/image/video providers, no sandbox, no real assets.
 - **Scraper** — no `ScrapedCompany` ingestion for free-ad cold start.
-- **`VERIFIER_MODE` env var** — defined in `.env.example` but not read; the
-  service always runs in stub mode.
-- **`midnight` verifier mode** — type exists in shared but no implementation.
 
-### Lane 1: known inconsistencies
+### Lane 1: known handoffs and inconsistencies
 
+- **Lane 2 verifier adoption — resolved** — `RemoteProofVerifier` sends the
+  complete `AttentionProofVerificationRequest`, including context, and issues
+  the stub attestation server-side via `createServerStubAttentionProof` only
+  after privately grading the answer. The browser never constructs the
+  attestation.
+- **Receipt provenance — resolved** — Lane 2's API retains and returns
+  `AttentionProofVerificationResult.verifierMode` on receipts so the UI can
+  label stub and Midnight receipts truthfully.
 - `BidClearing.compact` uses `amount`/`segmentSlot`; shared `Bid` uses
   `amountUsd`/`slot`. Contract parameter names should align before
   implementation.
@@ -57,11 +73,16 @@ generation pipeline.
 
 ### Lane 1: next steps
 
-1. Wire the Compact toolchain; implement `ProofOfAttention.compact` and
-   `BidClearing.compact` (P0).
-2. Add a `midnight` verifier mode that switches on `VERIFIER_MODE`.
-3. Wire Daytona + model providers into `generate()`.
-4. Build the scraper for free-ad cold start.
+1. Pair with Lane 2 on the proof-verifier handoff: full context, server-issued
+   stub payload, and receipt provenance. This is the P0 prerequisite for a
+   truthful live proof flow.
+2. Support Lane 3's orchestrator integration with the canonical segment-ID
+   rule, then verify a generated segment reaches Lane 2's lifecycle routes.
+3. Wire the Compact toolchain; implement `ProofOfAttention.compact` and
+   `BidClearing.compact` once the live stub flow is rehearsed.
+4. Wire Daytona + model providers into `generate()` after the stub generator
+   has run through the orchestrator loop.
+5. Build the scraper for free-ad cold start.
 
 ---
 
@@ -85,11 +106,12 @@ live-event bus.
   - `GET /stream/snapshot`, `GET /events` (replay).
 - **Auction engine** (`auction.ts`) — bid placement, outbid detection, fund
   reservation, winner selection, slot realization. Emits `bid.placed`,
-  `bid.outbid`, `leaderboard.updated`.
+  `bid.outbid`, `leaderboard.updated`. `AuctionState.winner` carries the
+  realized `segmentId` so Lane 3 can bind winner → segment.
 - **Clearing engine** (`clearing.ts`) — attention window management,
   one-shot threshold clearing, 80/20 split with Hamilton largest-remainder
   distribution. Emits `attention.verified`, `bid.cleared`, `bid.uncleared`,
-  `reward.pool.updated`.
+  `bid.failed`, `reward.pool.updated`.
 - **Challenge engine** (`challenges.ts`) — generates `recall`, `true_false`,
   `sequence` challenges from transcript text. `PublicChallenge` projection
   strips answers.
@@ -103,46 +125,59 @@ live-event bus.
   in-process fallback otherwise. Publishes to `REDIS_TOPICS.marketplace`.
 - **Snapshot** (`snapshot.ts`) — composes `StreamSnapshot` from ledger +
   engines. Maps `mediaUrl` → `assetUrl`, `durationSec` → `durationSeconds`.
+  `activeChallenge` only surfaces a challenge inside its answerable
+  `[validFrom, validUntil]` window.
+- **Lane 1 verifier integration** (`verifier.ts`) — Lane 2 privately grades
+  the listener's answer against the backend-held challenge in both verifier
+  modes; the browser never constructs the attestation. On a correct answer,
+  `RemoteProofVerifier` issues the attestation server-side via shared
+  `createServerStubAttentionProof` (fresh nonce) and forwards the complete
+  `AttentionProofVerificationRequest` — submission plus full
+  `AttentionProofVerificationContext` — to Lane 1's verifier. Proof receipts
+  carry `verifierMode` provenance from the verification result. Verified
+  live against `apps/verifier` (see cross-lane table).
+- **Lifecycle event publication + grace close** (`routes.ts`) — the segment
+  lifecycle endpoints now publish `segment.generating`, `segment.ready`,
+  `segment.playing`, and `challenge.fired` on the marketplace bus, so the
+  live flow works before Lane 3's orchestrator emits on the `runtime` topic
+  (once it does, these publications come out — one emitter per event).
+  `POST /segments/:id/window-closed` defers the clearing evaluation by
+  `WINDOW_GRACE_SEC` so in-flight proofs still land; exactly-once is
+  preserved (duplicate close → 409), and `/failed` cancels a pending close.
 - **Money** (`money.ts`) — integer-cents arithmetic, `splitCents`, `ApiError`.
-- **Demo brand seeding** — 3 brands with $500 each on startup.
+- **Test suite** — 22 passing vitest tests: money math (cents round-trip,
+  `splitCents`, largest-remainder distribution), auction economics
+  (reservation, outbid release, close/refund/reopen), clearing rules
+  (threshold freeze, replay rejection, out-of-window rejection,
+  failed-segment refund).
+- **Demo brand seeding** — 3 brands with $500 each on startup. ACME uses the deterministic `brand_acme` ID and `DEMO_ACME_BRAND_TOKEN` only in the explicit hackathon demo profile; mutation routes still require that bearer token.
 
 ### Lane 2: stubbed / not yet implemented
 
 - **Persistence** — `Ledger` is in-memory Maps. No Postgres adapter, no
   migrations. `DATABASE_URL` is decorative.
 - **Stripe** — top-ups are instant mock credits. No checkout, no webhooks.
-- **`WINDOW_GRACE_SEC`** — loaded from env but not applied; windows close
-  exactly when `/window-closed` is called.
 - **Anti-fraud** — `uniquenessScore` hard-coded to `1`.
-- **Orchestrator events not published** — segment lifecycle endpoints
-  (`generating`, `ready`, `playing`, `challenge.fired`) set state but don't
-  call `bus.publish`. These are expected to be emitted on the `runtime`
-  topic by the orchestrator (Lane 3), but no bridging code exists yet.
-- **No tests.**
 
 ### Lane 2: known inconsistencies
 
-1. `POST /attention-proofs` validates `listenerCommitment` is a string but
-   doesn't forward it to the verifier.
-2. `RemoteProofVerifier` sends only `validFrom`/`validUntil`, not the full
-   `AttentionProofVerificationContext` (`segmentStartedAt`, `submittedAt`).
-3. `verifierMode` from `AttentionProofVerificationResult` is not surfaced in
-   the receipt.
-4. `failSegment()` reuses `bid.uncleared` for failed segments; `BidStatus`
-   has `failed` but there's no `bid.failed` event type.
-5. `activeChallenge()` in snapshot doesn't check `elapsed >= validFrom` — a
-   challenge could appear before it's answerable.
-6. `visualMetadata`/`audioMetadata` in `ChallengeSourceCommand` are accepted
+1. `visualMetadata`/`audioMetadata` in `ChallengeSourceCommand` are accepted
    but ignored; challenges derive from transcript only.
+
+Resolved since the last review: the listener commitment now rides in the
+server-issued attestation (old #1), the remote verifier receives the full
+`AttentionProofVerificationContext` (old #2), `verifierMode` provenance is
+surfaced on receipts (old #3), `activeChallenge` checks the full
+`[validFrom, validUntil]` window (old #5), `failSegment` emits the new
+`bid.failed` event (old #4), lifecycle endpoints publish their events and
+`WINDOW_GRACE_SEC` defers the clearing evaluation.
 
 ### Lane 2: next steps
 
-1. Wire segment lifecycle event publication (either in `routes.ts` or by the
-   orchestrator on the `runtime` topic).
-2. Send the full `AttentionProofVerificationContext` to the remote verifier.
-3. Fix `activeChallenge` timing check.
-4. Add Postgres adapter (post-hackathon).
-5. Add tests for the auction + clearing math.
+1. Add Postgres adapter (post-hackathon).
+2. Remove the lifecycle-event publication from `routes.ts` once Lane 3's
+   orchestrator emits `segment.*`/`challenge.fired` on the `runtime` topic
+   (one emitter per event).
 
 ---
 
@@ -153,7 +188,28 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 
 ### Lane 3: implemented
 
-- **Big screen** (`/screen`) — the living canvas:
+- **First visual overhaul (2D, done)** — the big screen, listener, and brand
+  surfaces were rebuilt from their initial basic versions into a dynamic,
+  audio-reactive, animated experience using Framer Motion + Canvas 2D + Web
+  Audio. This is the baseline that the 3D overhaul builds on. Key additions:
+  - `useAudioSignal` — shared audio signal hook (synthesized in demo mode,
+    ready for a real `AnalyserNode` in live mode). All visual surfaces
+    subscribe to this ref at 60fps.
+  - `useSoundDesign` — Web Audio synthesized sounds (OUTBID crack, clearing
+    chime, challenge pop, proof seal, bid click, join sweep).
+  - `AmbientCanvas` — full-bleed Canvas 2D particle layer with drifting
+    brand-tinted metaball blobs, audio-reactive swelling, beat ripples,
+    OUTBID burst particles.
+  - `SoftBlob` / `BlobChip` — SVG soft-body blob chips with Catmull-Rom
+    spline paths that wobble and deform with the audio signal.
+  - `LiquidThreshold` — canvas-rendered sloshing liquid with wave physics.
+  - `ClearBurstFlow` — flowing particle streams with trails (80/20 split).
+  - Full-bleed now-playing with audio-reactive background canvas, spatial
+    depth (receding segment ghosts), floating leaderboard over the canvas.
+  - Listener: full-bleed audio-reactive background, sound on challenge/proof.
+  - Brand: ambient brand glow canvas, sound on OUTBID/bid, particle effect
+    on bid confirmation, glassmorphic cards, living leaderboard.
+- **Big screen** (`/screen`) — the living canvas (2D version):
   - Brand-tinted radial-gradient backdrop that breathes (CSS variables set
     at runtime from the active brand).
   - OUTBID flash: full-screen color wash from displaced → new leader, splash
@@ -176,10 +232,11 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
     threshold met.
   - Challenge card: spring pop-in, countdown timer ring (depleting visibly,
     green→yellow→red), large tappable option buttons, haptic vibration.
-  - Proof receipt (the calm center): translucent white card, green seal
-    stamp rotating in, proof hash typing in character-by-character, reward
-    counting up from $0.00, "VERIFIED BY MIDNIGHT" with faint glow,
-    auto-dismiss after 3.5s.
+  - Proof receipt (the calm center): translucent white card, result-specific
+    seal, proof hash typing plus full selectable proof ID, reward counting for
+    verified results only, and provenance that says “Verified in demo mode”
+    for the JSON stub or “Verified by Midnight” only for a real Midnight
+    receipt; auto-dismisses after 3.5s.
   - Balance + today's verified attention tracking.
 - **Brand console** (`/brand`) — auction pressure station:
   - OUTBID alert banner (slides in when Acme is overtaken, haptic vibration).
@@ -217,8 +274,9 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
   configured.
 - **Real audio** — the visualizer uses simulated amplitude; no `AnalyserNode`
   wired to a real audio stream.
-- **Live bid placement** — the brand console's `placeBidLive` function POSTs
-  to `/bids` but is only exercised in live mode.
+- **Live bid placement** — in live hackathon mode the brand console reads the
+  explicitly demo-only ACME bearer token, loads `/brands/me/balance`, and
+  posts authenticated bids. It is not production brand authentication.
 
 ### Lane 3: known inconsistencies
 
@@ -233,36 +291,47 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 
 ### Lane 3: next steps
 
-1. Wire the orchestrator: HTTP/WS gateway, Redis subscription, auction
+1. **3D visual overhaul** — rebuild the big screen as a 3D fluid world (R3F +
+   metaball shader + Rapier physics). See
+   [3D overhaul plan](./3d-overhaul-plan.md). This is the current priority.
+2. Wire the orchestrator: HTTP/WS gateway, Redis subscription, auction
    polling, generator calls, segment scheduling, event emission on the
    `runtime` topic.
-2. Swap the visualizer's simulated amplitude for a real `AnalyserNode`.
-3. Integration test: set `NEXT_PUBLIC_STREAM_MODE=live` and verify all three
+3. Swap the visualizer's simulated amplitude for a real `AnalyserNode`.
+4. Integration test: set `NEXT_PUBLIC_STREAM_MODE=live` and verify all three
    surfaces consume the real API + WebSocket feed.
+5. Wire the real generation pipeline (TTS, image gen, video gen) after the 3D
+   world is stable. API keys provided by the user when ready.
 
 ---
 
 ## Cross-lane integration status
 
-| Integration point                | Status                                                                                       |
-| -------------------------------- | -------------------------------------------------------------------------------------------- |
-| Shared types (`packages/shared`) | Frozen — all three lanes code against it                                                     |
-| Demo fixture → UI                | Working (Lane 3 owns player + fixture)                                                       |
-| Lane 2 API → Lane 1 verifier     | Partial (context incomplete — see Lane 2 inconsistencies)                                    |
-| Lane 2 API → UI (live mode)      | Ready in UI (`useLiveStream`); gateway not yet built                                         |
-| Orchestrator → generator         | Not wired                                                                                    |
-| Orchestrator → Lane 2 auction    | Not wired                                                                                    |
-| Orchestrator → WebSocket gateway | Not wired                                                                                    |
-| Proof receipt end-to-end         | Demo-only (canned receipt); live path needs the full `AttentionProofVerificationContext` fix |
+| Integration point                | Status                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Shared types (`packages/shared`) | Frozen — all three lanes code against it                                                                                             |
+| Demo fixture → UI                | Working (Lane 3 owns player + fixture)                                                                                               |
+| Lane 2 API → Lane 1 verifier     | Working — full `AttentionProofVerificationRequest` + server-issued attestation verified live against `apps/verifier`                 |
+| Lane 2 API → UI (live mode)      | Ready in UI (`useLiveStream`); gateway not yet built                                                                                 |
+| Orchestrator → generator         | Not wired                                                                                                                            |
+| Orchestrator → Lane 2 auction    | Not wired                                                                                                                            |
+| Orchestrator → WebSocket gateway | Not wired                                                                                                                            |
+| Proof receipt end-to-end         | Working in live mode (server-issued stub attestation, `verifierMode` provenance on receipts); Midnight mode pending Lane 1 contracts |
 
 ## What demos today
 
 The demo-mode harness drives all three surfaces end-to-end with no backend:
 
-- Big screen plays the 8-scene fixture with all signature visuals.
+- Big screen plays the 8-scene fixture with all signature visuals (2D
+  version — audio-reactive ambient canvas, soft-body blob leaderboard, liquid
+  threshold, flowing clearing streams, synthesized sound design). The 3D
+  fluid world overhaul is the next priority (see
+  [3D overhaul plan](./3d-overhaul-plan.md)).
 - Listener client renders challenges + proof receipts from canned data.
 - Brand console shows live auction pressure from the fixture.
 
-Setting `NEXT_PUBLIC_STREAM_MODE=live` + `NEXT_PUBLIC_API_URL` switches all
-three surfaces to consume the real API + WebSocket gateway when ready — zero
-code changes to the components.
+Setting `NEXT_PUBLIC_STREAM_MODE=live` + `NEXT_PUBLIC_API_BASE_URL` switches
+all three surfaces to consume the real API + WebSocket gateway when ready —
+zero code changes to the components. The listener creates/resumes an anonymous
+session in `sessionStorage`; the demo brand console additionally requires the
+explicitly demo-only `NEXT_PUBLIC_DEMO_BRAND_TOKEN`.

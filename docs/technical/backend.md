@@ -65,11 +65,11 @@ The WebSocket is a **server-to-client projection**, not a mutation API. Clients 
 
 Brand and listener commands authenticate with their bearer token. The orchestrator additionally drives the per-segment lifecycle against Lane 2 — `POST /segments/:id/generating`, `/ready`, `/challenge-source`, `/challenges/next` (Lane 3 decides when to fire; the response is a `PublicChallenge`, never the answer), `/playing` (opens the attention window and freezes `required_events`), `/window-closed` (exactly-once clearing evaluation), and `/failed` — so clearing state stays in the ledger even though playback lives in Lane 3.
 
-Commands are authenticated, validated, logged, and idempotent at the API boundary. The API persists the result before it publishes the corresponding marketplace event to Redis. Clients must never treat a WebSocket message as evidence that a bid, balance, proof, or reward is settled.
+Commands are authenticated and validated at the API boundary; the API persists the result before it publishes the corresponding marketplace event to Redis. The current hackathon server uses an in-memory ledger and has no request-idempotency or durable audit-log layer yet, so those are production follow-ups rather than current guarantees. Clients must never treat a WebSocket message as evidence that a bid, balance, proof, or reward is settled.
 
 ### Listener session identity
 
-`POST /listener-sessions` creates an anonymous listener session and returns an opaque session token. The listener client stores it locally (localStorage) and presents it as a bearer token on every listener API call (`POST /attention-proofs`, balance and receipt fetches). Reconnecting with the same token resumes the session — same balance, same attention history; a new token means a new listener. For the hackathon this is the entire identity story: no accounts, no device attestation. The token is also the unit anti-fraud scoring operates on — `uniqueness_score` weights attention events by how plausible it is that the session is one distinct human, which is why session resumption matters even though it is invisible in the UI.
+`POST /listener-sessions` creates an anonymous listener session and returns an opaque session token. The listener client stores that token and its browser-generated commitment in `sessionStorage`, then presents the token as a bearer credential on every listener API call (`POST /attention-proofs`, balance and receipt fetches). The API binds the commitment at session creation and rejects a proof whose commitment does not match the authenticated session. Reconnecting within the browser session with the same token resumes the session — same balance, same attention history; a new token means a new listener. For the hackathon this is the entire identity story: no accounts, no device attestation. The token is also the unit anti-fraud scoring operates on — `uniqueness_score` weights attention events by how plausible it is that the session is one distinct human, which is why session resumption matters even though it is invisible in the UI.
 
 ### WebSocket projections, audiences, and reconnects
 
@@ -83,27 +83,28 @@ For the hackathon, Redis pub/sub does **not** need to become a durable replay lo
 
 ### Public event reference
 
-| Event                 | Emitted when                        | Key payload                                                                                                                          |
-| --------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `bid.placed`          | A brand places or raises a bid      | `bidId`, `brandId`, `amount`, `slot`                                                                                                 |
-| `bid.outbid`          | A standing bid is overtaken         | `slot`, displaced `bidId`/`brandId`, new `bidId`/`brandId`, `prevAmountUsd`, `newAmountUsd`                                          |
-| `leaderboard.updated` | Ranking/next-slot price changes     | ranked `[{ brandId, amount }]`, `nextSlotPrice`                                                                                      |
-| `segment.generating`  | Winning slot starts generation      | `segmentId`, `slot`, `tier`                                                                                                          |
-| `generation.progress` | A generation stage completes        | `slot`, `stage` (script / voice / image / video), `done`                                                                             |
-| `segment.ready`       | Generated asset is available        | `segmentId`, `assetUrl`, `durationSec`                                                                                               |
-| `segment.playing`     | Segment begins playback             | `segmentId`, `startedAt`                                                                                                             |
-| `challenge.fired`     | A challenge is pushed to listeners  | `PublicChallenge` object (`challengeId`, `segmentId`, `question`, `validFrom`, `validUntil`, `difficulty`) — **excludes the answer** |
-| `attention.verified`  | A valid attention event is recorded | `segmentId`, aggregate `verifiedCount` / `total` / `threshold` (no listener identity)                                                |
-| `bid.cleared`         | Segment met threshold; bid clears   | `bidId`, `segmentId`, `grossAmount`, `listenerPool`, `platformRevenue`                                                               |
-| `bid.uncleared`       | Threshold missed; bid returned      | `bidId`, `segmentId`, `returnedAmount`                                                                                               |
-| `reward.pool.updated` | Pool created or distributed         | `poolId`, `bidId`, `eligibleAmount`, `distributedAmount`                                                                             |
-| `stats.updated`       | Periodic big-screen stat refresh    | `listeners`, `attentionProofs`, `listenerRewardsUsd`                                                                                 |
+| Event                 | Emitted when                                 | Key payload                                                                                                                          |
+| --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `bid.placed`          | A brand places or raises a bid               | `bidId`, `brandId`, `amount`, `slot`                                                                                                 |
+| `bid.outbid`          | A standing bid is overtaken                  | `slot`, displaced `bidId`/`brandId`, new `bidId`/`brandId`, `prevAmountUsd`, `newAmountUsd`                                          |
+| `leaderboard.updated` | Ranking/next-slot price changes              | ranked `[{ brandId, amount }]`, `nextSlotPrice`                                                                                      |
+| `segment.generating`  | Winning slot starts generation               | `segmentId`, `slot`, `tier`                                                                                                          |
+| `generation.progress` | A generation stage completes                 | `slot`, `stage` (script / voice / image / video), `done`                                                                             |
+| `segment.ready`       | Generated asset is available                 | `segmentId`, `assetUrl`, `durationSec`                                                                                               |
+| `segment.playing`     | Segment begins playback                      | `segmentId`, `startedAt`                                                                                                             |
+| `challenge.fired`     | A challenge is pushed to listeners           | `PublicChallenge` object (`challengeId`, `segmentId`, `question`, `validFrom`, `validUntil`, `difficulty`) — **excludes the answer** |
+| `attention.verified`  | A valid attention event is recorded          | `segmentId`, aggregate `verifiedCount` / `total` / `threshold` (no listener identity)                                                |
+| `bid.cleared`         | Segment met threshold; bid clears            | `bidId`, `segmentId`, `grossAmount`, `listenerPool`, `platformRevenue`                                                               |
+| `bid.uncleared`       | Threshold missed; bid returned               | `bidId`, `segmentId`, `returnedAmount`                                                                                               |
+| `bid.failed`          | Generation failed pre-playback; bid returned | `bidId`, `segmentId`, `returnedAmount`                                                                                               |
+| `reward.pool.updated` | Pool created or distributed                  | `poolId`, `bidId`, `eligibleAmount`, `distributedAmount`                                                                             |
+| `stats.updated`       | Periodic big-screen stat refresh             | `listeners`, `attentionProofs`, `listenerRewardsUsd`                                                                                 |
 
 Payloads carry only aggregate/public data — no listener identity or answers cross the WebSocket (see [ProofOfAttention](contracts.md#1-proofofattention)).
 
 ## Backend ledger
 
-Postgres keeps the actual accounting ledger. All amount columns store **integer cents**; the shared wire types expose USD as numbers (`amountUsd`, `grossAmountUsd`, …) and the API boundary converts once. Clearing math (`gross × 80%`) and pool distribution run in integer cents with round-to-cent, so no float drift ever reaches the ledger. Core tables:
+Postgres is the target accounting ledger. **The current hackathon implementation uses in-memory Maps** shaped like this schema; all amount columns remain integer cents, the shared wire types expose USD as numbers (`amountUsd`, `grossAmountUsd`, …), and the API boundary converts once. Clearing math (`gross × 80%`) and pool distribution run in integer cents with round-to-cent, so no float drift reaches the ledger.
 
 - `brands`
 - `brand_balances`
@@ -189,7 +190,7 @@ Listener rewards start as an **internal balance** — payout rails are a later f
 A bid only clears when its segment reaches the minimum attention threshold. Otherwise the funds don't leave the brand's balance:
 
 - **Threshold missed** — not enough valid attention events in the window. The bid does not clear, no reward pool is created, and the reserved amount returns to `brand_balances`. Emits `bid.uncleared`.
-- **Generation failed** — the segment never played (sandbox error, timeout). The slot is abandoned and the reserved amount returns to the brand balance; no spend is recorded.
+- **Generation failed** — the segment never played (sandbox error, timeout). The slot is abandoned and the reserved amount returns to the brand balance; no spend is recorded. Emits `bid.failed`.
 - **Partial attention above threshold** — the bid clears in **full** (clearing is threshold-gated, not prorated); only the _pool distribution_ reflects how many listeners passed. See [bid clearing semantics](../product/economics.md#bid-clearing-semantics).
 
 The `bids.status` and `reward_pools.status` columns track these outcomes (bids: `pending → won / lost`, then `won → cleared | uncleared | failed`; pools mirror the clearing result). No Stripe charge is ever reversed here — top-ups already landed as balance; only the internal reservation is released.

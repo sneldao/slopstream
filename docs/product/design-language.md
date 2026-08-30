@@ -18,71 +18,206 @@ Four projects define the direction:
 - **High contrast text.** White or near-black depending on background luminance. The leaderboard entries are colored chips, not table rows.
 - **One calm moment.** The proof receipt is the one place that stays still — a clean, slightly translucent card that floats above the chaos. It's the moment of certainty in the slop.
 
-## The pragmatic build stack
+## The build stack — a 3D fluid world
 
-Real Floaty is a research-grade Rust + WASM fluid simulation (Position Based Dynamics / Position Based Fluids). Integrating it into a Next.js app and wiring it to Slopstream events is a multi-day project on its own, and if it drops frames during the demo, the "living canvas" becomes a "stuttering mess" — worse than a clean static UI.
+The first pass faked the _feeling_ with Framer Motion + Canvas 2D. It was
+good. But to win a stacked field, the big screen needs to _be_ slop — a real
+3D fluid world, not a 2D page with particles on top.
 
-The pragmatic version fakes the _feeling_, not the physics. 80% of the sensation at 20% of the complexity:
+### What the references teach us
 
-| Feeling              | Implementation                                                                                                                                                                                                                                    | Complexity                          |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| **Squish**           | Framer Motion spring physics. Every element uses `type: "spring"` with soft stiffness. Bids bounce into the leaderboard, brand blobs wobble when outbid, the challenge card pops with overshoot.                                                  | ~5 lines per element                |
-| **Flow**             | Canvas 2D particle system. When a bid clears, spawn particles at the bid amount that flow toward the listener pool, splitting into two streams (80% / 20%) as they go.                                                                            | ~100 lines, one animation loop      |
-| **Audio reactivity** | Web Audio API `AnalyserNode` → frequency data → reactive CSS gradient or simple GLSL shader on the background. The background breathes with the audio. Per-brand color palettes mean the whole screen takes on the current advertiser's identity. | ~200 lines                          |
-| **Spatial depth**    | CSS 3D transforms or minimal React Three Fiber. Previous segments recede with perspective + blur. The current ad is full-screen front. No chunk-based rendering or WASD navigation needed — just depth.                                           | CSS transforms or a small R3F scene |
+- **[Floaty](https://github.com/matsuoka-601/Floaty)** — Rust + WASM Position
+  Based Fluids. The soul: things squish, flow, splash with real physics.
+  Research-grade; a multi-day integration risk on its own.
+- **[interactive-droplets](https://github.com/koji014/interactive-droplets)** —
+  Three.js + GLSL ray-marching metaballs. The pragmatic path to the Floaty
+  feeling: a single full-screen fragment shader ray-marches signed-distance-
+  field metaballs. One draw call. Looks like real fluid. Responds to input.
+  This is the technique that gives us liquid brand blobs that merge and split
+  without a physics engine.
+- **[Abstract Singularity](https://github.com/cartuhok/Abstract_Singularity)** —
+  React Three Fiber + Rapier physics. 3D shapes with real rigid-body physics
+  that respond to clicks and pushes. This is the interaction model — brands as
+  physical objects that get knocked around.
 
-This stack (Framer Motion + Canvas 2D + Web Audio + CSS 3D / minimal R3F) runs in any browser, doesn't need WASM, and one developer can build it in a weekend. Real Floaty-grade fluid simulation is a P2 "if we have time" upgrade.
+### The vision: Slopstream is a 3D fluid world, not a screen
 
-### Dependencies to add
+The big screen is a Three.js world where the "slop" is a ray-marched metaball
+fluid that fills the entire viewport, tinted to the current brand's colors.
+It's always alive — drifting, morphing, breathing with the audio. The metaball
+shader is driven by the audio signal: bass swells the fluid mass, treble
+creates surface ripples, beats send shockwaves through the field.
 
-- **Framer Motion** — spring physics, layout animations, gesture handling. The single biggest leverage for "dynamic and engaging" with minimal code.
-- **React Three Fiber + Three.js** (P1) — for the infinite-canvas spatial depth and Three.js grid interactions. Not needed for P0 if CSS 3D transforms suffice, but enables the full vision.
-- **Tailwind CSS** — styling speed. No custom CSS files, utility classes, responsive by default. Lets Lane 3 move fast on visual polish without writing selectors.
+**Brands are physical 3D blobs in the fluid.** Each brand is a Rapier physics
+body — a soft, organic 3D shape floating in the slop. They compete for the
+center "slot" position. The leader is largest, at center, glowing. Others
+orbit behind, smaller, receding. When OUTBID fires, the new leader's blob
+physically pushes the displaced blob out of center — a physics collision, not
+a CSS animation. The fluid changes color as the new brand's palette floods
+through the metaball field.
+
+**The ad lives inside the world.** The ad is not a flat card overlaid on a
+background — it's a 3D surface _within_ the fluid. The production tiers evolve
+naturally inside the same scene:
+
+| Tier          | What's at center                                     | Audio's role                                                                                                   |
+| ------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Audio         | A glowing 3D orb.                                    | The TTS voiceover drives concentric ripple waves through the surrounding fluid. The world _is_ the visualizer. |
+| Audio + image | A textured plane materializes (the generated image). | The audio orb sits behind it; ripples still emanate.                                                           |
+| Video         | A video-textured plane at center.                    | The video's audio track drives the fluid around it. The video is _in_ the slop, not _on_ the screen.           |
+| Premium       | Multiple planes — a mini-scene within the scene.     | Full audio reactivity across all surfaces.                                                                     |
+
+**The leaderboard is the blobs themselves.** No separate chip list. The brand
+blobs are arranged by bid amount in 3D space — leader at center, others
+receding with depth and blur. Re-sorting is a physics animation: blobs
+physically swap positions with spring forces. You _see_ the market in space.
+
+**The attention threshold is a 3D fluid container.** A glass basin in the
+scene that fills with the brand's colored fluid. As verified counts rise, the
+fluid level rises. When it clears, it overflows — fluid pours out in a
+particle stream toward the listener reward pool, which is another 3D basin.
+The 80/20 split is a physical fluid split in 3D space.
+
+**The proof receipt is the one still moment.** A glass card that _condenses_
+out of the vapor in the center of the chaos. The fluid continues to swirl
+around it but the card is perfectly still, perfectly sharp. Proof hash types
+in. Reward counts up. "VERIFIED BY MIDNIGHT" seals it. This is the screenshot
+that wins.
+
+### Surface scope
+
+| Surface       | Approach                                                        | Rationale                                                                      |
+| ------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Big screen    | Full 3D: R3F + metaball shader + Rapier physics                 | The showpiece. This is what judges lean forward for.                           |
+| Listener      | 2D with 3D accents: glassmorphism, depth, audio-reactive canvas | Shares the world's _feeling_ without the GPU cost on a phone. Faster to build. |
+| Brand console | 2D with 3D accents: ambient glow, tactile chips, depth          | The control room overlooking the world. Conveys pressure without full 3D.      |
+
+### Fluid technique — dual path with quality switch
+
+| Path                   | Technique                                                           | When                              |
+| ---------------------- | ------------------------------------------------------------------- | --------------------------------- |
+| Primary (high quality) | GLSL ray-marching SDF metaballs, one fragment shader, one draw call | WebGL2 available, GPU is adequate |
+| Fallback (low quality) | Metaball meshes + blur/composite post-processing pass               | Weaker GPU or WebGL2 unavailable  |
+
+The scene detects capabilities at startup and selects the path. Both paths
+read the same audio signal and event stream — only the rendering differs.
+
+### Dependencies
+
+- **Three.js + React Three Fiber (`@react-three/fiber`)** — declarative 3D in
+  React, fits Next.js. The scene graph is React components.
+- **`@react-three/rapier`** — WASM rigid-body physics. Brand blobs collide,
+  push, and spring with real physics. Fast enough for 60fps.
+- **`@react-three/postprocessing`** — bloom, depth of field, chromatic
+  aberration for the fluid glow and the receding-segment blur.
+- **Framer Motion** — spring physics and layout animations for the 2D
+  surfaces (listener, brand) and the floating HUD overlay on the big screen.
+- **Web Audio API `AnalyserNode`** — drives shader uniforms and physics
+  forces. The shared `useAudioSignal` hook already exists; it feeds both the
+  shader and the Rapier bodies.
+
+### Performance and demo safety
+
+The design-language warning about frame drops is real. Mitigations:
+
+- The metaball shader is **one fragment shader, one draw call** — not a
+  particle system with thousands of objects.
+- Rapier runs in **WASM** — used in production games.
+- **Rehearse the demo from the fixture** — know the exact frame rate before
+  walking on stage.
+- **Keep the Canvas 2D fallback** — if the presentation laptop has a bad GPU,
+  the scene degrades to the existing 2D version.
+- **Quality slider in the shader** — drop metaball count or ray-march steps
+  mid-demo if needed.
+
+### Generation pipeline (post-3D)
+
+The 3D scene is the constant. The pipeline feeds it content. The generator
+already has the HTTP boundary (`POST /v1/generations`); we swap the stub
+`generate()` for real provider calls. The 3D scene doesn't change — it just
+gets richer content to display.
+
+| Tier          | Pipeline output                           | Scene impact                                         |
+| ------------- | ----------------------------------------- | ---------------------------------------------------- |
+| Audio         | TTS audio file → `AnalyserNode`           | Drives the fluid + orb                               |
+| Audio + image | TTS + image gen → texture on center plane | Plane materializes with the brand's generated visual |
+| Video         | TTS + image + video gen → video texture   | Video-textured plane, audio drives surrounding fluid |
+| Premium       | Multiple assets → multiple planes         | A mini-scene within the scene                        |
+
+API keys for TTS, image gen, and video gen are wired after the 3D world is
+stable. The world is stunning with placeholder content; real generation makes
+it undeniable.
 
 ## Per-surface behavior
 
-### A. The big screen — a living canvas, not a scoreboard
+### A. The big screen — a 3D fluid world, not a scoreboard
 
-The big screen is the centerpiece. It should feel like a lava lamp crossed with a stock exchange — alive, colorful, and constantly reacting to the market.
+The big screen is the centerpiece. It is a Three.js world — a lava lamp
+crossed with a stock exchange, rendered in 3D with real physics.
 
-**The spatial stream.** The current ad plays full-screen, center-stage. Previous segments recede behind it with perspective and blur — the Infinite Slop continuity is visible as a trail of receding media. The audience can see the story they've been watching literally fading into the background behind the current ad.
+**The fluid world.** The background is a ray-marched metaball shader — a
+single full-screen fragment shader pass that renders signed-distance-field
+metaballs as liquid slop. It fills the entire viewport, tinted to the current
+brand's colors. It's always alive: drifting, morphing, breathing with the
+audio signal. Bass swells the fluid mass, treble creates surface ripples,
+beats send shockwaves through the field.
 
-**The audio-reactive background.** A living gradient driven by the ad's audio. Frequency data from the Web Audio API modulates the gradient's intensity and hue. When the voiceover hits a dramatic moment, the background pulses. Per-brand color palettes mean the screen takes on the current advertiser's identity — Acme's deep blue, CoolStartup's vibrant orange, Dogfood AI's electric purple.
+**Brands as physical 3D blobs.** Each brand is a Rapier physics body — a
+soft, organic 3D shape floating in the slop. They compete for the center
+"slot" position. The leader is largest, at center, glowing. Others orbit
+behind, smaller, receding with depth-of-field blur. Re-sorting is a physics
+animation: blobs physically swap positions with spring forces. You _see_ the
+market in space.
 
-**The leaderboard as floating chips.** Brand entries are colored, semi-transparent chips that float and bob with subtle physics. When a brand gets outbid, its chip wobbles and slides down. When a new bid arrives, the chip springs into position. Ranks re-sort with a smooth shuffle, not an instant snap.
+**The ad lives inside the world.** The current ad is a 3D surface at center —
+a glowing orb (audio), a textured plane (audio + image), or a video-textured
+plane (video). The ad's audio drives the surrounding fluid. Previous segments
+recede behind it in 3D space with perspective and blur — the Infinite Slop
+continuity is visible as a trail of receding media in depth.
 
-**The OUTBID moment.** This is the signature animation. When a brand is overtaken:
+**The OUTBID moment.** This is the signature event. When a brand is overtaken:
 
-1. The screen's color washes from the old leader's palette to the new leader's palette (paint flowing across).
-2. The displaced brand's chip wobbles and drops.
-3. The new leader's chip swells and glows.
-4. A splash particle effect ripples outward from the new bid amount.
-5. "OUTBID" text bursts in with spring overshoot, then settles.
+1. The new leader's blob physically pushes the displaced blob out of center —
+   a Rapier collision, not a CSS animation.
+2. The fluid's color floods from the old leader's palette to the new leader's
+   palette through the metaball field.
+3. A shockwave ripples through the fluid from the collision point.
+4. "OUTBID" text bursts in with spring overshoot, then settles.
 
-**The attention threshold as liquid.** Not a striped progress bar. A container filling with liquid — the verified count rises, the liquid level rises, it sloshes slightly when it hits the threshold. When the threshold is met, the liquid glows and the "$25 CLEARED" moment fires.
+**The attention threshold as a 3D fluid container.** A glass basin in the
+scene that fills with the brand's colored fluid. As verified counts rise, the
+fluid level rises with wave physics. When the threshold is met, the liquid
+glows and overflows — fluid pours out in a particle stream toward the listener
+reward pool (another 3D basin). The 80/20 split is a physical fluid split in
+3D space. The "$25 CLEARED" moment fires as the overflow begins.
 
-**The clearing animation.** When a bid clears:
+**The clearing animation.** When a bid clears, the full bid amount appears as
+a glowing number at the basin. It splits into two particle streams — 80%
+flows toward "LISTENER REWARD POOL" (in the brand's color), 20% flows toward
+"SLOPSTREAM" (in a neutral/platform color). The pool counters tick up as
+particles arrive.
 
-1. The full bid amount appears as a glowing number.
-2. It splits into two particle streams — 80% flows toward "LISTENER REWARD POOL" (in the brand's color), 20% flows toward "SLOPSTREAM" (in a neutral/platform color).
-3. The pool counter ticks up as particles arrive.
-4. The listener rewards footer stat counts up smoothly.
+**The generation sequence.** While an ad generates, the center orb pulses
+with a fluid loading state. Each stage (script, voice, image, video) checks
+off with a small splash in the fluid as `generation.progress` events arrive.
+When `segment.ready` fires, the orb transforms into the ad surface for the
+tier — orb → textured plane → video plane.
 
-**The generation sequence.** While an ad generates:
+**The floating HUD.** Stats (listeners, attention proofs, listener rewards)
+and the "SLOPSTREAM" live indicator are a floating HTML overlay on top of the
+3D canvas — glassmorphic, blurred backdrop, positioned with CSS. Numbers count
+up smoothly, never snap. When a new listener joins (QR scan), the listener
+count pulses and a brief "NEW LISTENER" ripple appears in the fluid.
 
-1. "GENERATING AD..." with a fluid loading indicator.
-2. Each stage (script, voice, image, video) checks off with a small splash particle effect as `generation.progress` events arrive.
-3. When `segment.ready` fires, the checklist dissolves and the ad transitions in.
+### B. The listener client — a portal into the world (2D with 3D accents)
 
-**The stats footer.** Three stats (listeners, attention proofs, listener rewards) are always visible at the bottom. Numbers count up smoothly, never snap. When a new listener joins (QR scan), the listener count pulses and a brief "NEW LISTENER" ripple appears. This makes the audience feel their participation is visible.
-
-### B. The listener client — playful, urgent, satisfying
-
-The listener experience should feel like a game show on a phone — bright, bouncy, and responsive.
+The listener experience should feel like a game show on a phone — bright,
+bouncy, and responsive. It shares the _feeling_ of the 3D world without the
+GPU cost: glassmorphism, depth, audio-reactive canvas.
 
 **Joining.** After QR scan, the listener sees a brief splash animation as they "enter the stream." The big screen's listener count ticks up simultaneously (if the listener looks up, they see themselves arrive).
 
-**While listening.** An audio-reactive visualizer on their phone — a simple waveform or blob that pulses with the stream audio. Not a static "you're listening to" screen. The brand's color palette tints their screen, matching the big screen.
+**While listening.** A full-bleed audio-reactive canvas background — drifting brand-tinted blobs that breathe with the stream audio. The audio visualizer is a pulsing blob that deforms with amplitude and brightens on beats. The brand's color palette tints their screen, matching the big screen.
 
 **Challenge appearance.** The challenge card pops in with spring overshoot, accompanied by a haptic vibration and a short sound. A countdown timer (driven by `validFrom` / `validUntil`) creates urgency — the timer ring depletes visibly. The challenge options are large, colorful tappable buttons, not radio inputs.
 
@@ -90,11 +225,17 @@ The listener experience should feel like a game show on a phone — bright, boun
 
 **The live attention meter.** While challenges are active, the listener sees the collective progress — "127 / 143 verified" — as a liquid fill matching the big screen's threshold visualization. They feel the collective event, not just their own answer.
 
-### C. The brand bidding console — stakes and pressure
+### C. The brand bidding console — a control room overlooking the world (2D with 3D accents)
 
-The brand console should convey that you're in a live auction against other brands, not filling out a form.
+The brand console should convey that you're in a live auction against other
+brands, not filling out a form. It's a control room overlooking the 3D world —
+ambient brand glow, tactile chips, depth.
 
-**Live bid pressure.** The current winning bid pulses when it changes. When the brand is outbid, the console flashes an OUTBID alert (matching the big screen's color wash) and vibrates (if on mobile). The brand should feel the pressure of being overtaken in real time.
+**Ambient brand glow.** A fixed canvas behind the console renders drifting
+blobs in the brand's colors. The glow intensifies on OUTBID and when winning —
+the console breathes with the brand's market position.
+
+**Live bid pressure.** The current winning bid pulses when it changes. When the brand is outbid, the console flashes an OUTBID alert with sound + vibration, the ambient glow surges red, and the brand should feel the pressure of being overtaken in real time.
 
 **Cost-per-verified-attention estimate.** Using the surfaced listener count: "~$0.026 / verified attention at 1,284 listeners and 60% threshold." This makes the bid feel real — not just a number, but a price for something measurable.
 
@@ -106,7 +247,12 @@ The brand console should convey that you're in a live auction against other bran
 
 ### D. The proof receipt — the calm center
 
-The signature artifact. The one moment of stillness in the slop. It should feel like a certificate or a physical receipt — slightly translucent, floating above the chaos, monospace for the proof hash only (everything else is sans-serif).
+The signature artifact. The one moment of stillness in the slop. On the big
+screen, the glass card _condenses_ out of the vapor in the center of the 3D
+chaos — the fluid continues to swirl around it but the card is perfectly
+still, perfectly sharp. On the listener client, it floats in as a translucent
+card above the visualizer. Monospace for the proof hash only (everything else
+is sans-serif).
 
 **Animation sequence:**
 
@@ -127,30 +273,30 @@ The receipt is worth 30 minutes of dedicated design polish — it's the thing ju
 
 Every WebSocket event produces a visible reaction. This is the actual UX spec for Lane 3:
 
-| Event                 | Big screen                                                                             | Listener client                                                             | Brand console                               |
-| --------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
-| `bid.placed`          | New chip springs into leaderboard, amount flashes                                      | —                                                                           | Bid confirmation particle effect            |
-| `bid.outbid`          | Color wash to new leader, OUTBID splash, chips re-sort                                 | —                                                                           | OUTBID alert, vibration, bid pressure pulse |
-| `leaderboard.updated` | Chips shuffle with spring physics, next-slot price ticks                               | —                                                                           | Winning bid updates with pulse              |
-| `segment.generating`  | "GENERATING..." with fluid loader                                                      | "Next ad coming..." with subtle animation                                   | —                                           |
-| `generation.progress` | Stage checks off with splash particle                                                  | —                                                                           | —                                           |
-| `segment.ready`       | Checklist dissolves, ad transitions in                                                 | —                                                                           | —                                           |
-| `segment.playing`     | Ad full-screen, audio-reactive background activates, brand color palette floods screen | Audio visualizer activates, screen tints to brand color                     | —                                           |
-| `challenge.fired`     | Challenge banner overlay on big screen                                                 | Challenge card pops in with spring + haptic + sound, countdown timer starts | —                                           |
-| `attention.verified`  | Verified counter ticks up, liquid threshold fills, pulse effect                        | Attention meter updates, personal verified indicator                        | —                                           |
-| `bid.cleared`         | Full-screen "$25 CLEARED", particle split into 80/20 streams, pool counter ticks up    | —                                                                           | Bid cleared confirmation                    |
-| `bid.uncleared`       | "THRESHOLD NOT MET" — somber but clear, bid returned                                   | —                                                                           | Bid returned notification                   |
-| `reward.pool.updated` | Listener rewards stat counts up                                                        | Estimated reward updates on receipt                                         | —                                           |
-| `stats.updated`       | All footer stats count up smoothly                                                     | —                                                                           | —                                           |
+| Event                 | Big screen (3D world)                                                                                                            | Listener client (2D + 3D accents)                                           | Brand console (2D + 3D accents)                          |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `bid.placed`          | New brand blob spawns into the fluid, springs toward its rank position                                                           | —                                                                           | Bid confirmation particle effect                         |
+| `bid.outbid`          | New leader blob physically pushes displaced blob out of center, fluid color floods, shockwave ripples through the metaball field | —                                                                           | OUTBID alert, sound + vibration, ambient glow surges red |
+| `leaderboard.updated` | Brand blobs re-sort with Rapier spring physics, next-slot price ticks                                                            | —                                                                           | Winning bid updates with pulse                           |
+| `segment.generating`  | Center orb pulses with fluid loading state                                                                                       | "Next ad coming..." with subtle animation                                   | —                                                        |
+| `generation.progress` | Stage checks off with a splash in the fluid                                                                                      | —                                                                           | —                                                        |
+| `segment.ready`       | Orb transforms into the ad surface for the tier (orb → plane → video plane)                                                      | —                                                                           | —                                                        |
+| `segment.playing`     | Ad surface at center, fluid tinted to brand palette, audio drives the metaball shader                                            | Full-bleed audio-reactive canvas activates, screen tints to brand color     | —                                                        |
+| `challenge.fired`     | Challenge banner as floating HUD overlay                                                                                         | Challenge card pops in with spring + haptic + sound, countdown timer starts | —                                                        |
+| `attention.verified`  | 3D fluid basin fills higher, surface waves, pulse effect                                                                         | Attention meter updates, personal verified indicator                        | —                                                        |
+| `bid.cleared`         | Basin overflows, particle split into 80/20 streams toward 3D pool basins, "$25 CLEARED"                                          | —                                                                           | Bid cleared confirmation                                 |
+| `bid.uncleared`       | "THRESHOLD NOT MET" — somber but clear, bid returned                                                                             | —                                                                           | Bid returned notification                                |
+| `reward.pool.updated` | Listener rewards stat counts up in floating HUD                                                                                  | Estimated reward updates on receipt                                         | —                                                        |
+| `stats.updated`       | All floating HUD stats count up smoothly                                                                                         | —                                                                           | —                                                        |
 
 ## Color system
 
 **Per-brand palettes.** Each brand defines a primary and secondary color when creating a campaign. These colors drive:
 
-- The big screen's background gradient while the brand's ad plays
-- The brand's leaderboard chip color
+- The big screen's 3D fluid shader tint while the brand's ad plays
+- The brand's 3D blob color in the fluid world
 - The listener client's tint during the brand's segment
-- The brand console's accent color
+- The brand console's ambient glow color
 - The particle stream colors when the brand's bid clears
 
 **Platform colors.** Slopstream's own identity uses a vibrant, saturated base — not a single brand color but a neutral-yet-living gradient (think: shifting aurora). The platform's 20% share in the clearing animation uses a neutral accent (white or pale gold) to distinguish it from any brand's color.

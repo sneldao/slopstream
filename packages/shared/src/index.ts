@@ -102,6 +102,9 @@ export interface AttentionProofReceipt {
   challengeType: ChallengeType;
   verified: boolean;
   estimatedRewardUsd?: number;
+  /** Which verifier implementation produced this receipt, so the UI can
+   *  label stub vs Midnight receipts truthfully. */
+  verifierMode?: "stub" | "midnight";
   createdAt: string;
 }
 
@@ -166,6 +169,35 @@ export interface StubAttentionProofPayload {
   issuedAt: string;
   /** Self-reported demo result — it is not a cryptographic claim. */
   valid: boolean;
+}
+
+/**
+ * Inputs Lane 2 supplies only after it has privately graded the listener's
+ * answer as correct. `nonce` must be fresh for every issued proof; the stub
+ * verifier uses it for in-memory replay rejection.
+ */
+export interface ServerStubAttentionProofInput {
+  listenerCommitment: string;
+  segmentId: string;
+  challengeId: string;
+  nonce: string;
+  issuedAt: string;
+}
+
+/**
+ * Creates the JSON string assigned to AttentionProofSubmission.resultProof
+ * for the hackathon's server-to-server stub flow. This is an attestation
+ * format, not a cryptographic signature: call it only in Lane 2 after the
+ * API has authenticated the session and checked the private challenge answer.
+ */
+export function createServerStubAttentionProof(
+  input: ServerStubAttentionProofInput,
+): string {
+  return JSON.stringify({
+    version: "slopstream.stub.attention.v1",
+    ...input,
+    valid: true,
+  } satisfies StubAttentionProofPayload);
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +373,14 @@ export type WsEvent =
       returnedAmountUsd: number;
     }
   | {
+      /** Generation failed before playback; the reservation is returned.
+       *  Distinct from `bid.uncleared` (threshold missed after playback). */
+      type: "bid.failed";
+      bidId: string;
+      segmentId: string;
+      returnedAmountUsd: number;
+    }
+  | {
       type: "reward.pool.updated";
       poolId: string;
       bidId: string;
@@ -400,6 +440,12 @@ export interface StreamSnapshot {
 // ---------------------------------------------------------------------------
 
 export interface GenerationRequest {
+  /**
+   * Canonical ID allocated by Lane 2 when an auction winner realizes a
+   * segment. The generator must echo this ID in GenerationResult; it must
+   * never mint a competing stream segment ID.
+   */
+  segmentId: string;
   /** null = free ad generated from a scraped company. */
   brandId: string | null;
   brief: string;

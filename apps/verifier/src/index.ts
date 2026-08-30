@@ -12,8 +12,16 @@ import type {
 import { createStubAttentionProofVerifier } from "./stubVerifier.js";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
+const configuredMode = process.env.VERIFIER_MODE ?? "stub";
+
+if (configuredMode !== "stub") {
+  throw new Error(
+    `Unsupported VERIFIER_MODE=${configuredMode}. Only "stub" is implemented; refusing to mislabel a JSON verifier as Midnight.`,
+  );
+}
 
 type UnknownRecord = Record<string, unknown>;
+type HealthResponse = { ok: true; service: string; verifierMode: "stub" };
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -98,7 +106,7 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
 function sendJson(
   response: ServerResponse,
   statusCode: number,
-  body: AttentionProofVerificationResult | { ok: true; service: string },
+  body: AttentionProofVerificationResult | HealthResponse,
 ): void {
   response.writeHead(statusCode, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
@@ -118,7 +126,11 @@ const verifier = createStubAttentionProofVerifier();
 const server = createServer((request, response) => {
   void (async () => {
     if (request.method === "GET" && request.url === "/health") {
-      sendJson(response, 200, { ok: true, service: "slopstream-verifier" });
+      sendJson(response, 200, {
+        ok: true,
+        service: "slopstream-verifier",
+        verifierMode: "stub",
+      });
       return;
     }
 
@@ -147,5 +159,7 @@ const server = createServer((request, response) => {
 
 const port = Number(process.env.PORT ?? 4100);
 server.listen(port, () => {
-  console.log(`slopstream proof verifier listening on :${port} (stub mode)`);
+  console.log(
+    `slopstream proof verifier listening on :${port} (${configuredMode} mode)`,
+  );
 });

@@ -15,6 +15,7 @@ import type {
   ChallengeSourceCommand,
   CreateBrandCommand,
   PlaceBidCommand,
+  ProductionTier,
   TopUpCommand,
 } from "@slopstream/shared";
 import type { AuctionEngine } from "./auction.js";
@@ -33,6 +34,8 @@ export interface ApiDeps {
   auction: AuctionEngine;
   clearing: ClearingEngine;
   market: MarketService;
+  /** Grace after playback end before the clearing evaluation runs. */
+  windowGraceSec: number;
 }
 
 type Handler = (req: Request, res: Response) => void | Promise<void>;
@@ -95,8 +98,10 @@ function toSharedBid(bid: BidRow): Bid {
 }
 
 export function createRouter(deps: ApiDeps): Router {
-  const { ledger, bus, auction, clearing, market } = deps;
+  const { ledger, bus, auction, clearing, market, windowGraceSec } = deps;
   const router = Router();
+  // Deferred grace-period closes, keyed by segmentId, so /failed can cancel.
+  const pendingCloses = new Map<string, NodeJS.Timeout>();
 
   // ------------------------------------------------------------------ health
   router.get("/health", (_req, res) => {
@@ -176,13 +181,22 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/listener-sessions",
     wrap((req, res) => {
+      const body = req.body as { listenerCommitment?: unknown } | undefined;
+      const commitment = body?.listenerCommitment;
+      assert(
+        commitment === undefined ||
+          (typeof commitment === "string" && commitment.length > 0),
+        400,
+        "listenerCommitment must be a non-empty string",
+      );
       const token = bearerToken(req);
       const resumed = token ? ledger.listenerByToken(token) : undefined;
+      if (token) assert(resumed, 403, "unknown listener token");
       const {
         session,
         token: sessionToken,
         resumed: didResume,
-      } = market.createListenerSession(resumed);
+      } = market.createListenerSession(resumed, commitment);
       res
         .status(didResume ? 200 : 201)
         .json({ token: sessionToken, session: toListenerSession(session) });
@@ -223,12 +237,23 @@ export function createRouter(deps: ApiDeps): Router {
         400,
         "listenerCommitment is required",
       );
+      assert(
+        body.listenerCommitment === session.commitment,
+        403,
+        "listenerCommitment must match the bearer session",
+      );
+      // The receipt IS the response body — the shared AttentionProofReceipt
+      // shape, exactly what the listener client casts it to.
       const receipt = await clearing.submitProof(session, body);
-      res.status(201).json({ receipt, session: toListenerSession(session) });
+      res.status(201).json(receipt);
     }),
   );
 
   // --------------------------- orchestrator-facing segment lifecycle (Lane 3)
+  // These endpoints persist state AND publish the corresponding runtime events
+  // so the live flow works before Lane 3's orchestrator exists. Once the
+  // orchestrator emits segment.*/challenge.fired on the runtime topic itself,
+  // the publications here must come out — exactly one emitter per WsEvent.
   function requireSegment(req: Request) {
     const segmentId = String(req.params.segmentId);
     const segment = ledger.segments.get(segmentId);
@@ -241,6 +266,15 @@ export function createRouter(deps: ApiDeps): Router {
     wrap((req, res) => {
       const segment = requireSegment(req);
       segment.status = "generating";
+      const tier: ProductionTier =
+        (segment.bidId ? ledger.bids.get(segment.bidId)?.tier : undefined) ??
+        "audio";
+      bus.publish({
+        type: "segment.generating",
+        segmentId: segment.id,
+        slot: segment.slot,
+        tier,
+      });
       res.json({ segmentId: segment.id, status: segment.status });
     }),
   );
@@ -265,6 +299,12 @@ export function createRouter(deps: ApiDeps): Router {
       }
       if (typeof body.summary === "string") segment.summary = body.summary;
       segment.status = "ready";
+      bus.publish({
+        type: "segment.ready",
+        segmentId: segment.id,
+        assetUrl: segment.mediaUrl!,
+        durationSec: segment.durationSec,
+      });
       res.json({
         segmentId: segment.id,
         status: segment.status,
@@ -309,7 +349,9 @@ export function createRouter(deps: ApiDeps): Router {
       const challenge = nextUnfired(ledger, segment.id);
       assert(challenge, 404, "no unfired challenges remain for this segment");
       challenge.firedAtMs = Date.now();
-      res.json({ challenge: toPublic(challenge) });
+      const publicChallenge = toPublic(challenge);
+      bus.publish({ type: "challenge.fired", challenge: publicChallenge });
+      res.json({ challenge: publicChallenge });
     }),
   );
 
@@ -319,20 +361,53 @@ export function createRouter(deps: ApiDeps): Router {
     wrap((req, res) => {
       const segment = requireSegment(req);
       const opened = clearing.openWindow(segment.id, Date.now());
+      const startedAt = new Date(opened.windowOpenedAtMs!).toISOString();
+      bus.publish({
+        type: "segment.playing",
+        segmentId: opened.id,
+        startedAt,
+      });
       res.json({
         segmentId: opened.id,
-        startedAt: new Date(opened.windowOpenedAtMs!).toISOString(),
+        startedAt,
         attentionThreshold: opened.requiredEvents,
       });
     }),
   );
 
-  // Playback end (+ grace) triggers the exactly-once clearing evaluation.
+  // Playback end triggers clearing after the grace period for in-flight
+  // submissions (docs/technical/backend.md — "Window close"); evaluation
+  // still runs exactly once.
   router.post(
     "/segments/:segmentId/window-closed",
     wrap((req, res) => {
       const segment = requireSegment(req);
-      res.json({ segmentId: segment.id, ...clearing.closeWindow(segment.id) });
+      assert(!segment.windowClosed, 409, "window already closed");
+      assert(
+        segment.windowClosingAtMs === undefined,
+        409,
+        "window close already scheduled",
+      );
+      if (windowGraceSec <= 0) {
+        res.json({
+          segmentId: segment.id,
+          ...clearing.closeWindow(segment.id),
+        });
+        return;
+      }
+      segment.windowClosingAtMs = Date.now() + windowGraceSec * 1000;
+      pendingCloses.set(
+        segment.id,
+        setTimeout(() => {
+          pendingCloses.delete(segment.id);
+          if (!segment.windowClosed) clearing.closeWindow(segment.id);
+        }, windowGraceSec * 1000),
+      );
+      res.json({
+        segmentId: segment.id,
+        closing: true,
+        graceSec: windowGraceSec,
+      });
     }),
   );
 
@@ -340,6 +415,11 @@ export function createRouter(deps: ApiDeps): Router {
     "/segments/:segmentId/failed",
     wrap((req, res) => {
       const segment = requireSegment(req);
+      const pending = pendingCloses.get(segment.id);
+      if (pending) {
+        clearTimeout(pending);
+        pendingCloses.delete(segment.id);
+      }
       clearing.failSegment(segment.id);
       res.json({ segmentId: segment.id, status: "failed" });
     }),

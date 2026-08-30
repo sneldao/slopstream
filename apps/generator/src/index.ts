@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   createServer,
   type IncomingMessage,
@@ -40,8 +39,10 @@ function parseGenerationRequest(value: unknown): GenerationRequest | undefined {
     return undefined;
   }
 
-  const { brandId, brief, tier, previousSummaries, constraints } = value;
+  const { segmentId, brandId, brief, tier, previousSummaries, constraints } =
+    value;
   if (
+    !isNonEmptyString(segmentId) ||
     (brandId !== null && !isNonEmptyString(brandId)) ||
     !isNonEmptyString(brief) ||
     !isProductionTier(tier) ||
@@ -53,6 +54,7 @@ function parseGenerationRequest(value: unknown): GenerationRequest | undefined {
   }
 
   return {
+    segmentId,
     brandId,
     brief,
     tier,
@@ -74,10 +76,10 @@ function assetPathForTier(tier: ProductionTier): string {
 }
 
 /**
- * Stub generation implementation. It is intentionally deterministic in its
- * content but mints a fresh segment ID per invocation so callers can safely
- * queue multiple generated segments. Replace only this function when wiring
- * Daytona + model providers; the HTTP boundary stays unchanged.
+ * Stub generation implementation. The caller supplies the canonical segment
+ * ID allocated by Lane 2's auction engine, and the generator always echoes it
+ * back. Replace only this function when wiring Daytona + model providers; the
+ * HTTP boundary and segment correlation rule stay unchanged.
  */
 export function generate(request: GenerationRequest): GenerationResult {
   const assetBaseUrl = (
@@ -87,7 +89,7 @@ export function generate(request: GenerationRequest): GenerationResult {
     request.previousSummaries.join(" / ") || "nothing yet";
 
   return {
-    segmentId: `seg_stub_${randomUUID()}`,
+    segmentId: request.segmentId,
     assetUrl: `${assetBaseUrl}/${assetPathForTier(request.tier)}`,
     durationSec: 30,
     transcript: `[stub ${request.tier} ad for ${request.brandId ?? "free company"}: ${request.brief}]`,

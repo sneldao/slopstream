@@ -35,8 +35,10 @@ $ REWARD
 2. AI generates the ad in real time — audio, image, or video depending on the bid tier.
 3. Listeners join by scanning a QR code (no app, just mobile web).
 4. Randomized attention challenges interrupt the stream ("What did they just say?").
-5. Correct answers produce a cryptographic proof that the attention condition was satisfied.
+5. Correct answers produce a verification result that the attention condition was satisfied.
 6. Once a segment clears its attention threshold the advertiser spend clears — and up to 80% flows into a listener reward pool.
+
+The hackathon build currently uses a typed JSON stub verifier for segment/challenge binding, timing, and replay checks; it is not a cryptographic or Midnight proof. `VERIFIER_MODE=midnight` fails fast until the real implementation exists.
 
 ## Positioning
 
