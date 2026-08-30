@@ -310,7 +310,8 @@ export function createGeneratorServer({
             outcome.status === "generated" ? 201 : 200,
             outcome.result,
           );
-        } catch {
+        } catch (err) {
+          console.error("[generator] request failed:", err);
           sendJson(response, 400, { error: "invalid_request" });
         }
         return;

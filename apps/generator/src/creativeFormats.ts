@@ -170,6 +170,76 @@ export const FORMATS: readonly CreativeFormat[] = [
   },
 ];
 
+// ---------------------------------------------------------- brief normalization
+
+/**
+ * Strip markdown, URLs, table pipes, and HN/PH page chrome from scraped text so
+ * it reads as clean copy for both TTS and image prompts.
+ */
+export function cleanText(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // markdown links → label
+    .replace(/https?:\/\/\S+/g, "") // bare URLs
+    .replace(/\|/g, " ") // table pipes
+    .replace(/^[\s:-]+$/gm, "") // table separators / lone dashes
+    .replace(/^#+\s+/gm, "") // markdown headers
+    .replace(/\bShow HN\b:?\s*/gi, "") // HN prefix
+    .replace(/\b\d+\s+points?\s+by\s+\S+/gi, "") // HN "14 points by user"
+    .replace(/\bon\s+\w+\s+\d+,?\s+\d{4}\b/gi, "") // HN "on Jan 31, 2025"
+    .replace(/\b\d+\s+comments?\b/gi, "") // HN "14 comments"
+    .replace(/\bhide\b/gi, "") // HN nav link
+    .replace(/\bdiscussion\b/gi, "") // HN nav link
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export interface NormalizedBrief {
+  /** Clean brand/company name for VO and image prompts. */
+  subject: string;
+  /** Clean description of what they do, for VO and image prompts. */
+  description: string;
+}
+
+/**
+ * Free-segment briefs are LLM instructions ("Write a short, funny AI-generated
+ * ad for {name}. What they do: {desc}. The ad must be clearly labelled..."),
+ * not spoken copy — they were designed for the Daytona/LLM pipeline. Paid-brand
+ * briefs are clean copy, often "NAME — description". This normalizes both into
+ * a clean { subject, description } so the TTS never speaks the instruction and
+ * the image model sees the actual product.
+ */
+export function normalizeAdBrief(
+  brief: string,
+  brandId?: string | null,
+): NormalizedBrief {
+  const trimmed = brief.trim();
+
+  // Free-segment instruction format.
+  const writeAdMatch = trimmed.match(/^Write a .+? ad for (.+?)\./i);
+  if (writeAdMatch) {
+    const subject = cleanText(writeAdMatch[1]);
+    const descMatch = trimmed.match(
+      /What they do:\s*(.+?)(?:\. The ad must be|$)/is,
+    );
+    const description = descMatch ? cleanText(descMatch[1]) : "";
+    return { subject, description };
+  }
+
+  // Paid-brand briefs often start with "NAME — description".
+  const emDashMatch = trimmed.match(/^(.+?)\s+—\s+(.+)/);
+  if (emDashMatch) {
+    return {
+      subject: cleanText(emDashMatch[1]),
+      description: cleanText(emDashMatch[2]),
+    };
+  }
+
+  return {
+    subject: brandId ?? "this company",
+    description: cleanText(trimmed),
+  };
+}
+
 /**
  * Deterministically pick a format for a segment so replays are stable.
  * Uses FNV-1a hash for better distribution across short segment IDs.
@@ -185,12 +255,17 @@ export function pickFormat(segmentId: string): CreativeFormat {
 }
 
 /**
- * Pick a voice for a segment. If the format specifies a voice, use it.
- * Otherwise fall back to the provided default.
+ * Pick a voice for a segment. The per-format voice IDs in FORMATS reference
+ * ElevenLabs' public voice library, but not all are available on every
+ * account tier — a 404 voice_not_found kills the generation. Always use the
+ * configured ELEVENLABS_VOICE_ID (the fallback) for reliability; the formats
+ * still vary script structure, tone, and image style so ads don't feel
+ * identical. To restore per-format voices, verify each ID against the
+ * account's available voices first.
  */
 export function voiceForFormat(
-  format: CreativeFormat,
+  _format: CreativeFormat,
   fallbackVoiceId: string,
 ): string {
-  return format.voiceId || fallbackVoiceId;
+  return fallbackVoiceId;
 }

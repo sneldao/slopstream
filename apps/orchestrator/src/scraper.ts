@@ -60,12 +60,36 @@ export function cleanCompanyName(title: string): string {
     .trim();
 }
 
+/**
+ * Strip markdown, URLs, table pipes, and HN page chrome from scraped excerpts
+ * so the resulting description reads as clean copy for both TTS and image
+ * prompts. Without this, raw HN page content (markdown tables, user links,
+ * nav text) leaks into the ad brief.
+ */
+export function cleanExcerpt(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // markdown links → label
+    .replace(/https?:\/\/\S+/g, "") // bare URLs
+    .replace(/\|/g, " ") // table pipes
+    .replace(/^[\s:-]+$/gm, "") // table separators / lone dashes
+    .replace(/^#+\s+/gm, "") // markdown headers
+    .replace(/\bShow HN\b:?\s*/gi, "") // HN prefix
+    .replace(/\b\d+\s+points?\s+by\s+\S+/gi, "") // HN "14 points by user"
+    .replace(/\bon\s+\w+\s+\d+,?\s+\d{4}\b/gi, "") // HN "on Jan 31, 2025"
+    .replace(/\b\d+\s+comments?\b/gi, "") // HN "14 comments"
+    .replace(/\bhide\b/gi, "") // HN nav link
+    .replace(/\bdiscussion\b/gi, "") // HN nav link
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Turn one Parallel search result into a scraped-company submission. */
 export function toSubmission(
   result: ParallelSearchResult,
 ): ScrapedCompanySubmission | null {
   if (!result?.url || !result?.title) return null;
-  const excerpt = (result.excerpts ?? []).join(" ").trim();
+  const rawExcerpt = (result.excerpts ?? []).join(" ").trim();
+  const excerpt = cleanExcerpt(rawExcerpt);
   // Skip obvious non-company pages (aggregators, login walls).
   if (/sign in|log in|comments|discussion/i.test(result.title)) return null;
   const tagline = excerpt.split(/(?<=[.!?])\s/)[0]?.slice(0, 200) || undefined;

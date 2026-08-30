@@ -337,7 +337,7 @@ export class AuctionEngine {
     const company = this.ledger.nextUnusedScrapedCompany();
     if (!company) return;
 
-    const descriptor = company.description ?? company.tagline ?? "";
+    const descriptor = company.tagline ?? company.description ?? "";
     const brief = [
       `Write a short, funny AI-generated ad for ${company.name}.`,
       descriptor ? `What they do: ${descriptor}` : "",

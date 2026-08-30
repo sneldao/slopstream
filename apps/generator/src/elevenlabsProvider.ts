@@ -10,6 +10,7 @@ import type {
 
 import type { GenerationProvider } from "./generator.js";
 import {
+  normalizeAdBrief,
   pickFormat,
   truncateWords,
   voiceForFormat,
@@ -177,10 +178,19 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     const format = pickFormat(request.segmentId);
     const voiceId = voiceForFormat(format, this.config.voiceId);
 
+    // Normalize the brief: free-segment briefs are LLM instructions
+    // ("Write a short ad for {company}..."), not spoken copy. Extract the
+    // clean subject and description so the VO and image prompt reference the
+    // actual product, not the instruction text.
+    const { subject, description } = normalizeAdBrief(
+      request.brief,
+      request.brandId,
+    );
+
     // Stage 1: Script — format-specific transcript from the brand brief.
     const transcript = format.script({
-      brand: request.brandId ?? "this company",
-      brief: request.brief.trim(),
+      brand: subject,
+      brief: description,
       context: request.previousSummaries.at(-1),
       market: request.marketContext,
     });
@@ -191,7 +201,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     await writeFile(join(this.config.assetsDir, audioKey), audioBytes);
 
     const durationSec = estimateDurationSec(transcript);
-    const summary = summaryFor(request, format);
+    const summary = summaryFor(subject, description, format);
 
     // For audio tier, the asset is the MP3 itself.
     if (tier === "audio") {
@@ -214,7 +224,13 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
 
     // Stage 3: Image — generate a visual for audio_image and above.
     if (tier === "audio_image") {
-      const imagePrompt = imagePromptFor(request, transcript, format);
+      const imagePrompt = imagePromptFor(
+        subject,
+        description,
+        transcript,
+        format,
+        request,
+      );
       const imageBytes = await this.generateImage(imagePrompt);
       const imageKey = `${request.segmentId}.png`;
       await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
@@ -244,17 +260,25 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     }
 
     // Stage 4: Video — image-first continuity, then motion.
-    const imagePrompt = imagePromptFor(request, transcript, format);
+    const imagePrompt = imagePromptFor(
+      subject,
+      description,
+      transcript,
+      format,
+      request,
+    );
     const imageBytes = await this.generateImage(imagePrompt);
     const imageKey = `${request.segmentId}.png`;
     await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
     const heroImageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
 
     const videoPrompt = videoPromptFor(
-      request,
+      subject,
+      description,
       transcript,
       format,
       heroImageUrl,
+      request,
     );
     const videoBytes = await this.generateVideo(videoPrompt, durationSec);
     const videoKey = `${request.segmentId}.mp4`;
@@ -389,33 +413,29 @@ function estimateDurationSec(transcript: string): number {
 /**
  * Summary for the Continuum continuity input. Includes the creative format
  * tone so the next segment's context reflects the style that was used.
- *
- * Free-segment briefs are templated ("Write a short, funny AI-generated ad
- * for {company}. What they do: …") — extract just the company name so the
- * summary reads as content, not as an instruction. Paid-segment briefs are
- * already clean brand copy, so they're truncated as-is.
+ * Uses the normalized subject (already extracted from the brief) so the
+ * summary reads as content, not as an instruction.
  */
 function summaryFor(
-  request: GenerationRequest,
+  subject: string,
+  description: string,
   format: CreativeFormat,
 ): string {
-  const brief = request.brief.trim();
-  const freeAdMatch = brief.match(/ad for (.+?)\./i);
-  const subject = freeAdMatch ? freeAdMatch[1] : truncateWords(brief, 12);
-  return `${subject} — ${format.tone}`;
+  const core = subject || truncateWords(description, 12);
+  return `${core} — ${format.tone}`;
 }
 
 function imagePromptFor(
-  request: GenerationRequest,
+  subject: string,
+  description: string,
   transcript: string,
   format: CreativeFormat,
+  request: GenerationRequest,
 ): string {
-  const brand = request.brandId ?? "a startup";
-  const brief = request.brief.trim();
   const continuity = continuityClause(request.continuityImageUrl);
   const market = marketPromptClause(request.marketContext);
   return (
-    `Cinematic product-placement still for ${brand}. ${brief}. ` +
+    `Cinematic product-placement still for ${subject}. ${description}. ` +
     `Visual style: ${format.imageStyle}. ` +
     `Mood: ${format.tone}, matching this voiceover (do not render as text): "${transcript.slice(0, 100)}...". ` +
     `${continuity}${market}` +
@@ -426,17 +446,17 @@ function imagePromptFor(
 }
 
 function videoPromptFor(
-  request: GenerationRequest,
+  subject: string,
+  description: string,
   transcript: string,
   format: CreativeFormat,
   heroImageUrl: string,
+  request: GenerationRequest,
 ): string {
-  const brand = request.brandId ?? "a startup";
-  const brief = request.brief.trim();
   const continuity = continuityClause(request.continuityImageUrl);
   const market = marketPromptClause(request.marketContext);
   return (
-    `A dynamic 4-to-8-second product-placement motion ad for ${brand}. ${brief}. ` +
+    `A dynamic 4-to-8-second product-placement motion ad for ${subject}. ${description}. ` +
     `Visual style: ${format.imageStyle}. Tone: ${format.tone}. ` +
     `Evolve from this hero frame: ${heroImageUrl}. ` +
     `${continuity}${market}` +
