@@ -110,13 +110,13 @@ The auction is the economic engine, and several of its dynamics are worth making
 
 ### The auction is an allocation mechanism; the threshold is the price setter
 
-The most important framing: **the ascending bid decides *who* gets the slot; the attention threshold decides *whether anyone pays*.** A brand's expected cost is not their bid — it's:
+The most important framing: **the ascending bid decides _who_ gets the slot; the attention threshold decides _whether anyone pays_.** A brand's expected cost is not their bid — it's:
 
 ```text
 expected cost = bid × P(threshold met | audience, ad quality, slot)
 ```
 
-This means brands are effectively bidding on an *option* on verified attention, not a guaranteed impression. Two consequences:
+This means brands are effectively bidding on an _option_ on verified attention, not a guaranteed impression. Two consequences:
 
 - **Brands should bid higher than in a pay-per-impression model**, because they only pay on verified delivery. The auction is selling a conditional claim, not a sure thing.
 - **The threshold is the hidden price-setting parameter** — arguably more important than the auction format. Set it too high and bids rarely clear (Slopstream earns nothing, brands leave). Set it too low and attention is meaningless (listeners are rewarded for nothing, the proof is theater). The threshold is what actually prices verified attention; the auction just allocates the slot. Concrete mechanics — where it's stored, the frozen denominator, and when the window opens/closes — are pinned down in the [threshold spec](../technical/backend.md#attention-threshold-and-the-attention-window).
@@ -127,7 +127,7 @@ The live leaderboard with public bids and OUTBID animation is an **open ascendin
 
 **Hackathon: first-price — the winner pays their own bid.** When a segment clears the attention threshold, the full bid amount clears (see [bid clearing semantics](#bid-clearing-semantics)). That keeps the money story one sentence long — "they bid $18, $18 cleared" — and avoids second-highest-bid bookkeeping, one-bidder edge cases, and reserve-price interactions at demo scale. With two or three scripted brands in a five-minute session, the strategic problem first-price creates is never visible.
 
-**Product direction: second-price.** The winner pays the second-highest bid plus a minimum increment. In a true English auction the dominant strategy is *bid up to your true valuation and stop* — no shading, no games — which is the theoretically efficient outcome. Under first-price, real competing brands shade below true value and the auction becomes strategically complex. The OUTBID animation is also more meaningful under second-price: a brand isn't bidding against itself, it's being asked "do you want to exceed the current standing bid by one increment?" — and it only pays that increment over the previous bid.
+**Product direction: second-price.** The winner pays the second-highest bid plus a minimum increment. In a true English auction the dominant strategy is _bid up to your true valuation and stop_ — no shading, no games — which is the theoretically efficient outcome. Under first-price, real competing brands shade below true value and the auction becomes strategically complex. The OUTBID animation is also more meaningful under second-price: a brand isn't bidding against itself, it's being asked "do you want to exceed the current standing bid by one increment?" — and it only pays that increment over the previous bid.
 
 The switch is a clearing-rule change in BidClearing; the auction surface, bid events, and ledger shapes don't change.
 
@@ -150,7 +150,7 @@ The big screen already shows "👀 1,284 listeners" — but it's not connected t
 
 Slots are auctioned one after another in an infinite stream. Sequential auctions of comparable goods have well-known pathologies:
 
-- **Declining price anomaly.** In sequential auctions, prices tend to *decline* over a session (documented in wine, art, cattle, and real estate auctions). Causes: budget depletion (brands spend early), risk aversion (later slots are "safer" because you've observed outcomes), and winner's-curse learning.
+- **Declining price anomaly.** In sequential auctions, prices tend to _decline_ over a session (documented in wine, art, cattle, and real estate auctions). Causes: budget depletion (brands spend early), risk aversion (later slots are "safer" because you've observed outcomes), and winner's-curse learning.
 - **Strategic waiting.** If a brand expects later slots to be cheaper — or expects competitors to exhaust budgets — they'll skip early slots. This can produce dry spells in the stream: gaps where no one bids, which kills listener engagement, which lowers future slot values. A negative feedback loop.
 - **Budget allocation.** A brand with $500 isn't deciding "how much is this slot worth" — they're deciding "how do I allocate $500 across N upcoming slots?" The current docs treat each bid as independent, but a sophisticated brand is solving a portfolio problem.
 
@@ -165,9 +165,9 @@ Open ascending auctions with public brand identities are the most collusion-susc
 
 ### The listener side is a participation game, not a market
 
-The deepest gap: the product is called "a marketplace for human attention," but only one side (brands) is actually *transacting*. Listeners receive ads, prove attention, and earn rewards — but they have no market power. They can't signal preference ("I'd pay attention to a developer-tools ad"), can't withhold attention strategically, and can't price their own attention.
+The deepest gap: the product is called "a marketplace for human attention," but only one side (brands) is actually _transacting_. Listeners receive ads, prove attention, and earn rewards — but they have no market power. They can't signal preference ("I'd pay attention to a developer-tools ad"), can't withhold attention strategically, and can't price their own attention.
 
-This is a deliberate simplification, not an oversight — adding listener-side price discovery would massively complicate the product. But it's worth being explicit about: **Slopstream is a one-sided market with a participation game on the listener side, not a two-sided market.** The social effects that *do* exist on the listener side are herding ("1,284 people are watching" → more join) and social proof of attention ("127/143 verified"), both of which are already surfaced on the big screen. A future two-sided version — where listeners signal preferences that feed back into auction pricing — is a real product direction, but it's not this product.
+This is a deliberate simplification, not an oversight — adding listener-side price discovery would massively complicate the product. But it's worth being explicit about: **Slopstream is a one-sided market with a participation game on the listener side, not a two-sided market.** The social effects that _do_ exist on the listener side are herding ("1,284 people are watching" → more join) and social proof of attention ("127/143 verified"), both of which are already surfaced on the big screen. A future two-sided version — where listeners signal preferences that feed back into auction pricing — is a real product direction, but it's not this product.
 
 ## Listener rewards: start with an internal balance
 

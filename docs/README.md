@@ -19,5 +19,6 @@ Product design and technical architecture for a live, infinite AI-generated adve
 ## Hackathon
 
 - [demo-script.md](hackathon/demo-script.md) — the complete brand and listener user flows, and the eight-scene demo sequence.
+- [judge-story.md](hackathon/judge-story.md) — first-10-seconds pitch, judge-friendly demo arc, technical honesty guardrails, and rehearsal checklist.
 - [build-order.md](hackathon/build-order.md) — P0 must-work, P1 makes-the-demo-excellent, P2 stretch goals.
 - [team-split.md](hackathon/team-split.md) — splitting the work across three parallel development lanes.

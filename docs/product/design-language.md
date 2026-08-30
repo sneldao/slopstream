@@ -1,19 +1,19 @@
 # Design Language: A Living Canvas
 
-Slopstream is not a dashboard. It is a living, colorful, fluid canvas — an art installation that happens to be a marketplace. The product is named after slop: gooey, liquid, flowing abundance. The UI should *be* slop.
+Slopstream is not a dashboard. It is a living, colorful, fluid canvas — an art installation that happens to be a marketplace. The product is named after slop: gooey, liquid, flowing abundance. The UI should _be_ slop.
 
 ## Visual references
 
 Four projects define the direction:
 
 - **[Floaty](https://github.com/matsuoka-601/Floaty)** — soft-body and fluid simulation. The soul of Slopstream: things squish, flow, splash, and react with playful physics. OUTBID is a splash. A cleared bid bursts into reward droplets. The attention threshold is a liquid filling up, not a striped progress bar. Brand mascots are soft-body blobs competing for the slot.
-- **[Infinite Canvas](https://github.com/edoardolunardi/infinite-canvas)** — a 3D media space you drift through. Infinite Slop becomes spatial: the current ad is center-stage, previous segments (the robot escaping the lab, getting hired, hitting Shark Tank) recede behind it in a navigable grid. The continuity story is a *place*, not a playlist.
+- **[Infinite Canvas](https://github.com/edoardolunardi/infinite-canvas)** — a 3D media space you drift through. Infinite Slop becomes spatial: the current ad is center-stage, previous segments (the robot escaping the lab, getting hired, hitting Shark Tank) recede behind it in a navigable grid. The continuity story is a _place_, not a playlist.
 - **[Spotify Visualiser](https://github.com/J0SUKE/spotify-visualiser)** — audio-reactive GLSL. The stream's heartbeat: the background pulses with the voiceover, colors shift per brand, generation stages ripple outward. The room feels the stream even when nobody's looking directly at it.
 - **[Codrops Interactive Grid](https://github.com/samueljarry/codrops-tutorial-grid)** — tactile grid grammar. Hover-distortions on brand tiles, image grids that warp and respond, tactile feedback on every touchable thing.
 
 ## The aesthetic
 
-- **Not dark, not white — saturated and shifting.** The background is a living gradient that takes on the current brand's color identity. When Acme's ad plays, the screen is in Acme's blues. When CoolStartup outbids them, the screen floods with CoolStartup's orange. The color transition *is* the OUTBID moment — paint washes across the screen.
+- **Not dark, not white — saturated and shifting.** The background is a living gradient that takes on the current brand's color identity. When Acme's ad plays, the screen is in Acme's blues. When CoolStartup outbids them, the screen floods with CoolStartup's orange. The color transition _is_ the OUTBID moment — paint washes across the screen.
 - **System fonts, not monospace.** Monospace reads as "developer tool." Slopstream reads as "playful marketplace." Use a clean sans-serif system stack with bold weights for emphasis.
 - **High contrast text.** White or near-black depending on background luminance. The leaderboard entries are colored chips, not table rows.
 - **One calm moment.** The proof receipt is the one place that stays still — a clean, slightly translucent card that floats above the chaos. It's the moment of certainty in the slop.
@@ -22,14 +22,14 @@ Four projects define the direction:
 
 Real Floaty is a research-grade Rust + WASM fluid simulation (Position Based Dynamics / Position Based Fluids). Integrating it into a Next.js app and wiring it to Slopstream events is a multi-day project on its own, and if it drops frames during the demo, the "living canvas" becomes a "stuttering mess" — worse than a clean static UI.
 
-The pragmatic version fakes the *feeling*, not the physics. 80% of the sensation at 20% of the complexity:
+The pragmatic version fakes the _feeling_, not the physics. 80% of the sensation at 20% of the complexity:
 
-| Feeling | Implementation | Complexity |
-| --- | --- | --- |
-| **Squish** | Framer Motion spring physics. Every element uses `type: "spring"` with soft stiffness. Bids bounce into the leaderboard, brand blobs wobble when outbid, the challenge card pops with overshoot. | ~5 lines per element |
-| **Flow** | Canvas 2D particle system. When a bid clears, spawn particles at the bid amount that flow toward the listener pool, splitting into two streams (80% / 20%) as they go. | ~100 lines, one animation loop |
-| **Audio reactivity** | Web Audio API `AnalyserNode` → frequency data → reactive CSS gradient or simple GLSL shader on the background. The background breathes with the audio. Per-brand color palettes mean the whole screen takes on the current advertiser's identity. | ~200 lines |
-| **Spatial depth** | CSS 3D transforms or minimal React Three Fiber. Previous segments recede with perspective + blur. The current ad is full-screen front. No chunk-based rendering or WASD navigation needed — just depth. | CSS transforms or a small R3F scene |
+| Feeling              | Implementation                                                                                                                                                                                                                                    | Complexity                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **Squish**           | Framer Motion spring physics. Every element uses `type: "spring"` with soft stiffness. Bids bounce into the leaderboard, brand blobs wobble when outbid, the challenge card pops with overshoot.                                                  | ~5 lines per element                |
+| **Flow**             | Canvas 2D particle system. When a bid clears, spawn particles at the bid amount that flow toward the listener pool, splitting into two streams (80% / 20%) as they go.                                                                            | ~100 lines, one animation loop      |
+| **Audio reactivity** | Web Audio API `AnalyserNode` → frequency data → reactive CSS gradient or simple GLSL shader on the background. The background breathes with the audio. Per-brand color palettes mean the whole screen takes on the current advertiser's identity. | ~200 lines                          |
+| **Spatial depth**    | CSS 3D transforms or minimal React Three Fiber. Previous segments recede with perspective + blur. The current ad is full-screen front. No chunk-based rendering or WASD navigation needed — just depth.                                           | CSS transforms or a small R3F scene |
 
 This stack (Framer Motion + Canvas 2D + Web Audio + CSS 3D / minimal R3F) runs in any browser, doesn't need WASM, and one developer can build it in a weekend. Real Floaty-grade fluid simulation is a P2 "if we have time" upgrade.
 
@@ -127,21 +127,21 @@ The receipt is worth 30 minutes of dedicated design polish — it's the thing ju
 
 Every WebSocket event produces a visible reaction. This is the actual UX spec for Lane 3:
 
-| Event | Big screen | Listener client | Brand console |
-| --- | --- | --- | --- |
-| `bid.placed` | New chip springs into leaderboard, amount flashes | — | Bid confirmation particle effect |
-| `bid.outbid` | Color wash to new leader, OUTBID splash, chips re-sort | — | OUTBID alert, vibration, bid pressure pulse |
-| `leaderboard.updated` | Chips shuffle with spring physics, next-slot price ticks | — | Winning bid updates with pulse |
-| `segment.generating` | "GENERATING..." with fluid loader | "Next ad coming..." with subtle animation | — |
-| `generation.progress` | Stage checks off with splash particle | — | — |
-| `segment.ready` | Checklist dissolves, ad transitions in | — | — |
-| `segment.playing` | Ad full-screen, audio-reactive background activates, brand color palette floods screen | Audio visualizer activates, screen tints to brand color | — |
-| `challenge.fired` | Challenge banner overlay on big screen | Challenge card pops in with spring + haptic + sound, countdown timer starts | — |
-| `attention.verified` | Verified counter ticks up, liquid threshold fills, pulse effect | Attention meter updates, personal verified indicator | — |
-| `bid.cleared` | Full-screen "$25 CLEARED", particle split into 80/20 streams, pool counter ticks up | — | Bid cleared confirmation |
-| `bid.uncleared` | "THRESHOLD NOT MET" — somber but clear, bid returned | — | Bid returned notification |
-| `reward.pool.updated` | Listener rewards stat counts up | Estimated reward updates on receipt | — |
-| `stats.updated` | All footer stats count up smoothly | — | — |
+| Event                 | Big screen                                                                             | Listener client                                                             | Brand console                               |
+| --------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
+| `bid.placed`          | New chip springs into leaderboard, amount flashes                                      | —                                                                           | Bid confirmation particle effect            |
+| `bid.outbid`          | Color wash to new leader, OUTBID splash, chips re-sort                                 | —                                                                           | OUTBID alert, vibration, bid pressure pulse |
+| `leaderboard.updated` | Chips shuffle with spring physics, next-slot price ticks                               | —                                                                           | Winning bid updates with pulse              |
+| `segment.generating`  | "GENERATING..." with fluid loader                                                      | "Next ad coming..." with subtle animation                                   | —                                           |
+| `generation.progress` | Stage checks off with splash particle                                                  | —                                                                           | —                                           |
+| `segment.ready`       | Checklist dissolves, ad transitions in                                                 | —                                                                           | —                                           |
+| `segment.playing`     | Ad full-screen, audio-reactive background activates, brand color palette floods screen | Audio visualizer activates, screen tints to brand color                     | —                                           |
+| `challenge.fired`     | Challenge banner overlay on big screen                                                 | Challenge card pops in with spring + haptic + sound, countdown timer starts | —                                           |
+| `attention.verified`  | Verified counter ticks up, liquid threshold fills, pulse effect                        | Attention meter updates, personal verified indicator                        | —                                           |
+| `bid.cleared`         | Full-screen "$25 CLEARED", particle split into 80/20 streams, pool counter ticks up    | —                                                                           | Bid cleared confirmation                    |
+| `bid.uncleared`       | "THRESHOLD NOT MET" — somber but clear, bid returned                                   | —                                                                           | Bid returned notification                   |
+| `reward.pool.updated` | Listener rewards stat counts up                                                        | Estimated reward updates on receipt                                         | —                                           |
+| `stats.updated`       | All footer stats count up smoothly                                                     | —                                                                           | —                                           |
 
 ## Color system
 

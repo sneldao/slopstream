@@ -15,9 +15,9 @@ How to divide Slopstream across three developers so everyone ships from day one 
 - Attention proof submission + verification flow (commitments, segment/challenge binding, non-replayability)
 - Proof receipt data (proof IDs surfaced to the UI)
 
-**Owns:** `contracts/`
+**Owns:** `contracts/`, `apps/generator/`, and `apps/verifier/`
 
-**Mocks out:** nothing upstream; provides a JSON-stub proof verifier to the other lanes until the real contracts land.
+**Mocks out:** no upstream dependency. `apps/verifier` provides the JSON-stub proof verifier at `POST /v1/attention-proofs/verify` until the Compact verifier lands; `apps/generator` provides `POST /v1/generations` until Daytona/model providers land. Both contracts are typed in `packages/shared`; endpoint semantics and stub limits are in [architecture](../technical/architecture.md#lane-1-development-services).
 
 **Slip contingency:** if the real contracts don't land in time, the demo runs on the JSON-stub proof verifier — the stub is the fallback, not a failure. The demo only needs to show proof IDs and verification results; the stub provides those.
 
@@ -39,7 +39,7 @@ This is deliberate load-balancing: the pipeline is self-contained, parallel-frie
 - Reward pool calculation: 80/20 split, proportional distribution over valid attention events
 - Reward weighting signals: uniqueness scoring and anti-fraud scoring on attention events, feeding the distribution weights (see [anti-gaming](../product/economics.md#the-critical-anti-gaming-layer))
 - Listener balances (internal balance — payouts are Wave 2)
-- Challenge generation: transcript + metadata → challenge JSON ([challenge engine](../technical/backend.md#attention-challenge-engine)). Lane 2 decides *what* the challenges are; Lane 3 decides *when* they fire.
+- Challenge generation: transcript + metadata → challenge JSON ([challenge engine](../technical/backend.md#attention-challenge-engine)). Lane 2 decides _what_ the challenges are; Lane 3 decides _when_ they fire.
 - HTTPS command + snapshot API: all mutations and private operations are API calls — place/raise bid, top up, create/resume listener session, submit `AttentionProofSubmission`; `GET /stream/snapshot` supplies authoritative initial/reconnect state. Commands persist before producing events.
 - Attention proof intake: listener submits `AttentionProofSubmission` → Lane 2 persists → Lane 1 verifies → Lane 2 records valid event + updates counts → publishes `attention.verified` via Redis. Lane 2 is the authoritative source for verification state; Lane 3 never emits this event independently.
 - Publish persisted marketplace events (`bid.placed`, `bid.outbid`, `leaderboard.updated`, `attention.verified`, `bid.cleared`, `bid.uncleared`, `reward.pool.updated`, `stats.updated`) via Redis pub/sub. The orchestrator (Lane 3) owns only WebSocket delivery; it does not make marketplace state authoritative
@@ -77,7 +77,8 @@ The core shared types live in [`packages/shared/src/index.ts`](../../packages/sh
 - **`AttentionProofSubmission`** — `{ listenerCommitment, segmentId, challengeId, resultProof }`. Submitted by Lane 3's listener client to Lane 2's API, verified by Lane 1.
 - **`AttentionProofReceipt`** — `{ proofId, segmentId, challengeId, brandId, challengeType, verified, estimatedRewardUsd?, createdAt }`. Issued by Lane 1 (via Lane 2's API), displayed by Lane 3.
 - **`DemoFixture` / `DemoStep`** — the versioned, fixture-driven demo sequence (`initialSnapshot` + ordered steps wrapping `WsDelivery`/`StreamSnapshot`). Lane 3 owns the player; Lanes 1–2 supply canned proof/clearing data. This is a cross-lane dependency, so its shape lives in `packages/shared`.
-- **REST/entity shapes** — `Bid`, `Segment`, `RewardPool`, `ListenerSession`, `ProductionTier`, `BidStatus`, `SegmentStatus`, `RewardPoolStatus`, plus the command endpoints and `GET /stream/snapshot` response (`asOfSequence`, public stream state, active `PublicChallenge`).
+- **REST/entity shapes** — `Bid`, `Segment`, `RewardPool`, `ListenerSession`, `ProductionTier`, `BidStatus`, `SegmentStatus`, `RewardPoolStatus`, the HTTPS command bodies (`CreateBrandCommand`, `TopUpCommand`, `PlaceBidCommand`, `ChallengeSourceCommand`), the `AuctionState` read shape the orchestrator polls to consume auction results, and `GET /stream/snapshot` response (`asOfSequence`, public stream state, active `PublicChallenge`).
+- **Redis topics** — `REDIS_TOPICS` (`slopstream:marketplace`, `slopstream:runtime`) frozen in `packages/shared`. Lane 2 publishes marketplace `WsDelivery` events; Lane 3 subscribes there and publishes runtime events.
 - **Generation interface** — Lane 1's generator input (brand brief, production tier, previous segment summaries) → output (asset URL, transcript, visual/audio metadata). Lane 2's challenge engine consumes the transcript; Lane 3's scheduler consumes the asset. Defined in `packages/shared` before either side builds against it.
 
 **Source of truth for live events:** Lane 2 publishes persisted marketplace events to Redis; Lane 3 subscribes and fans them out as `WsDelivery` envelopes over WebSockets. Lane 3 may publish only orchestrator-runtime events (`segment.*`, `generation.progress`, `challenge.fired`), which must use the shared `WsEvent` contract. Every `WsEvent` type has exactly one authoritative emitter.

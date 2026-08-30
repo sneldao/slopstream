@@ -2,7 +2,7 @@
 
 Slopstream has three main surfaces: the big screen (the centerpiece), the listener client, and the brand bidding console. Plus one signature artifact: the proof receipt.
 
-The full visual and interaction design language — the living canvas aesthetic, audio-reactive backgrounds, fluid event reactions, per-brand color palettes, and the pragmatic build stack — is in [design-language.md](design-language.md). This document specifies *what* is on each surface; the design language specifies *how it behaves*.
+The full visual and interaction design language — the living canvas aesthetic, audio-reactive backgrounds, fluid event reactions, per-brand color palettes, and the pragmatic build stack — is in [design-language.md](design-language.md). This document specifies _what_ is on each surface; the design language specifies _how it behaves_.
 
 ## A. The big screen
 
@@ -216,4 +216,4 @@ This is the moment to demonstrate **why Midnight exists**. The audience doesn't 
 
 > I answered → proof → reward.
 
-The reward is an *estimate* until the attention window closes and the pool is distributed proportionally (see [economics](economics.md#dont-pay-per-question)) — the receipt shows a pending share, not a settled payout.
+The reward is an _estimate_ until the attention window closes and the pool is distributed proportionally (see [economics](economics.md#dont-pay-per-question)) — the receipt shows a pending share, not a settled payout.

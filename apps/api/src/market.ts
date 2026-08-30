@@ -1,0 +1,158 @@
+// Accounts and balances (Lane 2). Brand creation, top-ups, and listener
+// sessions. Stripe is the only fiat rail (docs/technical/backend.md — Money
+// architecture); for the hackathon the charge is mocked and credits the
+// brand balance immediately.
+
+import type {
+  BrandSummary,
+  CreateBrandCommand,
+  ListenerSession,
+  TopUpCommand,
+} from "@slopstream/shared";
+import { isoNow, newId, newToken } from "./ids.js";
+import type {
+  BrandBalanceRow,
+  BrandRow,
+  Ledger,
+  ListenerSessionRow,
+} from "./ledger.js";
+import { assert, centsToUsd, usdToCents } from "./money.js";
+
+export interface BalanceView {
+  brandId: string;
+  availableUsd: number;
+  reservedUsd: number;
+  spentUsd: number;
+}
+
+/** Mock-Stripe charge record. Real Stripe checkout replaces this seam later. */
+export interface MockCharge {
+  id: string;
+  provider: "mock-stripe";
+  brandId: string;
+  amountUsd: number;
+  status: "succeeded";
+  createdAt: string;
+}
+
+export function toBrandSummary(brand: BrandRow): BrandSummary {
+  return {
+    id: brand.id,
+    name: brand.name,
+    primaryColor: brand.primaryColor,
+    secondaryColor: brand.secondaryColor,
+  };
+}
+
+export function toBalanceView(balance: BrandBalanceRow): BalanceView {
+  return {
+    brandId: balance.brandId,
+    availableUsd: centsToUsd(balance.availableCents),
+    reservedUsd: centsToUsd(balance.reservedCents),
+    spentUsd: centsToUsd(balance.spentCents),
+  };
+}
+
+export function toListenerSession(row: ListenerSessionRow): ListenerSession {
+  return {
+    id: row.id,
+    joinedAt: row.joinedAt,
+    availableBalanceUsd: centsToUsd(row.balanceCents),
+    todayVerifiedUsd: centsToUsd(row.todayVerifiedCents),
+  };
+}
+
+export class MarketService {
+  constructor(private readonly ledger: Ledger) {}
+
+  createBrand(cmd: CreateBrandCommand): { brand: BrandRow; token: string } {
+    assert(
+      typeof cmd?.name === "string" && cmd.name.trim().length > 0,
+      400,
+      "name is required",
+    );
+    assert(
+      typeof cmd?.primaryColor === "string" &&
+        cmd.primaryColor.trim().length > 0,
+      400,
+      "primaryColor is required",
+    );
+    assert(
+      typeof cmd?.secondaryColor === "string" &&
+        cmd.secondaryColor.trim().length > 0,
+      400,
+      "secondaryColor is required",
+    );
+    assert(
+      typeof cmd?.brief === "string" && cmd.brief.trim().length > 0,
+      400,
+      "brief is required",
+    );
+
+    const brand: BrandRow = {
+      id: newId("brand"),
+      name: cmd.name.trim(),
+      primaryColor: cmd.primaryColor.trim(),
+      secondaryColor: cmd.secondaryColor.trim(),
+      brief: cmd.brief.trim(),
+      token: newToken(),
+      createdAt: isoNow(),
+    };
+    this.ledger.brands.set(brand.id, brand);
+    this.ledger.brandTokens.set(brand.token, brand.id);
+    this.ledger.balances.set(brand.id, {
+      brandId: brand.id,
+      availableCents: 0,
+      reservedCents: 0,
+      spentCents: 0,
+    });
+    return { brand, token: brand.token };
+  }
+
+  /** Mock-Stripe top-up: "charge" succeeds instantly and credits the balance. */
+  topUp(cmd: TopUpCommand): { charge: MockCharge; balance: BalanceView } {
+    assert(typeof cmd?.brandId === "string", 400, "brandId is required");
+    const brand = this.ledger.brands.get(cmd.brandId);
+    assert(brand, 404, `unknown brand ${cmd.brandId}`);
+    const amountCents = usdToCents(cmd.amountUsd);
+    assert(amountCents > 0, 400, "amountUsd must be positive");
+    assert(
+      amountCents <= 1_000_000_00,
+      400,
+      "amountUsd exceeds the hackathon top-up cap",
+    );
+
+    const balance = this.ledger.balances.get(brand.id)!;
+    balance.availableCents += amountCents;
+
+    const charge: MockCharge = {
+      id: newId("chp"),
+      provider: "mock-stripe",
+      brandId: brand.id,
+      amountUsd: centsToUsd(amountCents),
+      status: "succeeded",
+      createdAt: isoNow(),
+    };
+    return { charge, balance: toBalanceView(balance) };
+  }
+
+  /** Create or resume a listener session (bearer token = identity). */
+  createListenerSession(resumed?: ListenerSessionRow): {
+    session: ListenerSessionRow;
+    token: string;
+    resumed: boolean;
+  } {
+    if (resumed)
+      return { session: resumed, token: resumed.token, resumed: true };
+    const session: ListenerSessionRow = {
+      id: newId("lstn"),
+      token: newToken(),
+      joinedAt: isoNow(),
+      balanceCents: 0,
+      todayVerifiedCents: 0,
+    };
+    this.ledger.listeners.set(session.id, session);
+    this.ledger.listenerTokens.set(session.token, session.id);
+    return { session, token: session.token, resumed: false };
+  }
+}

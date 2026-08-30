@@ -53,13 +53,17 @@ The live-event stream is the single integration seam between the orchestrator/ba
 
 The WebSocket is a **server-to-client projection**, not a mutation API. Clients use authenticated HTTPS endpoints for every state-changing or private operation:
 
-| Operation                        | Transport                 | Result                                                                                                                            |
-| -------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Create/resume a listener session | `POST /listener-sessions` | Session token / identity                                                                                                          |
-| Place or raise a bid             | `POST /bids`              | Persisted bid; API later publishes `bid.*` events                                                                                 |
-| Top up a brand balance           | `POST /top-ups`           | Stripe checkout/session state                                                                                                     |
-| Submit a challenge response      | `POST /attention-proofs`  | Private verification result / receipt                                                                                             |
-| Load or recover stream state     | `GET /stream/snapshot`    | Current segment, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
+| Operation                        | Transport                                      | Result                                                                                                                            |
+| -------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Create a brand account           | `POST /brands`                                 | `BrandSummary` + one-time bearer token                                                                                            |
+| Top up a brand balance           | `POST /top-ups`                                | Mock-Stripe charge (hackathon) + updated balance                                                                                  |
+| Place or raise a bid             | `POST /bids`                                   | Persisted bid; API later publishes `bid.*` events                                                                                 |
+| Create/resume a listener session | `POST /listener-sessions`                      | Session token / identity (bearer resumes the same session)                                                                        |
+| Submit a challenge response      | `POST /attention-proofs`                       | Private verification result / receipt                                                                                             |
+| Load or recover stream state     | `GET /stream/snapshot`                         | Current segment, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
+| Poll auction state               | `GET /auctions/current`, `GET /auctions/:slot` | `AuctionState` (status, deadline, standing bid, winner + `segmentId` after close)                                                 |
+
+Brand and listener commands authenticate with their bearer token. The orchestrator additionally drives the per-segment lifecycle against Lane 2 — `POST /segments/:id/generating`, `/ready`, `/challenge-source`, `/challenges/next` (Lane 3 decides when to fire; the response is a `PublicChallenge`, never the answer), `/playing` (opens the attention window and freezes `required_events`), `/window-closed` (exactly-once clearing evaluation), and `/failed` — so clearing state stays in the ledger even though playback lives in Lane 3.
 
 Commands are authenticated, validated, logged, and idempotent at the API boundary. The API persists the result before it publishes the corresponding marketplace event to Redis. Clients must never treat a WebSocket message as evidence that a bid, balance, proof, or reward is settled.
 

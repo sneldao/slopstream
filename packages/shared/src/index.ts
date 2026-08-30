@@ -105,6 +105,69 @@ export interface AttentionProofReceipt {
   createdAt: string;
 }
 
+/**
+ * The backend-supplied facts required to verify a listener proof. The complete
+ * `Challenge` (including its answer) stays in Lane 2's private store; only
+ * timing and binding facts are sent to Lane 1's verifier.
+ */
+export interface AttentionProofVerificationContext {
+  /** ISO-8601 timestamp when the segment began playback. */
+  segmentStartedAt: string;
+  /** ISO-8601 timestamp when the API received the submission. */
+  submittedAt: string;
+  challenge: Pick<Challenge, "id" | "segmentId" | "validFrom" | "validUntil">;
+}
+
+/**
+ * Server-to-server request from Lane 2 to Lane 1's proof verifier.
+ * Never expose this endpoint directly to browser clients: Lane 2 authenticates
+ * the listener, owns the full Challenge, and persists the result.
+ */
+export interface AttentionProofVerificationRequest {
+  submission: AttentionProofSubmission;
+  context: AttentionProofVerificationContext;
+}
+
+export type AttentionProofVerificationFailure =
+  | "invalid_request"
+  | "malformed_proof"
+  | "proof_marked_invalid"
+  | "binding_mismatch"
+  | "outside_challenge_window"
+  | "replayed_proof";
+
+/** Result returned by Lane 1's verifier to Lane 2. */
+export interface AttentionProofVerificationResult {
+  verified: boolean;
+  /** Stable reference suitable for Lane 2's attention_events.proof_ref. */
+  proofId?: string;
+  /** Present only when `verified` is false. */
+  failure?: AttentionProofVerificationFailure;
+  /** Identifies the verifier implementation that produced this result. */
+  verifierMode: "stub" | "midnight";
+  verifiedAt: string;
+}
+
+/**
+ * Demo-only payload encoded as JSON inside `AttentionProofSubmission.resultProof`.
+ * It proves nothing cryptographically: `valid` is self-reported by the caller.
+ * The JSON-stub verifier uses it only to exercise binding, timing, and replay
+ * handling while the Compact implementation is unavailable. Never enable this
+ * format for a production reward or clearing decision.
+ */
+export interface StubAttentionProofPayload {
+  version: "slopstream.stub.attention.v1";
+  listenerCommitment: string;
+  segmentId: string;
+  challengeId: string;
+  /** Must be unique per proof; the stub verifier rejects a replay in memory. */
+  nonce: string;
+  /** ISO-8601 time at which the demo proof was generated. */
+  issuedAt: string;
+  /** Self-reported demo result — it is not a cryptographic claim. */
+  valid: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Brands (Lane 2 boundary, consumed by Lane 3)
 // ---------------------------------------------------------------------------
@@ -426,4 +489,93 @@ export interface DemoFixture {
   initialSnapshot: StreamSnapshot;
   /** Ordered steps replayed by the demo player. */
   steps: DemoStep[];
+}
+
+// ---------------------------------------------------------------------------
+// Live transport topics (frozen by the day-1 contract-freeze checklist)
+// ---------------------------------------------------------------------------
+
+/**
+ * Redis pub/sub channel names. Lane 2 publishes persisted marketplace events
+ * on `marketplace`; Lane 3's gateway subscribes there and fans them out over
+ * WebSocket, and publishes orchestrator-runtime events on `runtime`.
+ * Every message on both channels is a JSON-encoded `WsDelivery`.
+ */
+export const REDIS_TOPICS = {
+  marketplace: "slopstream:marketplace",
+  runtime: "slopstream:runtime",
+} as const;
+
+// ---------------------------------------------------------------------------
+// Auction reads (Lane 2 boundary, consumed by the orchestrator)
+// ---------------------------------------------------------------------------
+
+export type AuctionStatus = "open" | "closed";
+
+/**
+ * Read shape of one slot auction. The orchestrator consumes auction results
+ * through this (GET /auctions/current, GET /auctions/:slot) — it never
+ * resolves auctions itself.
+ */
+export interface AuctionState {
+  slot: number;
+  status: AuctionStatus;
+  /** Server-authoritative deadline; drives the brand console countdown. */
+  closesAt: string;
+  /** Minimum acceptable bid right now (opening price or standing + increment). */
+  nextSlotPriceUsd: number;
+  /** Current standing bid, if any. */
+  standing?: {
+    bidId: string;
+    brandId: string;
+    amountUsd: number;
+    tier: ProductionTier;
+  };
+  /** Present once the auction closed with a winner. */
+  winner?: {
+    bidId: string;
+    brandId: string;
+    amountUsd: number;
+    tier: ProductionTier;
+    /** The campaign brief the generator receives. */
+    brief: string;
+    /** The queued segment realizing this slot — the orchestrator drives its
+     *  lifecycle (generating/ready/playing/window-closed) against this id. */
+    segmentId: string;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// HTTPS command bodies (Lane 2 API)
+// ---------------------------------------------------------------------------
+
+/** POST /brands */
+export interface CreateBrandCommand {
+  name: string;
+  /** CSS color strings — drive the per-brand palette everywhere. */
+  primaryColor: string;
+  secondaryColor: string;
+  /** Campaign brief fed to the generation pipeline when this brand wins. */
+  brief: string;
+}
+
+/** POST /top-ups — mock-Stripe for the hackathon; credits immediately. */
+export interface TopUpCommand {
+  brandId: string;
+  amountUsd: number;
+}
+
+/** POST /bids — amount must exceed the standing bid by at least the increment. */
+export interface PlaceBidCommand {
+  brandId: string;
+  amountUsd: number;
+}
+
+/** POST /segments/:segmentId/challenge-source — feeds the challenge engine. */
+export interface ChallengeSourceCommand {
+  segmentId: string;
+  durationSec: number;
+  transcript: string;
+  visualMetadata?: Record<string, unknown>;
+  audioMetadata?: Record<string, unknown>;
 }
