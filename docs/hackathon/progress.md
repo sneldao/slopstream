@@ -312,9 +312,16 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 
 ### Lane 3: next steps
 
-1. **3D visual overhaul** — rebuild the big screen as a 3D fluid world (R3F +
-   metaball shader + Rapier physics). See
-   [3D overhaul plan](./3d-overhaul-plan.md). This is the current priority.
+1. **3D visual overhaul — Phases 4–9.** Phases 1–3 are live (ray-marched
+   metaball fluid shader, audio → uniforms, Rapier physics brand blobs with
+   a manual critically-damped spring, OUTBID color flood + velocity kick,
+   error boundary → Canvas 2D fallback, `dpr` capped at 1). Remaining:
+   ad surface tier evolution (Phase 4), 3D threshold basin + clearing
+   streams (Phase 5), `ProofReceipt3D` (Phase 6), mesh fallback +
+   capability detection (Phase 7), listener/brand refinement (Phase 8),
+   generation pipeline (Phase 9). See
+   [3D overhaul plan](./3d-overhaul-plan.md) for the status table and
+   Phase 3 implementation notes.
 2. Wire the orchestrator: HTTP/WS gateway, Redis subscription, auction
    polling, generator calls, segment scheduling, event emission on the
    `runtime` topic.

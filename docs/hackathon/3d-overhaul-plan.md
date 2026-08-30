@@ -23,6 +23,40 @@ The decision (confirmed with the user):
 
 See [design-language.md](../product/design-language.md) for the full vision.
 
+## Status
+
+| Phase | Status | Notes |
+| ----- | ------ | ----- |
+| 1 — R3F scene shell + metaball fluid shader | Done | `Scene`, `FluidBackground`, `shaders/metaball.glsl.ts` |
+| 2 — Audio signal → shader uniforms | Done | `useAudioSignal` feeds `uAmplitude`/`uBeat`/`uBass`/`uTreble` |
+| 3 — Brand blobs with Rapier physics | Done | Kinematic bodies + manual critically-damped spring; OUTBID velocity kick; `BallCollider` |
+| 4 — The ad surface (tier evolution) | Not started | |
+| 5 — Event-driven physics + 3D threshold | Not started | OUTBID color flood + shockwave are wired (Phase 3 follow-up); 3D basin + clearing streams remain |
+| 6 — Floating HUD overlay + proof receipt | Partial | 2D HUD floats over the 3D canvas; `ProofReceipt3D` not started |
+| 7 — Quality switch + fallback | Partial | Error boundary → Canvas 2D `AmbientCanvas` fallback is wired; `dpr` capped at 1; `quality` prop exposed. Mesh fallback + capability detection not built |
+| 8 — Refine listener + brand | Not started | |
+| 9 — Generation pipeline | Not started | API keys pending |
+
+### Phase 3 implementation notes
+
+- Brand blobs are **kinematic** (`type="kinematicPosition"`) driven by
+  `setNextKinematicTranslation`, not dynamic bodies with per-frame impulses.
+  A manual critically-damped spring (`a = -k·x - c·v`, `c = 2√k`, `k=60`)
+  moves each blob toward its rank-determined target. This avoids the
+  integrator overshoot/jitter that per-frame `applyImpulse` caused.
+- The OUTBID impulse is a one-shot velocity kick applied inside the blob
+  that matches `outbidDisplacedBrandId`; the spring then recovers it toward
+  its new (demoted) target. Each blob self-selects, so the impulse fires
+  exactly once on the right blob regardless of render timing.
+- The fluid tint follows the **bid leader** (`leaderboard[0]`), not the
+  playing segment. `FluidBackground` lerps `uColorA`/`uColorB` toward the
+  new leader's palette via exponential approach (τ ≈ 0.15s → ~99% in ~0.7s)
+  — the OUTBID color flood.
+- `dpr` is capped at `[1, 1]` and `quality` is a prop — the two demo-safety
+  levers for the fragment-heavy metaball shader.
+- An error boundary around the R3F tree falls back to `AmbientCanvas`
+  (Canvas 2D) if WebGL init or shader compile fails.
+
 ## Dependencies to install
 
 ```bash

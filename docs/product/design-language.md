@@ -2,7 +2,7 @@
 
 Slopstream is not a dashboard. It is a living, colorful, fluid canvas — an art installation that happens to be a marketplace. The product is named after slop: gooey, liquid, flowing abundance. The UI should _be_ slop.
 
-> **Current state.** The shipped big screen is the first visual overhaul — Canvas 2D + Framer Motion + Web Audio (audio-reactive ambient canvas, soft-body blob leaderboard, liquid threshold, flowing clearing streams, synthesized sound design). The 3D fluid world described below (R3F + ray-marched metaball shader + Rapier physics) is the planned next step; see [3D overhaul plan](../hackathon/3d-overhaul-plan.md) for the phased build. The listener and brand surfaces are 2D with 3D accents and are already built.
+> **Current state.** The big screen's 3D fluid world is partially built — Phases 1–3 of the [3D overhaul plan](../hackathon/3d-overhaul-plan.md) are live: a ray-marched metaball fluid shader (`FluidBackground`), audio signal → shader uniforms, and Rapier physics brand blobs (`BrandBlob` / `BrandBlobField`). The fluid tint follows the bid leader and lerps to the new leader's palette on OUTBID (~600ms flood). Brand blobs are kinematic bodies driven by a manual critically-damped spring, with a one-shot velocity kick on OUTBID. An error boundary falls back to the Canvas 2D `AmbientCanvas` if WebGL fails. Phases 4–9 (ad surface, 3D threshold basin, clearing streams, proof receipt, capability detection, generation pipeline) remain. The 2D HUD overlay (now-playing, leaderboard chips, liquid threshold, clearing burst, stats) floats over the 3D canvas in the interim. The listener and brand surfaces are 2D with 3D accents and are already built.
 
 ## Visual references
 
@@ -295,7 +295,7 @@ Every WebSocket event produces a visible reaction. This is the actual UX spec fo
 
 **Per-brand palettes.** Each brand defines a primary and secondary color when creating a campaign. These colors drive:
 
-- The big screen's 3D fluid shader tint while the brand's ad plays
+- The big screen's 3D fluid shader tint while the brand leads the auction (the fluid follows the bid leader, not the playing segment, so OUTBID floods the palette)
 - The brand's 3D blob color in the fluid world
 - The listener client's tint during the brand's segment
 - The brand console's ambient glow color

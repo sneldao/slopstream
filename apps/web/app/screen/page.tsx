@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useSoundDesign } from "@/lib/useSoundDesign";
-import { AmbientCanvas } from "./_components/AmbientCanvas";
 import { NowPlaying } from "./_components/NowPlaying";
 import { LiquidThreshold } from "./_components/LiquidThreshold";
 import { StatsFooter } from "./_components/StatsFooter";
@@ -14,17 +14,31 @@ import { ClearBurstFlow } from "./_components/ClearBurstFlow";
 import { BlobChip } from "./_components/SoftBlob";
 import { DemoControls } from "./_components/DemoControls";
 
+// 3D scene — loaded client-only to avoid SSR issues with WebGL.
+const Scene = dynamic(
+  () => import("./_components/Scene").then((m) => m.Scene),
+  { ssr: false },
+);
+
 export default function ScreenPage() {
   const { state, demo } = useStream();
   const { signalRef } = useAudioSignal(!!state.nowPlaying);
   const { play } = useSoundDesign();
 
-  // Active brand drives the canvas tint.
+  // Active brand drives the now-playing surface.
   const activeBrandId =
     state.nowPlaying?.brandId ?? state.generation?.brandId ?? null;
   const activeBrand = activeBrandId
     ? state.brandById[activeBrandId]
     : undefined;
+
+  // The bid leader drives the fluid tint. The design language says the screen
+  // floods to the new leader's palette on OUTBID — so the fluid tracks who's
+  // *winning the auction*, not who's *currently playing*. When the leader
+  // changes, FluidBackground lerps the palette over ~600ms (the flood).
+  // Falls back to the playing brand when there are no bids yet.
+  const leaderBrandId = state.leaderboard[0]?.brandId ?? activeBrandId;
+  const fluidBrand = leaderBrandId ? state.brandById[leaderBrandId] : undefined;
 
   // Set brand-palette CSS variables.
   useEffect(() => {
@@ -77,14 +91,24 @@ export default function ScreenPage() {
 
   return (
     <main style={styles.main}>
-      {/* The living canvas — ambient particles behind everything. */}
-      <AmbientCanvas
+      {/* The living fluid — 3D ray-marched metaball shader + brand blobs.
+          The fluid tint follows the bid leader so OUTBID floods the palette. */}
+      <Scene
         signalRef={signalRef}
-        brandColor={activeBrand?.primaryColor ?? "#1a1a3e"}
-        secondaryColor={activeBrand?.secondaryColor ?? "#0b0b1a"}
-        burstKey={burstKey}
-        burstFromColor={burstFromColor}
-        burstToColor={burstToColor}
+        colorA={fluidBrand?.primaryColor ?? "#1a1a3e"}
+        colorB={fluidBrand?.secondaryColor ?? "#0b0b1a"}
+        shockwaveKey={burstKey}
+        leaderboard={state.leaderboard}
+        brandById={state.brandById}
+        outbidFlashId={state.lastOutbid?.flashId ?? 0}
+        outbidDisplacedBrandId={state.lastOutbid?.displacedBrandId}
+        outbidNewBrandId={state.lastOutbid?.newBrandId}
+        // Canvas 2D fallback palette (used only if WebGL fails).
+        fallbackBrandColor={activeBrand?.primaryColor ?? "#1a1a3e"}
+        fallbackSecondaryColor={activeBrand?.secondaryColor ?? "#0b0b1a"}
+        fallbackBurstKey={burstKey}
+        fallbackBurstFromColor={burstFromColor}
+        fallbackBurstToColor={burstToColor}
       />
 
       {/* Full-bleed now-playing — the stage takes the whole screen. */}
