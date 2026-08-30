@@ -121,13 +121,15 @@ This means brands are effectively bidding on an *option* on verified attention, 
 - **Brands should bid higher than in a pay-per-impression model**, because they only pay on verified delivery. The auction is selling a conditional claim, not a sure thing.
 - **The threshold is the hidden price-setting parameter** — arguably more important than the auction format. Set it too high and bids rarely clear (Slopstream earns nothing, brands leave). Set it too low and attention is meaningless (listeners are rewarded for nothing, the proof is theater). The threshold is what actually prices verified attention; the auction just allocates the slot.
 
-### Auction format: English ascending, second-price
+### Auction format: English ascending; first-price now, second-price later
 
-The live leaderboard with public bids and OUTBID animation is an **open ascending (English) auction**. The clean implementation is **second-price**: the winner pays the second-highest bid plus a minimum increment, not their own bid.
+The live leaderboard with public bids and OUTBID animation is an **open ascending (English) auction**.
 
-Why second-price: in a true English auction, the dominant strategy is *bid up to your true valuation and stop* — no shading, no games. The winner pays approximately the second-highest valuation, which is the theoretically efficient outcome. If instead the winner pays their own bid (first-price), brands have an incentive to shade below true value, and the auction becomes strategically complex with no upside.
+**Hackathon: first-price — the winner pays their own bid.** When a segment clears the attention threshold, the full bid amount clears (see [bid clearing semantics](#bid-clearing-semantics)). That keeps the money story one sentence long — "they bid $18, $18 cleared" — and avoids second-highest-bid bookkeeping, one-bidder edge cases, and reserve-price interactions at demo scale. With two or three scripted brands in a five-minute session, the strategic problem first-price creates is never visible.
 
-The OUTBID animation is more meaningful under second-price: a brand isn't bidding against themselves, they're being asked "do you want to exceed the current standing bid by one increment?" — and they only pay that increment over the previous bid, not their full bid.
+**Product direction: second-price.** The winner pays the second-highest bid plus a minimum increment. In a true English auction the dominant strategy is *bid up to your true valuation and stop* — no shading, no games — which is the theoretically efficient outcome. Under first-price, real competing brands shade below true value and the auction becomes strategically complex. The OUTBID animation is also more meaningful under second-price: a brand isn't bidding against itself, it's being asked "do you want to exceed the current standing bid by one increment?" — and it only pays that increment over the previous bid.
+
+The switch is a clearing-rule change in BidClearing; the auction surface, bid events, and ledger shapes don't change.
 
 ### Audience size is slot value — and it's not in the auction yet
 
