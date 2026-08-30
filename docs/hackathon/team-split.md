@@ -10,7 +10,7 @@ How to divide Slopstream across three developers so everyone ships from day one 
 
 - `ProofOfAttention` contract — the core primitive ([spec](../technical/contracts.md#1-proofofattention))
 - `BidClearing` contract — auction placement and clearing against attention proofs
-- `RewardClearing` contract — reward pool creation and claim accounting
+- `RewardClearing` contract — reward pool creation and claim accounting (P1; backend ledger handles distribution first)
 - `PreviewRightsThreshold` (P2 stretch)
 - Attention proof submission + verification flow (commitments, segment/challenge binding, non-replayability)
 - Proof receipt data (proof IDs surfaced to the UI)
@@ -18,6 +18,8 @@ How to divide Slopstream across three developers so everyone ships from day one 
 **Owns:** `contracts/`
 
 **Mocks out:** nothing upstream; provides a JSON-stub proof verifier to the other lanes until the real contracts land.
+
+**Slip contingency:** if the real contracts don't land in time, the demo runs on the JSON-stub proof verifier — the stub is the fallback, not a failure. The demo only needs to show proof IDs and verification results; the stub provides those.
 
 ### Lane 2: Money & Marketplace
 
@@ -29,6 +31,8 @@ How to divide Slopstream across three developers so everyone ships from day one 
 - Auction logic: bid placement, outbid detection, winner selection, slot assignment
 - Reward pool calculation: 80/20 split, proportional distribution over valid attention events
 - Listener balances (internal balance — payouts are Wave 2)
+- Challenge generation: transcript + metadata → challenge JSON ([challenge engine](../technical/backend.md#attention-challenge-engine)). Lane 2 decides *what* the challenges are; Lane 3 decides *when* they fire.
+- Emit auction/clearing WebSocket events (`bid.placed`, `bid.outbid`, `leaderboard.updated`, `bid.cleared`, `bid.uncleared`, `reward.pool.updated`, `stats.updated`) via Redis pub/sub — the orchestrator (Lane 3) owns the WS server and fans these out to screens
 
 **Owns:** `apps/api`
 
@@ -38,36 +42,37 @@ How to divide Slopstream across three developers so everyone ships from day one 
 
 **Owner scope:** everything the audience and judges actually see. This is the heaviest lane.
 
-- Stream orchestrator: queue manager, segment scheduler, bid selection hookup, challenge timing, Infinite Slop continuity ([architecture](../technical/architecture.md))
+- Stream orchestrator: queue manager, segment scheduler, bid selection hookup, challenge timing (when to fire, not what they are), Infinite Slop continuity ([architecture](../technical/architecture.md))
 - Daytona generation pipeline: brand brief → LLM script → TTS → image (one pipeline, disposable sandboxes)
-- Pre-generated attention challenges from script/transcript ([challenge engine](../technical/backend.md#attention-challenge-engine))
+- WebSocket server: the single WS endpoint all screens connect to. Subscribes to Redis pub/sub for backend-owned events (Lane 2) and emits orchestrator-owned events (`segment.*`, `challenge.fired`, `generation.progress`, `attention.verified`) directly. Fans out the full `WsEvent` stream to every connected screen.
 - Big screen: live player, leaderboard, QR code, OUTBID animation, clearing/reward animations
 - Listener mobile client: QR join, stream audio, challenge UI, verification + estimated reward
 - Brand console shell: balance, campaign, bid controls
 
 **Owns:** `apps/web`, `apps/orchestrator`
 
-**Mocks out:** generated ads (placeholder media), proofs (fake verification events).
+**Mocks out:** generated ads (placeholder media), proofs (fake verification events), bid/leaderboard/clearing data (hardcoded until Lane 2 integrates).
 
 If Lane 3 is overloaded, move the Daytona generation pipeline to Lane 2.
 
 ## The seams: contract-first on day 1
 
-Before anyone writes feature code, all three lanes agree on the shared types in `packages/shared`:
+The shared types are already defined in [`packages/shared/src/index.ts`](../../packages/shared/src/index.ts). All three lanes code against these types — no lane invents its own shapes. The key contracts:
 
-- **WebSocket event payloads** — the live-event contract between orchestrator/API and every screen
-- **Challenge payload** — `{ type, question, options, answer, segmentId, validFrom, validUntil }`
-- **Attention proof submission** — `{ listenerCommitment, segmentId, challengeId, resultProof }`
-- **REST shapes** — brands, bids, sessions, reward pools
+- **`WsEvent`** — the discriminated union of all WebSocket events (12 event types: `bid.placed`, `bid.outbid`, `leaderboard.updated`, `segment.generating`, `generation.progress`, `segment.ready`, `segment.playing`, `challenge.fired`, `attention.verified`, `bid.cleared`, `bid.uncleared`, `reward.pool.updated`, `stats.updated`). This is the live-event contract between orchestrator/API and every screen.
+- **`Challenge`** — `{ id, type, question, options?, answer, segmentId, validFrom, validUntil, difficulty }`. Generated by Lane 2, fired by Lane 3.
+- **`AttentionProofSubmission`** — `{ listenerCommitment, segmentId, challengeId, resultProof }`. Submitted by Lane 3's listener client, verified by Lane 1.
+- **`AttentionProofReceipt`** — `{ proofId, segmentId, challengeId, brandId, challengeType, verified, estimatedRewardUsd?, createdAt }`. Produced by Lane 1, displayed by Lane 3.
+- **REST/entity shapes** — `Bid`, `Segment`, `RewardPool`, `ListenerSession`, `ProductionTier`, `BidStatus`, `SegmentStatus`, `RewardPoolStatus`.
 
-When a shared type changes, the change lands in `packages/shared` first and all lanes update together. This is the only place where the lanes are allowed to touch.
+When a shared type changes, the change lands in `packages/shared/src/index.ts` first and all lanes update together. This is the only place where the lanes are allowed to touch.
 
 ## Working agreements
 
 - **Stubs everywhere.** Lane 1 mocks proofs with a JSON blob; Lane 2 mocks Stripe; Lane 3 plays placeholder media. Every lane demos against fakes until integration day.
 - **Trunk-based git.** Short-lived feature branches, small PRs; the pre-commit hooks (gitleaks + lint-staged) run on every commit.
 - **No lane owns another lane's directory.** Cross-lane changes go through a PR with the owning lane reviewing.
-- **Integration checkpoints.** Aim for: proofs flow through clearing (Lane 1 × 2) and bids drive the stream (Lane 2 × 3) before polishing animations.
+- **Integration checkpoints.** Aim for: proofs flow through clearing (Lane 1 × 2), bids drive the stream (Lane 2 × 3), and proof receipts display in the listener client (Lane 1 × 3) — before polishing animations.
 
 ## Sequencing risk
 

@@ -56,7 +56,7 @@ The private listener information remains private while the contract verifies the
 
 ## 2. BidClearing
 
-Handles the auction. The format is an **open ascending (English) auction with second-price clearing**: the winner pays the second-highest bid plus a minimum increment, not their own bid. This makes "bid up to your true valuation and stop" the dominant strategy — no shading, no games. See [auction strategy](../product/economics.md#auction-format-english-ascending-second-price).
+Handles the auction. The format is an **open ascending (English) auction**. For the hackathon, clearing is **first-price** — the winner pays their own bid, keeping the money story one sentence long. The product direction is **second-price** (winner pays second-highest bid + increment), which is a clearing-rule change in this contract; the auction surface, bid events, and ledger shapes don't change. See [auction strategy](../product/economics.md#auction-format-english-ascending-first-price-now-second-price-later).
 
 ```text
 placeBid(

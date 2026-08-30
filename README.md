@@ -66,7 +66,7 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:orchestr
 | Doc | Contents |
 | --- | --- |
 | [docs/README.md](docs/README.md) | Documentation map |
-| [docs/product/overview.md](docs/product/overview.md) | Core idea, positioning, differentiators |
+| [docs/product/overview.md](docs/product/overview.md) | Core idea, positioning, differentiators, proof-of-use future direction |
 | [docs/product/economics.md](docs/product/economics.md) | Economic model, reward pools, auction strategy, anti-gaming |
 | [docs/product/surfaces.md](docs/product/surfaces.md) | Big screen, listener client, brand console, proof receipt |
 | [docs/product/content.md](docs/product/content.md) | Infinite Slop™, attention challenges, free-AI-ads growth engine |
