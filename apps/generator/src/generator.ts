@@ -17,10 +17,8 @@ function assetPathForTier(tier: ProductionTier): string {
 }
 
 /**
- * Stub generation implementation. The caller supplies the canonical segment
- * ID allocated by Lane 2's auction engine, and the generator always echoes it
- * back. Replace only this function when wiring Daytona + model providers; the
- * HTTP boundary and segment correlation rule stay unchanged.
+ * Deterministic implementation used by the local provider. It preserves the
+ * public GenerationResult contract that a Daytona-backed provider must keep.
  */
 export function generate(request: GenerationRequest): GenerationResult {
   const assetBaseUrl = (
@@ -43,6 +41,17 @@ export function generate(request: GenerationRequest): GenerationResult {
   };
 }
 
+/** Provider seam for Daytona/model implementations. */
+export interface GenerationProvider {
+  generate(request: GenerationRequest): Promise<GenerationResult>;
+}
+
+export class StubGenerationProvider implements GenerationProvider {
+  async generate(request: GenerationRequest): Promise<GenerationResult> {
+    return generate(request);
+  }
+}
+
 function requestFingerprint(request: GenerationRequest): string {
   return JSON.stringify({
     segmentId: request.segmentId,
@@ -54,37 +63,84 @@ function requestFingerprint(request: GenerationRequest): string {
   });
 }
 
-export type StubGenerationOutcome =
+interface CompletedGeneration {
+  fingerprint: string;
+  result: GenerationResult;
+}
+
+/** Persistence seam for a future database/queue-backed generation job store. */
+export interface GenerationJobStore {
+  get(segmentId: string): Promise<CompletedGeneration | undefined>;
+  put(segmentId: string, completed: CompletedGeneration): Promise<void>;
+}
+
+export class InMemoryGenerationJobStore implements GenerationJobStore {
+  private readonly completedBySegmentId = new Map<
+    string,
+    CompletedGeneration
+  >();
+
+  async get(segmentId: string): Promise<CompletedGeneration | undefined> {
+    return this.completedBySegmentId.get(segmentId);
+  }
+
+  async put(segmentId: string, completed: CompletedGeneration): Promise<void> {
+    this.completedBySegmentId.set(segmentId, completed);
+  }
+}
+
+export type GenerationOutcome =
   | { status: "generated" | "replayed"; result: GenerationResult }
   | { status: "conflict" };
 
-/**
- * Keeps the stub's canonical segment-ID contract safe across retries. A retry
- * with identical inputs returns the original result; an attempt to reuse an ID
- * for different content is rejected instead of silently overwriting a segment.
- * This state is intentionally process-local until a durable job store exists.
- */
-export function createStubGenerator(): {
-  generate(request: GenerationRequest): StubGenerationOutcome;
-} {
-  const resultsBySegmentId = new Map<
-    string,
-    { fingerprint: string; result: GenerationResult }
-  >();
+function isGenerationResult(
+  value: GenerationResult,
+  segmentId: string,
+): boolean {
+  return (
+    value.segmentId === segmentId &&
+    typeof value.assetUrl === "string" &&
+    value.assetUrl.length > 0 &&
+    Number.isFinite(value.durationSec) &&
+    value.durationSec > 0 &&
+    typeof value.transcript === "string" &&
+    value.transcript.length > 0 &&
+    typeof value.summary === "string" &&
+    value.summary.length > 0
+  );
+}
 
+/**
+ * Coordinates idempotency around any provider. A durable GenerationJobStore
+ * can replace the default memory store without changing HTTP callers.
+ */
+export function createGenerationService(
+  provider: GenerationProvider = new StubGenerationProvider(),
+  store: GenerationJobStore = new InMemoryGenerationJobStore(),
+): { generate(request: GenerationRequest): Promise<GenerationOutcome> } {
   return {
-    generate(request) {
+    async generate(request) {
       const fingerprint = requestFingerprint(request);
-      const existing = resultsBySegmentId.get(request.segmentId);
+      const existing = await store.get(request.segmentId);
       if (existing) {
         return existing.fingerprint === fingerprint
           ? { status: "replayed", result: existing.result }
           : { status: "conflict" };
       }
 
-      const result = generate(request);
-      resultsBySegmentId.set(request.segmentId, { fingerprint, result });
+      const result = await provider.generate(request);
+      if (!isGenerationResult(result, request.segmentId)) {
+        throw new Error("provider returned an invalid generation result");
+      }
+      await store.put(request.segmentId, { fingerprint, result });
       return { status: "generated", result };
     },
   };
+}
+
+/** @deprecated Use createGenerationService for a provider/store boundary. */
+export function createStubGenerator(): {
+  generate(request: GenerationRequest): Promise<GenerationOutcome>;
+} {
+  return createGenerationService();
 }

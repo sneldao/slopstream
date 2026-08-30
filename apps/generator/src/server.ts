@@ -11,7 +11,7 @@ import type {
   ProductionTier,
 } from "@slopstream/shared";
 
-import { createStubGenerator } from "./generator.js";
+import { createGenerationService } from "./generator.js";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 const PRODUCTION_TIERS = new Set<ProductionTier>([
@@ -97,7 +97,7 @@ function sendJson(
 
 /** Creates an isolated stub generation HTTP server for Lane 3 integration. */
 export function createGeneratorServer(): Server {
-  const generator = createStubGenerator();
+  const generator = createGenerationService();
 
   return createServer((request, response) => {
     void (async () => {
@@ -120,7 +120,7 @@ export function createGeneratorServer(): Server {
             return;
           }
 
-          const outcome = generator.generate(generationRequest);
+          const outcome = await generator.generate(generationRequest);
           if (outcome.status === "conflict") {
             sendJson(response, 409, { error: "segment_conflict" });
             return;

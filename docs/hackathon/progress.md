@@ -28,13 +28,23 @@ context }` request.
     a SHA-256-derived `proofId`, and failure codes matching
     `AttentionProofVerificationFailure`.
   - `GET /health`, `POST /v1/attention-proofs/verify`.
+  - Optional `VERIFIER_API_TOKEN` bearer authentication protects the
+    Lane 2 → Lane 1 verification endpoint; comparison is timing-safe.
+  - The remote API adapter fails fast without `PROOF_VERIFIER_URL`, forwards
+    the optional shared token, and rejects malformed successful responses.
 - **Stub generator** (`apps/generator/`) — HTTP service accepting
   `GenerationRequest` and returning a valid `GenerationResult`:
   - Runtime validation includes required `segmentId`.
   - Lane 2 allocates the canonical segment ID when it realizes a winner; the
     caller supplies it and the generator echoes it rather than minting one.
   - Tier-appropriate placeholder asset URLs.
-  - `GET /health`, `POST /v1/generations` (201 on success, 400 on invalid).
+  - `GenerationProvider` and `GenerationJobStore` seams: the local
+    `StubGenerationProvider` and `InMemoryGenerationJobStore` can be replaced
+    by Daytona/model providers and durable job storage without changing the
+    HTTP request/result contract.
+  - `GET /health`, `POST /v1/generations`: 201 for a new canonical segment,
+    200 for an identical retry, 409 for conflicting reuse of a segment ID,
+    and 400 for invalid input.
 - **Shared types** — `AttentionProofSubmission`,
   `AttentionProofVerificationContext`, `AttentionProofVerificationRequest`,
   `AttentionProofVerificationResult`, `AttentionProofVerificationFailure`,
@@ -49,8 +59,9 @@ context }` request.
   toolchain, no compilation, no on-chain logic.
 - **Midnight verifier mode** — type support exists in shared, but selecting it
   is intentionally rejected until a real verifier is installed.
-- **Daytona generation pipeline** — `generate()` returns stub content; no
-  LLM/TTS/image/video providers, no sandbox, no real assets.
+- **Daytona generation pipeline** — the provider/job interfaces exist, but
+  the implementation still uses `StubGenerationProvider`; no LLM/TTS/image/
+  video provider, sandbox, asset upload, or durable job store is configured.
 - **Scraper** — no `ScrapedCompany` ingestion for free-ad cold start.
 
 ### Lane 1: known handoffs and inconsistencies
@@ -63,6 +74,15 @@ context }` request.
 - **Receipt provenance — resolved** — Lane 2's API retains and returns
   `AttentionProofVerificationResult.verifierMode` on receipts so the UI can
   label stub and Midnight receipts truthfully.
+- **Real local verifier handoff — resolved** — an integration test exercises
+  `POST /attention-proofs` → `RemoteProofVerifier` → authenticated verifier
+  HTTP service → persisted attention event and public aggregate event. A wrong
+  answer remains inside Lane 2 and produces no `attention.verified` event.
+- **Generator preparation handoff — resolved at the service level** —
+  `SegmentPreparationService` performs `generating → generator → ready →
+challenge-source`, verifies the returned canonical segment ID, and posts
+  `failed` when generation cannot complete. Scheduler/queue ownership remains
+  Lane 3.
 - **Contract/shared naming drift — resolved.** `BidClearing.compact` now uses
   `amountUsd`/`slot` (matching shared `Bid`); `RewardClearing.compact` now uses
   `bidId`/`eligibleAmountUsd` (matching shared `RewardPool`).
@@ -71,15 +91,15 @@ context }` request.
 
 ### Lane 1: next steps
 
-1. Pair with Lane 2 on the proof-verifier handoff: full context, server-issued
-   stub payload, and receipt provenance. This is the P0 prerequisite for a
-   truthful live proof flow.
-2. Support Lane 3's orchestrator integration with the canonical segment-ID
-   rule, then verify a generated segment reaches Lane 2's lifecycle routes.
-3. Wire the Compact toolchain; implement `ProofOfAttention.compact` and
-   `BidClearing.compact` once the live stub flow is rehearsed.
-4. Wire Daytona + model providers into `generate()` after the stub generator
-   has run through the orchestrator loop.
+1. Wire the Compact compiler/runtime, network/deployment configuration, and a
+   witness/nullifier design; then implement and test `ProofOfAttention.compact`
+   before enabling Midnight mode.
+2. Replace the process-local verifier nonce set and generation job store with
+   durable shared storage before more than one service instance is used.
+3. Choose and configure Daytona/model/asset providers, then implement a real
+   `GenerationProvider` behind the existing request/result contract.
+4. Have the Lane 3 scheduler invoke `SegmentPreparationService` against live
+   API and generator services, then verify the full playback/window-close path.
 5. Build the scraper for free-ad cold start.
 
 ---
@@ -143,11 +163,12 @@ live-event bus.
   `WINDOW_GRACE_SEC` so in-flight proofs still land; exactly-once is
   preserved (duplicate close → 409), and `/failed` cancels a pending close.
 - **Money** (`money.ts`) — integer-cents arithmetic, `splitCents`, `ApiError`.
-- **Test suite** — 22 passing vitest tests: money math (cents round-trip,
+- **Test suite** — 30 passing Vitest tests: money math (cents round-trip,
   `splitCents`, largest-remainder distribution), auction economics
   (reservation, outbid release, close/refund/reopen), clearing rules
   (threshold freeze, replay rejection, out-of-window rejection,
-  failed-segment refund).
+  failed-segment refund), authorization/lifecycle behavior, and the real
+  API-route → remote verifier HTTP integration.
 - **Demo brand seeding** — 3 brands with $500 each on startup. ACME uses the deterministic `brand_acme` ID and `DEMO_ACME_BRAND_TOKEN` only in the explicit hackathon demo profile; mutation routes still require that bearer token.
 
 ### Lane 2: stubbed / not yet implemented
@@ -311,10 +332,10 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Shared types (`packages/shared`) | Frozen — all three lanes code against it                                                                                             |
 | Demo fixture → UI                | Working (Lane 3 owns player + fixture)                                                                                               |
-| Lane 2 API → Lane 1 verifier     | Working — full `AttentionProofVerificationRequest` + server-issued attestation verified live against `apps/verifier`                 |
-| Lane 2 API → UI (live mode)      | Ready in UI (`useLiveStream`); gateway not yet built                                                                                 |
-| Orchestrator → generator         | Not wired                                                                                                                            |
-| Orchestrator → Lane 2 auction    | Not wired                                                                                                                            |
+| Lane 2 API → Lane 1 verifier     | Working — authenticated remote handoff is covered by a real API-route → verifier HTTP integration test                               |
+| Lane 2 API → UI (live mode)      | Ready in UI (`useLiveStream`); gateway runtime is owned by Lane 3                                                                    |
+| Orchestrator → generator         | `SegmentPreparationService` is implemented; scheduler invocation remains Lane 3 work                                                 |
+| Orchestrator → Lane 2 auction    | Preparation accepts the canonical winner; auction polling/scheduling remains Lane 3 work                                             |
 | Orchestrator → WebSocket gateway | Not wired                                                                                                                            |
 | Proof receipt end-to-end         | Working in live mode (server-issued stub attestation, `verifierMode` provenance on receipts); Midnight mode pending Lane 1 contracts |
 

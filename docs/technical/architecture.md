@@ -136,17 +136,26 @@ Until the Daytona pipeline and Compact contracts are wired, Lane 1 exposes two l
 3. Send `{ submission, context }` to the verifier. `context` must include `segmentStartedAt`, `submittedAt`, and `{ id, segmentId, validFrom, validUntil }` for the challenge.
 4. Persist the `AttentionProofVerificationResult`; only a `verified: true` result may create a valid attention event. Return its `verifierMode` in the private receipt so the UI can label the receipt truthfully.
 
-The verifier checks that the server-issued stub payload matches the listener/segment/challenge bindings, that issue and submission timestamps fall in the challenge window, and that its nonce has not been used in the current process. A well-formed but invalid proof returns `200` with `verified: false`; malformed requests return `400`.
+The verifier checks that the server-issued stub payload matches the listener/segment/challenge bindings, that issue and submission timestamps fall in the challenge window, and that its nonce has not been used in the current process. `VERIFIER_API_TOKEN` optionally requires a matching bearer credential from Lane 2; malformed requests return `400`, unauthenticated protected calls return `401`, and a well-formed but invalid proof returns `200` with `verified: false`.
 
 **Security boundary:** `createServerStubAttentionProof()` is a deterministic demo attestation, not a cryptographic signature. It must run only after Lane 2 has checked a private answer, and it must never authorize a production clearing decision or payout. Process restarts clear the in-memory replay set. `VERIFIER_MODE=midnight` deliberately fails at startup until a real Midnight implementation exists, so a JSON verifier can never be mislabeled as Midnight.
 
 ### Stub generator
 
 - `GET /health` returns service health.
-- `POST /v1/generations` accepts a `GenerationRequest` and returns a `201` `GenerationResult`; malformed requests return `400`.
+- `POST /v1/generations` accepts a `GenerationRequest`; it returns `201` for a new canonical segment, `200` for an identical retry, `409` when that segment ID is reused with different inputs, and `400` for malformed input.
 - Lane 2 allocates the canonical segment ID when it realizes an auction winner. The orchestrator sends that ID as the required `GenerationRequest.segmentId`; the generator echoes it unchanged in `GenerationResult.segmentId`. It never mints a competing stream segment ID.
 - This same rule applies to a free segment: its authoritative owner allocates the ID before calling the generator. The result carries a tier-appropriate placeholder asset URL, transcript, continuity summary, and optional audio/visual metadata. Lane 3 queues the result; Lane 2 consumes the transcript to pre-generate challenges.
-- `GENERATOR_MODE=stub` makes no provider calls. A future Daytona implementation replaces the internals of `generate()` while retaining this HTTP boundary and segment correlation rule.
+- `GENERATOR_MODE=stub` makes no provider calls. `GenerationProvider` and
+  `GenerationJobStore` isolate the deterministic local implementation from a
+  future Daytona/provider and durable job store. A future Daytona
+  implementation replaces the provider internals while retaining this HTTP
+  boundary and segment correlation rule.
+- `SegmentPreparationService` is the tested Lane 3 handoff for a closed
+  auction winner: it marks the segment generating, calls the generator,
+  validates the returned ID, persists `ready`, posts transcript/metadata to
+  `challenge-source`, and marks the segment failed if preparation cannot
+  complete. The scheduler decides when to call it.
 
 ## Tech stack
 

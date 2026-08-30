@@ -7,6 +7,7 @@ export interface ApiEnv {
   redisUrl?: string;
   proofVerifierMode: "stub" | "remote";
   proofVerifierUrl?: string;
+  proofVerifierToken?: string;
   defaultListenerPct: number;
   defaultPlatformPct: number;
   /** Seed fictional brands + funded balances so the demo runs cold. */
@@ -19,6 +20,12 @@ export interface ApiEnv {
   thresholdFraction: number;
   /** Grace period after segment end before the window is evaluated. */
   windowGraceSec: number;
+  /**
+   * Publish segment.* / challenge.fired from the lifecycle endpoints.
+   * Set PUBLISH_LIFECYCLE_EVENTS=0 when the Lane 3 orchestrator emits those
+   * events itself — exactly one emitter per WsEvent.
+   */
+  publishLifecycleEvents: boolean;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -33,6 +40,7 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     redisUrl: env.REDIS_URL || undefined,
     proofVerifierMode: mode === "remote" ? "remote" : "stub",
     proofVerifierUrl: env.PROOF_VERIFIER_URL || undefined,
+    proofVerifierToken: env.PROOF_VERIFIER_TOKEN || undefined,
     defaultListenerPct: num(env.DEFAULT_LISTENER_PERCENTAGE, 0.8),
     defaultPlatformPct: num(env.DEFAULT_PLATFORM_PERCENTAGE, 0.2),
     seedDemo: env.SEED_DEMO !== "0",
@@ -41,5 +49,6 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     auctionDurationSec: num(env.AUCTION_DURATION_SEC, 60),
     thresholdFraction: num(env.THRESHOLD_FRACTION, 0.6),
     windowGraceSec: num(env.WINDOW_GRACE_SEC, 3),
+    publishLifecycleEvents: env.PUBLISH_LIFECYCLE_EVENTS !== "0",
   };
 }

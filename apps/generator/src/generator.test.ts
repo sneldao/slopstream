@@ -29,12 +29,12 @@ describe("stub generator", () => {
     expect(result.summary).toContain(request.previousSummaries[0]);
   });
 
-  it("replays identical segment requests and rejects conflicting reuse", () => {
+  it("replays identical segment requests and rejects conflicting reuse", async () => {
     const generator = createStubGenerator();
 
-    const first = generator.generate(request);
-    const replay = generator.generate({ ...request });
-    const conflict = generator.generate({
+    const first = await generator.generate(request);
+    const replay = await generator.generate({ ...request });
+    const conflict = await generator.generate({
       ...request,
       brief: "Generate unrelated content for the same segment.",
     });

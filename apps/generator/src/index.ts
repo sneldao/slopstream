@@ -1,4 +1,12 @@
-export { createStubGenerator, generate } from "./generator.js";
+export {
+  createGenerationService,
+  createStubGenerator,
+  generate,
+  InMemoryGenerationJobStore,
+  StubGenerationProvider,
+  type GenerationJobStore,
+  type GenerationProvider,
+} from "./generator.js";
 export { createGeneratorServer, parseGenerationRequest } from "./server.js";
 
 import { createGeneratorServer } from "./server.js";

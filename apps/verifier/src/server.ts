@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import {
   createServer,
   type IncomingMessage,
@@ -16,6 +17,11 @@ const MAX_REQUEST_BYTES = 64 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
 type HealthResponse = { ok: true; service: string; verifierMode: "stub" };
+
+export interface VerifierServerOptions {
+  /** Optional shared bearer token for Lane 2 → Lane 1 calls. */
+  apiToken?: string;
+}
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -82,6 +88,19 @@ export function parseVerificationRequest(
   };
 }
 
+function hasValidBearer(
+  request: IncomingMessage,
+  expectedToken: string,
+): boolean {
+  const match = /^Bearer\s+(.+)$/i.exec(request.headers.authorization ?? "");
+  if (!match) return false;
+  const received = Buffer.from(match[1]);
+  const expected = Buffer.from(expectedToken);
+  return (
+    received.length === expected.length && timingSafeEqual(received, expected)
+  );
+}
+
 async function readJson(request: IncomingMessage): Promise<unknown> {
   let size = 0;
   const chunks: Buffer[] = [];
@@ -121,7 +140,9 @@ function invalidRequest(): AttentionProofVerificationResult {
  * in-memory nonce set, which keeps the hackathon replay guarantee scoped to
  * one running verifier process and makes the transport boundary testable.
  */
-export function createVerifierServer(): Server {
+export function createVerifierServer(
+  options: VerifierServerOptions = {},
+): Server {
   const verifier = createStubAttentionProofVerifier();
 
   return createServer((request, response) => {
@@ -139,6 +160,10 @@ export function createVerifierServer(): Server {
         request.method === "POST" &&
         request.url === "/v1/attention-proofs/verify"
       ) {
+        if (options.apiToken && !hasValidBearer(request, options.apiToken)) {
+          sendJson(response, 401, invalidRequest());
+          return;
+        }
         try {
           const verificationRequest = parseVerificationRequest(
             await readJson(request),

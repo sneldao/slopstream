@@ -9,7 +9,9 @@ if (configuredMode !== "stub") {
 }
 
 const port = Number(process.env.PORT ?? 4100);
-const server = createVerifierServer();
+const server = createVerifierServer({
+  apiToken: process.env.VERIFIER_API_TOKEN || undefined,
+});
 
 server.listen(port, () => {
   console.log(

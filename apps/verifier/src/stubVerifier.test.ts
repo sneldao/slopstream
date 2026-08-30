@@ -174,3 +174,39 @@ describe("verifier HTTP boundary", () => {
     });
   });
 });
+
+describe("verifier service authentication", () => {
+  it("requires the configured API bearer token for verification", async () => {
+    const server = createVerifierServer({ apiToken: "lane-one-shared-secret" });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const { port } = server.address() as AddressInfo;
+    const url = `http://127.0.0.1:${port}/v1/attention-proofs/verify`;
+
+    try {
+      const unauthorized = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(request()),
+      });
+      expect(unauthorized.status).toBe(401);
+
+      const authorized = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer lane-one-shared-secret",
+        },
+        body: JSON.stringify(request()),
+      });
+      expect(authorized.status).toBe(200);
+      await expect(authorized.json()).resolves.toMatchObject({
+        verified: true,
+        verifierMode: "stub",
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+});

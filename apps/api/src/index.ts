@@ -19,7 +19,11 @@ const env = loadEnv();
 const ledger = new Ledger();
 const redis = await connectRedisPublisher(env.redisUrl);
 const bus = new MarketplaceBus(redis);
-const verifier = createVerifier(env.proofVerifierMode, env.proofVerifierUrl);
+const verifier = createVerifier(
+  env.proofVerifierMode,
+  env.proofVerifierUrl,
+  env.proofVerifierToken,
+);
 const clearing = new ClearingEngine(ledger, bus, verifier, {
   listenerPct: env.defaultListenerPct,
   platformPct: env.defaultPlatformPct,
@@ -105,13 +109,14 @@ app.use(
     clearing,
     market,
     windowGraceSec: env.windowGraceSec,
+    publishLifecycleEvents: env.publishLifecycleEvents,
   }),
 );
 app.use(apiErrorHandler);
 
 app.listen(env.port, () => {
   console.log(
-    `slopstream api listening on :${env.port} (verifier=${env.proofVerifierMode}, redis=${redis ? "on" : "in-memory"})`,
+    `slopstream api listening on :${env.port} (verifier=${env.proofVerifierMode}, redis=${redis ? "on" : "in-memory"}, lifecycle-events=${env.publishLifecycleEvents ? "api" : "orchestrator"})`,
   );
 });
 

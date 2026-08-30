@@ -8,8 +8,8 @@
 - [ ] BidClearing contract _(stub; auction engine implemented in `apps/api`)_
 - [x] Brand balance + bid
 - [x] Stripe top-up _(mock — instant credit, no real Stripe)_
-- [ ] One Daytona generation pipeline _(stub generator at `apps/generator`)_
-- [ ] Live stream _(orchestrator not yet wired)_
+- [ ] One Daytona generation pipeline _(provider/job seams + stub generator implemented; Daytona/model providers pending)_
+- [ ] Live stream _(segment-preparation handoff implemented; live scheduler/gateway still pending)_
 - [x] Live leaderboard
 - [x] Reward pool calculation
 - [x] Demo-mode harness: fixture-driven full demo sequence with no live backend, generator, or contracts (Lane 3 owns the player; Lanes 1–2 supply canned proof/clearing data)
