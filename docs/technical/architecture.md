@@ -19,7 +19,7 @@
 │ Queue manager                                               │
 │ Segment scheduler                                           │
 │ Stream continuity                                           │
-│ Consumes auction results                                    │
+│ Consumes sponsorship / auction results                      │
 │ Attention challenge timing                                  │
 └──────────────┬───────────────────────────┬──────────────────┘
                │              ▲            │
@@ -67,10 +67,31 @@ The gateway currently fans out only the **public** `WsEvent` stream: now playing
 
 If a later release adds private socket updates, it must define a separately scoped event type and authenticate the target listener session or brand account. Do not reuse a public `WsEvent` by adding private fields. The detailed event, audience, and recovery contract is in [backend](backend.md#live-event-contract).
 
+## Stream scheduling (product direction)
+
+**Today (hackathon implementation).** Segment existence is tied to auction close: when a slot's auction closes, the API realizes a segment (paid winner or free scraped filler) and the orchestrator drives generating → ready → playing. If an auction fails to close, the pipeline can stall — we added overdue sweeps and demo seeding to mitigate that, but the coupling remains.
+
+**Target (phase 1 product).** Decouple playback from auctions:
+
+```text
+CONTINUOUS QUEUE (always running)
+  ├─ generating: next free Continuum segment
+  ├─ ready: buffer for seamless handoff
+  └─ playing: current beat on the big screen
+
+SPONSORSHIP LAYER (optional overlay)
+  └─ auction / bid assigns WHO funds the next beat, tier, and brief —
+     not WHETHER a beat exists
+```
+
+The orchestrator should always keep **1–2 segments** generating or ready ahead of playback. Prefetch and generation/playback decoupling move toward this; full decoupling is the next architectural step.
+
+**What plays while a sponsored segment generates.** Generation takes real wall-clock time, and the stream must never go silent. Free Continuum segments play through the queue while a winning bid's segment generates in the background. When `segment.ready` fires, the sponsored segment cuts in at the next segment boundary. The `GENERATING AD...` stage checklist is anticipation, not dead air.
+
 ## Component responsibilities
 
-- **Big screen** — stream playback, live leaderboard, QR code, live stats. Consumes WebSocket events.
-- **Stream orchestrator** — the live brain: queue manager, segment scheduler, stream continuity (The Continuum), attention challenge timing, and local ops metrics (`GET /ops/metrics`). Consumes auction results from the backend — it never resolves auctions or settles money; the ledger is the single source of truth for both.
+- **Big screen** — Continuum playback, archive world, QR join. Market chrome is secondary; theater mode hides it for content-first demos. Consumes WebSocket events.
+- **Stream orchestrator** — the live brain: continuous segment queue, scheduler, stream continuity (The Continuum), attention challenge timing, and local ops metrics (`GET /ops/metrics`). Consumes auction/sponsorship results from the backend for paid beats — it never resolves auctions or settles money; the ledger is the single source of truth for both.
 - **Daytona pool** — disposable sandboxes for ad generation (LLM script, TTS, image generation, video generation); returns the generated asset to the orchestrator.
 - **Backend API** — brand accounts, Stripe balances, listener sessions, reward ledger and accounting, scraper ingestion, challenge generation, auction resolution (winner selection and slot assignment). Owns all clearing and settlement, and is the sole caller of Midnight and Stripe.
 - **Midnight** — proves conditions on-chain; consulted by the backend. See [contracts](contracts.md).
@@ -78,7 +99,11 @@ If a later release adds private socket updates, it must define a separately scop
 
 ## Generation pipeline
 
-Each segment is isolated in a **disposable Daytona sandbox**.
+Ordinary generation is a queued worker job: it calls trusted media APIs and
+publishes a durable asset. A **disposable Daytona sandbox** is an optional
+execution path for premium jobs that need isolated compute, such as building
+an interactive creative or running a heavyweight render toolchain. Daytona is
+not required for normal audio, image or video generation.
 
 ```text
 Brand brief
@@ -110,7 +135,7 @@ Each generation receives:
 - previous 1–2 segment summaries (the Continuity continuity input)
 - campaign constraints
 - optional `continuityImageUrl` — the prior segment's hero frame, for image-first video continuity
-- optional `marketContext` — a snapshot of auction pressure (leader bid, slot price, attention progress) for market-aware scripts and prompts
+- optional `marketContext` — phase 2+: auction pressure for market-aware scripts (not required for phase 1 Continuum quality)
 
 The generator deterministically selects a **creative format** per segment
 (FNV-1a hash of the segment ID — see [content.md](../product/content.md#creative-format-rotation)).
@@ -119,9 +144,12 @@ style hint in image/video prompts. Eight formats rotate across comedy, anthem,
 radio, infomercial, intimate, hype, documentary, and news tones so consecutive
 ads feel varied without requiring an LLM call.
 
-The sandbox is then destroyed. This retains the isolation rationale: brand-submitted prompts are untrusted input, so generation runs should not share mutable state.
+When Daytona is used, the sandbox is destroyed after its validated output is
+published. This retains the isolation rationale for generated or
+user-supplied executable creative code; simple provider API calls do not need
+that extra boundary. See [interactive creative plan](interactive-creative.md).
 
-**What plays while the winner generates.** Generation takes real wall-clock time, and the stream must never go silent. The segment scheduler keeps playing queued segments — typically free Continuum filler ads — while the winning bid's segment generates in the background. When `segment.ready` fires, the generated segment cuts into the stream at the next segment boundary. This is also why the free-ad queue is load-bearing, not just a cold-start nicety: it is the filler that keeps the stream alive between paid slots. The `GENERATING AD...` stage checklist plays as an overlay/preview, not as dead air.
+**What plays while a sponsored segment generates.** See [stream scheduling (product direction)](#stream-scheduling-product-direction) above.
 
 ## Lane 1 development services
 
@@ -181,7 +209,7 @@ The verifier checks that the server-issued stub payload matches the listener/seg
 | Queue            | Redis                                                                                                                                                        |
 | Database         | Postgres                                                                                                                                                     |
 | Generation       | Model-driven generation pipeline                                                                                                                             |
-| Sandboxing       | Daytona (disposable cloud dev sandboxes — each generation run gets a fresh, isolated environment that's destroyed after)                                     |
+| Optional sandboxing | Daytona — only for generated/user-supplied executable creative work or heavyweight disposable renders                                                     |
 | Contracts        | Compact / Midnight (Compact is Midnight's smart-contract language; Midnight is a privacy-preserving blockchain with private state and zero-knowledge proofs) |
 | Payments         | Stripe                                                                                                                                                       |
 | Audio            | TTS                                                                                                                                                          |

@@ -42,3 +42,6 @@ Thumbs.db
 semantic-review/
 
 .kite-passport/
+
+# Midnight deployer wallet seed (written by packages/midnight deploy)
+packages/midnight/.wallet-seed

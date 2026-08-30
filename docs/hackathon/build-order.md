@@ -1,46 +1,59 @@
 # Hackathon Build Order
 
-## P0 — Must work
+Priorities reflect the corrected product direction: **Continuum first, marketplace second.** See [overview](../product/overview.md#phased-rollout).
+
+## P0 — Must work (phase 1: the stream)
+
+- [x] Live stream _(orchestrator gateway + segment scheduler; overdue auction recovery + demo scraped seed)_
+- [x] Continuum media world for the big screen _(central portal, archive cards, theatre mode; see [design language](../product/design-language.md))_
+- [ ] **Unbroken free Continuum** — continuous queue, always generating ahead of playback _(partial: prefetch + decoupled generation; target: fully auction-independent scheduling)_
+- [ ] **Enjoyable generation** — real ElevenLabs pipeline, format rotation landing, continuity that reads on screen _(stub generator works; quality path is `GENERATOR_MODE=elevenlabs`)_
+- [ ] The Continuum story continuity _(summaries + visual archive wired; hero-frame + stronger scripts in progress)_
+- [x] Demo-mode harness: fixture-driven full demo sequence with no live backend _(Lane 3)_
+
+## P0 — Must work (marketplace demo — phase 3 rehearsal)
+
+These prove the business model for judges; they do not replace Continuum quality as the day-to-day north star.
 
 - [ ] ProofOfAttention contract _(stub verifier implemented; Compact contract not yet)_
 - [x] Basic listener web client
 - [x] One challenge type
-- [ ] BidClearing contract _(stub; auction engine implemented in `apps/api`)_
+- [ ] BidClearing contract _(stub; auction engine in `apps/api`)_
 - [x] Brand balance + bid
-- [x] Stripe top-up _(mock — instant credit, no real Stripe)_
-- [ ] One Daytona generation pipeline _(provider/job seams + stub generator implemented; Daytona/model providers pending)_
-- [x] Live stream _(orchestrator gateway + segment scheduler implemented and verified end-to-end against all five services)_
+- [x] Stripe top-up _(mock)_
 - [x] Live leaderboard
 - [x] Reward pool calculation
-- [x] Demo-mode harness: fixture-driven full demo sequence with no live backend, generator, or contracts (Lane 3 owns the player; Lanes 1–2 supply canned proof/clearing data)
 
 ## P1 — Makes the demo excellent
 
-- [x] Multiple challenge types _(recall, true_false, sequence in `apps/api/src/challenges.ts`)_
-- [x] OUTBID animation _(Continuum colour wash, chip motion and ripple treatment; the earlier 3D approach is [archived](./3d-overhaul-plan.md))_
-- [ ] AI-generated video _(stub generator only)_
+- [x] Multiple challenge types
+- [x] OUTBID animation
+- [ ] AI-generated video _(ElevenLabs path exists; stub default)_
 - [x] Proof receipt
 - [x] Listener reward balance
-- [ ] The Continuum story continuity _(partially wired: the orchestrator passes the previous segments' summaries as `GenerationRequest.previousSummaries`; the stub generator echoes them into the next transcript. Visual archive continuity is complete.)_
-- [ ] Scraped startup cold start _(cross-lane: Lane 1 writes the scraper and generates the free ads → Lane 2 backend ingests companies and serves claim pages → Lane 3 inserts segments into the stream; agree on the scraped-company payload shape in `packages/shared` before any lane starts)_
-- [x] Continuum media world for the big screen _(central media portal, persistent archive cards, colourful spheres, typography and event ripples; see [design language](../product/design-language.md))_
+- [x] Scraped startup queue + demo seed _(API seeds on boot; orchestrator scraper optional)_
+- [ ] Claim pages and sponsorship UX _(phase 2 outbound)_
 
 ## P2 — Stretch
 
+- [ ] Auction-independent segment scheduler _(sponsorship overlay only)_
 - [ ] RewardClearing fully on-chain
 - [ ] PreviewRightsThreshold
 - [ ] Real listener payouts
 - [ ] Sophisticated anti-fraud
 - [ ] Brand analytics
 - [ ] Dynamic auction pricing
-- [ ] Reserve / floor price per slot (prevents stream deflation — see [auction strategy](../product/economics.md#sequential-auction-effects))
+- [ ] Reserve / floor price per slot (see [auction strategy](../product/economics.md#sequential-auction-effects))
+- [ ] Premium interactive creative (see [plan](../technical/interactive-creative.md))
+- [ ] One Daytona generation pipeline _(optional; ElevenLabs direct mode is the near-term quality path)_
 
 ## Notes
 
-- Listener payouts stay as an internal balance for the hackathon — the payout rail is Wave 2. The demo only needs to prove that verified attention creates an attributable reward. Don't turn the hackathon into a payments/KYC project.
+- **Lead demos with Continuum** in theater mode when the audience should feel the world. Use the full bid → proof → clear loop when explaining the marketplace.
+- Listener payouts stay as an internal balance for the hackathon — Wave 2 is real payouts.
 - Pre-generate attention challenges from the script/transcript rather than creating them synchronously during playback.
-- Keep the 80/20 split front and center: it gives the judges an immediate reason to care about the attention proof.
+- The 80/20 split matters for the marketplace story; it is not the reason someone watches segment one.
 
 ## Progress summary
 
-See [progress.md](./progress.md) for a detailed per-lane status of what's implemented, what's stubbed, and what remains.
+See [progress.md](./progress.md) for per-lane status.

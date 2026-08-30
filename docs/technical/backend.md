@@ -125,7 +125,7 @@ Postgres is the target accounting ledger. **The current hackathon implementation
 - `reward_pools`
 - `listener_rewards`
 - `payouts`
-- `scraped_companies` — the cold-start queue (docs/product/content.md)
+- `scraped_companies` — the free Continuum queue (primary stream inventory in phase 1; see [content.md](../product/content.md))
 
 ### Cold-start scraper
 

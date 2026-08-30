@@ -5,6 +5,8 @@ implemented, what's stubbed, known inconsistencies, and next steps.
 
 ## Current experience baseline (2026-08-30)
 
+**Product direction (2026-08-30):** Phase 1 north star is the free Continuum — immersive, unbroken, enjoyable — not the auction marketplace. We initially built auction-scheduled segments first; docs and build order now reflect the corrected priority ([overview](../product/overview.md#phased-rollout), [architecture](../technical/architecture.md#stream-scheduling-product-direction)). Recent plumbing: overdue auction sweep, demo scraped seed, scheduler prefetch.
+
 This is a chronological implementation log, so older entries below describe
 the superseded 3D fluid-world prototype. The current product baseline is the
 HTML/CSS **Continuum**: a colourful central media portal, persistent archive

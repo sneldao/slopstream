@@ -1,9 +1,8 @@
 # Design Language: The Continuum
 
-Slopstream is a live marketplace for attention presented as a colourful,
-evolving media world. It is not a dashboard and it is not a generic 3D scene.
-The public screen should make a viewer feel that each ad leaves a physical,
-beautiful trace in a shared world.
+Slopstream is a live AI ad stream presented as a colourful, evolving media world. It is not a dashboard and it is not a generic 3D scene. The public screen should make a viewer feel that each ad leaves a physical, beautiful trace in a shared world.
+
+The attention marketplace exists, but **content is the spectacle** — bids and leaderboards are chrome, not the reason to watch.
 
 ## The visual thesis
 
@@ -14,15 +13,20 @@ outlines, and a playful physical quality. `/screen` expands that DNA into the
 
 Three rules govern every surface:
 
-1. **Content is the spectacle.** Images, video, voice-led editorial cards and
-   typography are the central visual material. Effects must reveal content,
-   never bury it.
-2. **Every moment leaves a trace.** Completed segments become archive objects.
-   The audience should see a history accumulating, not a succession of
-   disposable full-screen ads.
-3. **Rewards are invited, not imposed.** Listening is always passive by
-   default. Earn Mode is a deliberate listener choice, and public displays
-   never reveal a challenge question or answer.
+1. **Content is the spectacle.** Images, video, voice-led editorial cards and typography are the central visual material. Effects must reveal content, never bury it.
+2. **Every moment leaves a trace.** Completed segments become archive objects. The audience should see a history accumulating, not a succession of disposable full-screen ads.
+3. **Rewards are invited, not imposed.** Listening is always passive by default. Earn Mode is a deliberate listener choice, and public displays never reveal a challenge question or answer.
+
+### UI hierarchy (phase 1)
+
+| Priority | Layer | Role |
+| --- | --- | --- |
+| 1 | Focus portal + archive | What is playing and the world it leaves behind |
+| 2 | Anticipation | Coming-up queue, generation assembly |
+| 3 | Join / earn | QR, threshold progress — invited, not loud |
+| 4 | Market chrome | Leaderboard, next-slot price — `/brand` and non-theater overlays |
+
+Default demos and first impressions should emphasize rows 1–2. Use **theater mode** (`T` or `?theater=1`) when the story is Continuum quality, not auction mechanics.
 
 ## The big screen
 
@@ -35,7 +39,7 @@ The big screen is an autonomous media field with six layers:
 | Focus | A central media portal for the current playing or generating segment. |
 | Anticipation | The one or two generated/ready segments next in the queue, presented as a quiet “Coming up” cue. |
 | Depth | Glossy spheres, oversized type and dotted routes; pointer and audio add subtle parallax. |
-| Market chrome | Live bids, QR join, aggregate proof progress and the receipt. Theater mode removes this chrome. |
+| Market chrome | Live bids, QR join, aggregate proof progress and the receipt. **Lowest priority on `/screen` in phase 1** — hide in theater mode for content-first demos. |
 
 ### Scene recipes
 
@@ -52,6 +56,15 @@ identity after refresh or reconnect. Asset type influences the selection.
 
 Recipes share the same palette, type, material and event language. They change
 camera grammar, not brand identity.
+
+### Future premium interactive creative
+
+An interactive creative is a future premium format, not a new default backdrop.
+It will occupy the same central portal as video, with a poster and media
+fallback if preparation or playback fails. It must be visually coherent with
+the Continuum while remaining technically contained in a restrictive player;
+the product and safety rollout is in the [interactive creative
+plan](../technical/interactive-creative.md).
 
 ### Event language
 

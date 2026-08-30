@@ -1,5 +1,17 @@
 # Economic Model
 
+## Phased rollout
+
+The economic model below is the **target marketplace** — real, designed, and partially implemented — but it is not what we optimize for first.
+
+| Phase | Economic behavior |
+| --- | --- |
+| **1 — Continuum** | No bids required. Free segments play continuously. Optional demo brands for rehearsal. Success = watch time and creative quality. |
+| **2 — Sponsorship** | Brands claim or voluntarily pay to sponsor a beat (tier upgrade, named insertion in the running story). Spend may be flat-fee before full attention clearing. |
+| **3 — Marketplace** | Open ascending auctions, attention thresholds, verified spend clearing, 80/20 listener pools — the full model in this document. |
+
+We initially built phase 3 scheduling (auction closes → segment realized) before phase 1 quality was nailed. That inverted priorities: the stream could stall when auctions stuck, and free content felt like fallback. Product direction now treats **continuous free playback** as load-bearing and auctions as **sponsorship assignment** on top.
+
 ## Verified spend
 
 The listener reward is conditional on **verified attention**, not simply on having the stream open.

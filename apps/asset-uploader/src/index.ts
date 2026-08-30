@@ -8,6 +8,20 @@ function errorResponse(status: number, error: string): Response {
   return Response.json({ error }, { status });
 }
 
+/**
+ * Keys are resolved against the asset base URL with `new URL(...)`, so reject
+ * traversal segments (".."), empty segments, and absolute keys before they can
+ * escape the bucket prefix.
+ */
+function isSafeObjectKey(objectKey: string): boolean {
+  if (objectKey.startsWith("/")) {
+    return false;
+  }
+  return objectKey
+    .split("/")
+    .every((segment) => segment.length > 0 && segment !== "..");
+}
+
 function objectKeyFromRequest(url: URL): string | undefined {
   if (!url.pathname.startsWith(ASSET_PREFIX)) {
     return undefined;
@@ -20,7 +34,9 @@ function objectKeyFromRequest(url: URL): string | undefined {
 
   try {
     const objectKey = decodeURIComponent(encodedKey);
-    return objectKey.startsWith("audio/") && objectKey.endsWith(".mp3")
+    return objectKey.startsWith("audio/") &&
+      objectKey.endsWith(".mp3") &&
+      isSafeObjectKey(objectKey)
       ? objectKey
       : undefined;
   } catch {
@@ -31,6 +47,31 @@ function objectKeyFromRequest(url: URL): string | undefined {
 function assetUrlFor(assetBaseUrl: string, objectKey: string): string {
   const base = assetBaseUrl.endsWith("/") ? assetBaseUrl : `${assetBaseUrl}/`;
   return new URL(objectKey, base).toString();
+}
+
+/**
+ * The content-length header can be absent (chunked uploads) or lie, so the
+ * limit is also enforced while the body streams into R2: the stream errors as
+ * soon as MAX_AUDIO_BYTES is exceeded and the put is rejected below.
+ */
+function cappedBody(
+  body: ReadableStream<Uint8Array>,
+  onOversize: () => void,
+): ReadableStream<Uint8Array> {
+  let receivedBytes = 0;
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        receivedBytes += chunk.byteLength;
+        if (receivedBytes > MAX_AUDIO_BYTES) {
+          onOversize();
+          controller.error(new Error("payload_too_large"));
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
 }
 
 async function hasValidAuthorization(
@@ -87,9 +128,23 @@ export default {
       return errorResponse(400, "missing_body");
     }
 
-    await env.ASSETS.put(objectKey, request.body, {
-      httpMetadata: { contentType: AUDIO_CONTENT_TYPE },
-    });
+    let oversize = false;
+    try {
+      await env.ASSETS.put(
+        objectKey,
+        cappedBody(request.body, () => {
+          oversize = true;
+        }),
+        {
+          httpMetadata: { contentType: AUDIO_CONTENT_TYPE },
+        },
+      );
+    } catch {
+      return errorResponse(
+        oversize ? 413 : 502,
+        oversize ? "payload_too_large" : "upload_failed",
+      );
+    }
 
     return Response.json(
       { assetUrl: assetUrlFor(env.ASSET_BASE_URL, objectKey) },

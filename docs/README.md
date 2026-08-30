@@ -1,20 +1,21 @@
 # Slopstream Documentation
 
-Product design and technical architecture for a live, infinite AI-generated advertising stream where brands bid for attention, AI generates the ads in real time, and listeners earn rewards by proving they actually paid attention.
+Product design and technical architecture for **The Continuum** — a live, infinite AI-generated ad stream that evolves absurd stories segment by segment. Phase one optimizes for a free, immersive, enjoyable baseline; the attention marketplace (bids, proofs, clearing, listener rewards) is the business layer on top once that stream is worth watching.
 
 ## Product
 
-- [overview.md](product/overview.md) — the core idea, what makes Slopstream different, positioning, the central product principle, and the proof-of-use / agent-channel future direction.
-- [economics.md](product/economics.md) — the economic model: verified spend, the 80/20 split, the attention reward pool (don't pay per question), bid clearing semantics, auction strategy and theory, and the anti-gaming layer.
+- [overview.md](product/overview.md) — north star, phased rollout, core idea, positioning, and the proof-of-use / agent-channel future direction.
+- [economics.md](product/economics.md) — phased rollout of the marketplace, verified spend, the 80/20 split, the attention reward pool, bid clearing semantics, auction strategy, and anti-gaming.
 - [surfaces.md](product/surfaces.md) — the three main surfaces: the big screen, the listener experience (QR + mobile web), and the brand bidding console, plus the proof receipt.
 - [design-language.md](product/design-language.md) — the authoritative Continuum design system: colourful media portals, archive fragments, composition recipes, event language, theater mode, and opt-in Earn Mode.
-- [content.md](product/content.md) — The Continuum (evolving ad-story continuity), randomized attention challenge types, and the free-AI-ads cold-start engine with company claim pages.
+- [content.md](product/content.md) — The Continuum (primary product), creative formats, attention challenges, and the free ad engine that powers the stream (not merely cold-start filler).
 
 ## Technical
 
 - [architecture.md](technical/architecture.md) — system architecture diagram, component responsibilities, generation pipeline with disposable sandboxes, and the tech stack.
 - [contracts.md](technical/contracts.md) — the Midnight contracts: `ProofOfAttention`, `BidClearing`, `RewardClearing`, `PreviewRightsThreshold`.
 - [backend.md](technical/backend.md) — money architecture (Stripe as the only fiat rail), the Postgres ledger schema, the attention threshold and window mechanics, listener session identity, and the attention challenge engine.
+- [interactive-creative.md](technical/interactive-creative.md) — post-hackathon plan for Daytona-backed premium interactive creatives, including contract, safety, fallback, and rollout requirements.
 
 ## Hackathon
 

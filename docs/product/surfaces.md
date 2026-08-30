@@ -2,13 +2,19 @@
 
 Slopstream has three main surfaces: the big screen (the centerpiece), the listener client, and the brand bidding console. Plus one signature artifact: the proof receipt.
 
+**Phase 1 priority:** make `/screen` an irresistible Continuum experience. The brand console and marketplace loop matter for phase 3 demos; they should not dominate how we evaluate day-to-day product quality.
+
 The full visual and interaction design language — the living canvas aesthetic, audio-reactive backgrounds, fluid event reactions, per-brand color palettes, and the pragmatic build stack — is in [design-language.md](design-language.md). This document specifies _what_ is on each surface; the design language specifies _how it behaves_.
 
 ## A. The big screen
 
-The centerpiece of the demo. Not a dashboard — a **living Continuum**: a colourful editorial world where media, typography and the attention market share the same space. It should feel like the homepage spheres grew into an infinite gallery, not like a generic 3D background.
+The centerpiece of the demo. Not a dashboard — a **living Continuum**: a colourful editorial world where media, typography and memory share the same space. It should feel like the homepage spheres grew into an infinite gallery, not like a trading floor with ads attached.
 
-The screen shows:
+**Default story:** watch the world evolve — central portal, archive cards, coming-up anticipation, quiet idle between beats.
+
+**Marketplace story (phase 3 demo):** same Continuum, plus leaderboard, outbid animations, and clearing — see the ASCII layout below.
+
+The screen shows (full marketplace layout — use theater mode or a trimmed HUD when leading with Continuum):
 
 ```text
 LIVE SLOPSTREAM
