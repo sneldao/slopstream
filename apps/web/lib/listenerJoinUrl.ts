@@ -6,7 +6,9 @@ export function listenerJoinUrl(origin?: string): string {
   const configured = process.env.NEXT_PUBLIC_LISTENER_URL;
   const base =
     configured ??
-    (origin ? `${origin.replace(/\/$/, "")}/listen` : "http://localhost:3000/listen");
+    (origin
+      ? `${origin.replace(/\/$/, "")}/listen`
+      : "http://localhost:3000/listen");
   const url = new URL(base);
   url.searchParams.set("earn", "1");
   return url.toString();

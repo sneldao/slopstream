@@ -34,8 +34,7 @@ export function LoopStatus({
       <ol className="slop-loop-status__steps">
         {LOOP_STEPS.map((step, index) => {
           const active = step.id === phase;
-          const done =
-            LOOP_STEPS.findIndex((s) => s.id === phase) > index;
+          const done = LOOP_STEPS.findIndex((s) => s.id === phase) > index;
           return (
             <li
               key={step.id}

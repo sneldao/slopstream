@@ -183,11 +183,7 @@ export default function ScreenPage() {
       />
 
       {!theater && (
-        <LoopStatus
-          state={state}
-          tone="light"
-          className="screen-loop-status"
-        />
+        <LoopStatus state={state} tone="light" className="screen-loop-status" />
       )}
 
       {!theater && (
@@ -246,7 +242,12 @@ export default function ScreenPage() {
           style={styles.comingUp}
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5, type: "spring", stiffness: 200, damping: 22 }}
+          transition={{
+            delay: 0.5,
+            type: "spring",
+            stiffness: 200,
+            damping: 22,
+          }}
         >
           <div style={styles.comingUpHeader}>COMING UP</div>
           <div style={styles.comingUpList}>

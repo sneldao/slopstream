@@ -60,8 +60,7 @@ export function composeSnapshot(
   const upcomingSegments = [...ledger.segments.values()]
     .filter(
       (segment) =>
-        segment.status === "ready" ||
-        segment.status === "generating",
+        segment.status === "ready" || segment.status === "generating",
     )
     .filter((segment) => segment.id !== nowPlayingRow?.id)
     .sort((a, b) => a.slot - b.slot)

@@ -9,7 +9,11 @@ import type {
 } from "@slopstream/shared";
 
 import type { GenerationProvider } from "./generator.js";
-import { pickFormat, voiceForFormat, type CreativeFormat } from "./creativeFormats.js";
+import {
+  pickFormat,
+  voiceForFormat,
+  type CreativeFormat,
+} from "./creativeFormats.js";
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -267,15 +271,15 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
 
   // --- ElevenLabs API calls ---
 
-  private async synthesizeVoice(text: string, voiceId: string): Promise<Uint8Array> {
-    const audioStream = await this.client.textToSpeech.convert(
-      voiceId,
-      {
-        text,
-        modelId: this.config.ttsModel,
-        outputFormat: "mp3_44100_128",
-      },
-    );
+  private async synthesizeVoice(
+    text: string,
+    voiceId: string,
+  ): Promise<Uint8Array> {
+    const audioStream = await this.client.textToSpeech.convert(voiceId, {
+      text,
+      modelId: this.config.ttsModel,
+      outputFormat: "mp3_44100_128",
+    });
     const response = new Response(audioStream);
     return new Uint8Array(await response.arrayBuffer());
   }
@@ -370,7 +374,10 @@ function estimateDurationSec(transcript: string): number {
  * Summary for the Continuum continuity input. Includes the creative format
  * tone so the next segment's context reflects the style that was used.
  */
-function summaryFor(request: GenerationRequest, format: CreativeFormat): string {
+function summaryFor(
+  request: GenerationRequest,
+  format: CreativeFormat,
+): string {
   const context = request.previousSummaries.at(-1);
   const brief = request.brief.trim();
   const tone = format.tone;

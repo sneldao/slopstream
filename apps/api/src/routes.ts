@@ -269,12 +269,10 @@ export function createRouter(deps: ApiDeps): Router {
         token: sessionToken,
         resumed: didResume,
       } = market.createListenerSession(resumed, commitment);
-      res
-        .status(didResume ? 200 : 201)
-        .json({
-          token: sessionToken,
-          session: toListenerSession(session, ledger),
-        });
+      res.status(didResume ? 200 : 201).json({
+        token: sessionToken,
+        session: toListenerSession(session, ledger),
+      });
     }),
   );
 

@@ -188,11 +188,7 @@ export default function BrandPage() {
         />
 
         <LoopStatus state={state} />
-        <ScreenCrossLink
-          brandId={brandId}
-          state={state}
-          leading={bidPlaced}
-        />
+        <ScreenCrossLink brandId={brandId} state={state} leading={bidPlaced} />
 
         <FirstRunCoach
           storageKey="slopstream.coach.brand.v1"
