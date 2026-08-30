@@ -23,7 +23,7 @@
 - [x] Listener reward balance
 - [ ] The Continuum continuity _(partially wired: the orchestrator passes the previous segments' summaries as `GenerationRequest.previousSummaries`; the stub generator echoes them into the next transcript)_
 - [ ] Scraped startup cold start _(cross-lane: Lane 1 writes the scraper and generates the free ads → Lane 2 backend ingests companies and serves claim pages → Lane 3 inserts segments into the stream; agree on the scraped-company payload shape in `packages/shared` before any lane starts)_
-- [ ] 3D fluid world for the big screen _(see [3D overhaul plan](./3d-overhaul-plan.md) — R3F + metaball shader + Rapier physics)_
+- [x] Continuum media world for the big screen _(central media portal, persistent archive cards, colourful spheres, typography and event ripples; see [design language](../product/design-language.md))_
 
 ## P2 — Stretch
 

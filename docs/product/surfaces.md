@@ -6,7 +6,7 @@ The full visual and interaction design language — the living canvas aesthetic,
 
 ## A. The big screen
 
-The centerpiece of the demo. Not a dashboard — a **living canvas**: a lava lamp crossed with a stock exchange, alive and colorful, constantly reacting to the market.
+The centerpiece of the demo. Not a dashboard — a **living Continuum**: a colourful editorial world where media, typography and the attention market share the same space. It should feel like the homepage spheres grew into an infinite gallery, not like a generic 3D background.
 
 The screen shows:
 
@@ -43,7 +43,7 @@ LIVE SLOPSTREAM
 └──────────────────────────────────────────────┘
 ```
 
-Brand entries appear twice by design. In the 3D fluid world, **the brand blobs are the leaderboard** (`BrandBlobField`): arranged by bid amount in 3D space, leader largest at center, others receding with depth. A small **HUD leaderboard of colored, semi-transparent floating chips** (`Leaderboard`) mirrors the ranking for glanceability — chips bob with subtle physics and re-sort with a spring shuffle, not table rows. The background is a **living gradient** driven by the current ad's audio, tinted to the current brand's color palette. Previous segments recede behind the current ad with perspective and blur — the Continuum as a spatial trail, not a playlist.
+The screen is an autonomous media field. The current asset occupies a framed central portal; previous segments persist as colourful archive cards; oversized type, dotted routes and homepage-style spheres provide depth. The camera motion is slow by default and reacts subtly to pointer/audio input. The HUD leaderboard remains a readable market layer, while bid changes and clears create ripples through the world. Generated assets can be images, video, audio-led editorial cards or typography; the composition should never depend on one orb treatment.
 
 When a brand gets outbid, the screen's color **washes** from the old leader's palette to the new leader's, the displaced chip wobbles and drops, the new leader's chip swells and glows, and a splash particle effect ripples outward:
 
@@ -84,7 +84,7 @@ Live attention meter:
 ██████████████████░░
 ```
 
-A challenge suddenly appears — popping in with spring physics, haptic vibration, and a sound:
+A challenge is optional. Listeners can explicitly enable **Earn Mode** on their phone; passive listeners simply hear and watch the stream. When Earn Mode is enabled, a challenge appears with spring physics, haptic vibration, and a sound:
 
 ```text
 ┌─────────────────────────────┐

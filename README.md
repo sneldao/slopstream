@@ -34,7 +34,7 @@ $ REWARD
 1. Brands bid for upcoming ad slots in a live auction.
 2. AI generates the ad in real time — audio, image, or video depending on the bid tier.
 3. Listeners join by scanning a QR code (no app, just mobile web).
-4. Randomized attention challenges interrupt the stream ("What did they just say?").
+4. Listeners can optionally enable Earn Mode and answer randomized attention challenges ("What did they just say?").
 5. Correct answers produce a verification result that the attention condition was satisfied.
 6. Once a segment clears its attention threshold the advertiser spend clears — and up to 80% flows into a listener reward pool.
 

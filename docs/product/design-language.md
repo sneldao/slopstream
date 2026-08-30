@@ -2,7 +2,11 @@
 
 Slopstream is not a dashboard. It is a living, colorful, fluid canvas — an art installation that happens to be a marketplace. The product is named after slop: gooey, liquid, flowing abundance. The UI should _be_ slop.
 
-> **Current state.** The big screen's 3D fluid world is built — Phases 1–7 of the [3D overhaul plan](../hackathon/3d-overhaul-plan.md) are live (see [progress](../hackathon/progress.md) for detailed build status). The listener and brand surfaces are 2D with 3D accents and are already built.
+> **Current state.** The big screen now uses a colourful DOM-based Continuum world: a central media portal, persistent archive cards, oversized typography, homepage-derived spheres, pointer/audio parallax and event ripples. The listener and brand surfaces remain 2D with 3D accents. The older R3F fluid prototype is retained in the repository as reference, but is no longer the screen's permanent backdrop.
+
+The detailed R3F/metaball notes later in this document describe that earlier
+prototype and its reusable event vocabulary; the current implementation uses
+the media-world approach above as its production backdrop.
 
 ## Visual references
 
@@ -20,11 +24,13 @@ Four projects define the direction:
 - **High contrast text.** White or near-black depending on background luminance. The leaderboard entries are colored chips, not table rows.
 - **One calm moment.** The proof receipt is the one place that stays still — a clean, slightly translucent card that floats above the chaos. It's the moment of certainty in the slop.
 
-## The build stack — a 3D fluid world
+## The build stack — a media world with physical colour
 
-The first pass faked the _feeling_ with Framer Motion + Canvas 2D. It was
-good. But to win a stacked field, the big screen needs to _be_ slop — a real
-3D fluid world, not a 2D page with particles on top.
+The big screen's permanent layer is intentionally lightweight: HTML media and
+typography provide the legibility and content range, while CSS spheres, parallax
+and ripples provide the physical colour. This keeps the installation resilient
+on projector hardware and leaves room for optional WebGL/WebGPU materials
+without making the whole experience depend on them.
 
 ### What the references teach us
 
@@ -42,10 +48,11 @@ good. But to win a stacked field, the big screen needs to _be_ slop — a real
   that respond to clicks and pushes. This is the interaction model — brands as
   physical objects that get knocked around.
 
-### The vision: Slopstream is a 3D fluid world, not a screen
+### The vision: Slopstream is a living media world, not a screen
 
-The big screen is a Three.js world where the "slop" is a ray-marched metaball
-fluid that fills the entire viewport, tinted to the current brand's colors.
+The big screen is an infinite-feeling media world where the "slop" is the
+continuous movement between content, colour and attention. The current brand's
+palette tints the portal halo and atmospheric field.
 It's always alive — drifting, morphing, breathing with the audio. The metaball
 shader is driven by the audio signal: bass swells the fluid mass, treble
 creates surface ripples, beats send shockwaves through the field.

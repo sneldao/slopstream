@@ -1,7 +1,10 @@
-# 3D Visual Overhaul — Build Plan
+# 3D Visual Overhaul — Archived Prototype Plan
 
-> The big screen becomes a 3D fluid world. This is the plan to get there
-> without breaking the demo.
+> **Superseded by the Continuum media world.** The current `/screen` backdrop
+> is HTML media + CSS: a central portal, persistent archive cards, colourful
+> spheres, typography and event ripples. Keep this document as the history of
+> the R3F experiment and as a reference for future optional WebGL/WebGPU
+> material effects; do not treat its full-3D decision as current product scope.
 
 ## Context
 
