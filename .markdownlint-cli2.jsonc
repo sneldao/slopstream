@@ -1,8 +1,10 @@
 {
   "config": {
+    "default": true,
     "MD013": false,
     "MD033": false,
     "MD060": false
   },
-  "exitCode": 0
+  "globs": ["**/*.md"],
+  "ignores": ["**/node_modules/**", "semantic-review/**"]
 }
