@@ -1,10 +1,15 @@
+import { randomBytes } from "node:crypto";
 import { bootstrap, logger } from "./bootstrap.js";
 
 const run = async (): Promise<void> => {
   const hasSeed = !!process.env.MIDNIGHT_WALLET_SEED;
   if (!hasSeed) {
+    const seed = randomBytes(32).toString("hex");
+    process.env.MIDNIGHT_WALLET_SEED = seed;
+    logger.info("No MIDNIGHT_WALLET_SEED set — generated a fresh wallet seed:");
+    logger.info(`  ${seed}`);
     logger.info(
-      "No MIDNIGHT_WALLET_SEED set — this run creates a fresh wallet and funds it from the faucet.",
+      "SAVE THIS SEED NOW — it is the only copy of the deployer wallet.",
     );
   }
   const { api, stack, shutdown } = await bootstrap({ fund: true });
