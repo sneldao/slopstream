@@ -114,20 +114,24 @@ export function createStubAttentionProofVerifier(): {
         return invalid("binding_mismatch");
       }
 
+      const { validFrom, validUntil } = context.challenge;
       const segmentStartedAt = isFiniteTimestamp(context.segmentStartedAt);
       const submittedAt = isFiniteTimestamp(context.submittedAt);
       const issuedAt = isFiniteTimestamp(payload.issuedAt);
       if (
         segmentStartedAt === undefined ||
         submittedAt === undefined ||
-        issuedAt === undefined
+        issuedAt === undefined ||
+        !Number.isFinite(validFrom) ||
+        !Number.isFinite(validUntil) ||
+        validFrom < 0 ||
+        validUntil < validFrom
       ) {
         return invalid("invalid_request");
       }
 
-      const windowStart =
-        segmentStartedAt + context.challenge.validFrom * 1_000;
-      const windowEnd = segmentStartedAt + context.challenge.validUntil * 1_000;
+      const windowStart = segmentStartedAt + validFrom * 1_000;
+      const windowEnd = segmentStartedAt + validUntil * 1_000;
       if (
         issuedAt < windowStart ||
         issuedAt > windowEnd ||
