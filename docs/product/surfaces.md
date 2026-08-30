@@ -43,7 +43,7 @@ LIVE SLOPSTREAM
 └──────────────────────────────────────────────┘
 ```
 
-Brand entries are **colored, semi-transparent floating chips** that bob with subtle physics — not table rows. The background is a **living gradient** driven by the current ad's audio, tinted to the current brand's color palette. Previous segments recede behind the current ad with perspective and blur — the Continuum as a spatial trail, not a playlist.
+Brand entries appear twice by design. In the 3D fluid world, **the brand blobs are the leaderboard** (`BrandBlobField`): arranged by bid amount in 3D space, leader largest at center, others receding with depth. A small **HUD leaderboard of colored, semi-transparent floating chips** (`Leaderboard`) mirrors the ranking for glanceability — chips bob with subtle physics and re-sort with a spring shuffle, not table rows. The background is a **living gradient** driven by the current ad's audio, tinted to the current brand's color palette. Previous segments recede behind the current ad with perspective and blur — the Continuum as a spatial trail, not a playlist.
 
 When a brand gets outbid, the screen's color **washes** from the old leader's palette to the new leader's, the displaced chip wobbles and drops, the new leader's chip swells and glows, and a splash particle effect ripples outward:
 
@@ -183,6 +183,10 @@ The bid controls more than position. Higher bids can unlock:
 - more elaborate story integration
 
 This matches the free/low → image → video production escalation in the [generation pipeline](../technical/architecture.md#generation-pipeline). See [design language](design-language.md#c-the-brand-bidding-console--stakes-and-pressure) for the full interaction behavior.
+
+### What the brand sees after a segment clears
+
+As implemented, brands get their **balance view** (reserved → spent movement on `bid.cleared`, or the reservation returned on `bid.uncleared`) and their **bid status** via the API — no listener-level data, ever. The aggregate verification picture (listeners present, proofs verified, threshold met) is surfaced publicly on the big screen's stats HUD rather than as a per-brand report. A private post-clear verification report per campaign (aggregate only: verified count, threshold, pass rate) is a natural Wave 2 addition for advertiser trust.
 
 ## D. The proof receipt
 

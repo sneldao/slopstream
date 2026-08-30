@@ -36,7 +36,7 @@ The **80/20 split is the default**, not a hard rule. Each reward pool stores its
 
 ## Don't pay per question
 
-One important product decision: **don't necessarily give the entire 80% to the person who answers one question.** That creates an easy gaming target.
+One important product decision: **don't give the entire 80% to the person who answers one question.** That creates an easy gaming target.
 
 Instead, create an **Attention Reward Pool**.
 
@@ -53,9 +53,7 @@ $8 listener reward pool
 distributed according to:
 - valid attention events
 - difficulty
-- duration
 - uniqueness
-- anti-fraud score
 ```
 
 So one successful challenge earns a **proportional share** rather than automatically receiving $8.
@@ -73,9 +71,9 @@ Listener C    $0.81
 ...
 ```
 
-Note: these figures are illustrative. Per-listener amounts are weighted by the factors above and won't divide evenly — they convey the shape of distribution, not exact math.
+Note: these figures are illustrative. Per-listener amounts are weighted by the factors above and won't divide evenly — they convey the shape of distribution, not exact math. As implemented (see [clearing.ts](../../apps/api/src/clearing.ts)), each valid attention event's share weight is **difficulty × uniqueness score**. Duration and anti-fraud weighting are planned, not built.
 
-This also means multiple listeners can participate simultaneously.
+This also means multiple listeners can participate simultaneously. A listener whose challenge attempt fails earns nothing from that segment, even if the segment clears on other listeners' valid events.
 
 ## Bid clearing semantics
 
@@ -100,9 +98,20 @@ REWARD POOL CREATED
 Clearing works in two stages, and it's worth keeping them separate:
 
 - **The bid clears in full** once the segment reaches a **minimum attention threshold** (enough valid attention events in the window). It is not prorated by the exact number of listeners who passed — a segment that hits the threshold clears the whole bid.
-- **The pool is then distributed proportionally** among the valid attention events (by difficulty, duration, uniqueness, anti-fraud score).
+- **The pool is then distributed proportionally** among the valid attention events (weighted by difficulty × uniqueness score; duration and anti-fraud weighting are planned).
 
 So the advertiser buys a defined slot of verified attention that either clears (threshold met) or doesn't (threshold missed) — not one lucky quiz response, and not a wobbling partial amount. If the threshold isn't met, the bid does not clear and the funds return to the brand balance (see [uncleared bids](../technical/backend.md#uncleared-and-failed-bids)). See [contracts](../technical/contracts.md) for the on-chain side.
+
+### Threshold semantics (as implemented)
+
+The implementation (`apps/api/src/clearing.ts`, `env.ts`) makes the threshold concrete:
+
+- **Threshold fraction.** A platform-set fraction (`THRESHOLD_FRACTION`, demo default **0.6**) is frozen onto each segment at creation.
+- **Required events.** When playback starts (the attention window opens), the required count is computed as `ceil(thresholdFraction × recently-active listener count)` and frozen — listeners who join after the window opens don't lower the bar.
+- **Clearing check.** At window close, the bid clears iff the number of valid attention events ≥ the required count. Otherwise the full reservation is returned and no pool is created.
+- **Minimum audience.** Because the count is a fraction of active listeners, tiny audiences can clear on a single valid event (1 listener → ceil(0.6 × 1) = 1). A floor on required events is a sensible hardening step for production.
+
+Rewards are credited when the attention window closes: the pool is created, distributed by share weight, and closed synchronously — listener balances update at that moment, which is why the proof receipt shows an *estimated* reward until then.
 
 ## Auction strategy and theory
 
@@ -110,13 +119,13 @@ The auction is the economic engine, and several of its dynamics are worth making
 
 ### The auction is an allocation mechanism; the threshold is the price setter
 
-The most important framing: **the ascending bid decides _who_ gets the slot; the attention threshold decides _whether anyone pays_.** A brand's expected cost is not their bid — it's:
+The most important framing: **the ascending bid decides *who* gets the slot; the attention threshold decides *whether anyone pays*.** A brand's expected cost is not their bid — it's:
 
 ```text
 expected cost = bid × P(threshold met | audience, ad quality, slot)
 ```
 
-This means brands are effectively bidding on an _option_ on verified attention, not a guaranteed impression. Two consequences:
+This means brands are effectively bidding on an *option* on verified attention, not a guaranteed impression. Two consequences:
 
 - **Brands should bid higher than in a pay-per-impression model**, because they only pay on verified delivery. The auction is selling a conditional claim, not a sure thing.
 - **The threshold is the hidden price-setting parameter** — arguably more important than the auction format. Set it too high and bids rarely clear (Slopstream earns nothing, brands leave). Set it too low and attention is meaningless (listeners are rewarded for nothing, the proof is theater). The threshold is what actually prices verified attention; the auction just allocates the slot. Concrete mechanics — where it's stored, the frozen denominator, and when the window opens/closes — are pinned down in the [threshold spec](../technical/backend.md#attention-threshold-and-the-attention-window).
@@ -127,7 +136,7 @@ The live leaderboard with public bids and OUTBID animation is an **open ascendin
 
 **Hackathon: first-price — the winner pays their own bid.** When a segment clears the attention threshold, the full bid amount clears (see [bid clearing semantics](#bid-clearing-semantics)). That keeps the money story one sentence long — "they bid $18, $18 cleared" — and avoids second-highest-bid bookkeeping, one-bidder edge cases, and reserve-price interactions at demo scale. With two or three scripted brands in a five-minute session, the strategic problem first-price creates is never visible.
 
-**Product direction: second-price.** The winner pays the second-highest bid plus a minimum increment. In a true English auction the dominant strategy is _bid up to your true valuation and stop_ — no shading, no games — which is the theoretically efficient outcome. Under first-price, real competing brands shade below true value and the auction becomes strategically complex. The OUTBID animation is also more meaningful under second-price: a brand isn't bidding against itself, it's being asked "do you want to exceed the current standing bid by one increment?" — and it only pays that increment over the previous bid.
+**Product direction: second-price.** The winner pays the second-highest bid plus a minimum increment. In a true English auction the dominant strategy is *bid up to your true valuation and stop* — no shading, no games — which is the theoretically efficient outcome. Under first-price, real competing brands shade below true value and the auction becomes strategically complex. The OUTBID animation is also more meaningful under second-price: a brand isn't bidding against itself, it's being asked "do you want to exceed the current standing bid by one increment?" — and it only pays that increment over the previous bid.
 
 The switch is a clearing-rule change in BidClearing; the auction surface, bid events, and ledger shapes don't change.
 
@@ -150,7 +159,7 @@ The big screen already shows "👀 1,284 listeners" — but it's not connected t
 
 Slots are auctioned one after another in an infinite stream. Sequential auctions of comparable goods have well-known pathologies:
 
-- **Declining price anomaly.** In sequential auctions, prices tend to _decline_ over a session (documented in wine, art, cattle, and real estate auctions). Causes: budget depletion (brands spend early), risk aversion (later slots are "safer" because you've observed outcomes), and winner's-curse learning.
+- **Declining price anomaly.** In sequential auctions, prices tend to *decline* over a session (documented in wine, art, cattle, and real estate auctions). Causes: budget depletion (brands spend early), risk aversion (later slots are "safer" because you've observed outcomes), and winner's-curse learning.
 - **Strategic waiting.** If a brand expects later slots to be cheaper — or expects competitors to exhaust budgets — they'll skip early slots. This can produce dry spells in the stream: gaps where no one bids, which kills listener engagement, which lowers future slot values. A negative feedback loop.
 - **Budget allocation.** A brand with $500 isn't deciding "how much is this slot worth" — they're deciding "how do I allocate $500 across N upcoming slots?" The current docs treat each bid as independent, but a sophisticated brand is solving a portfolio problem.
 
@@ -165,9 +174,9 @@ Open ascending auctions with public brand identities are the most collusion-susc
 
 ### The listener side is a participation game, not a market
 
-The deepest gap: the product is called "a marketplace for human attention," but only one side (brands) is actually _transacting_. Listeners receive ads, prove attention, and earn rewards — but they have no market power. They can't signal preference ("I'd pay attention to a developer-tools ad"), can't withhold attention strategically, and can't price their own attention.
+The deepest gap: the product is called "a marketplace for human attention," but only one side (brands) is actually *transacting*. Listeners receive ads, prove attention, and earn rewards — but they have no market power. They can't signal preference ("I'd pay attention to a developer-tools ad"), can't withhold attention strategically, and can't price their own attention.
 
-This is a deliberate simplification, not an oversight — adding listener-side price discovery would massively complicate the product. But it's worth being explicit about: **Slopstream is a one-sided market with a participation game on the listener side, not a two-sided market.** The social effects that _do_ exist on the listener side are herding ("1,284 people are watching" → more join) and social proof of attention ("127/143 verified"), both of which are already surfaced on the big screen. A future two-sided version — where listeners signal preferences that feed back into auction pricing — is a real product direction, but it's not this product.
+This is a deliberate simplification, not an oversight — adding listener-side price discovery would massively complicate the product. But it's worth being explicit about: **Slopstream is a one-sided market with a participation game on the listener side, not a two-sided market.** The social effects that *do* exist on the listener side are herding ("1,284 people are watching" → more join) and social proof of attention ("127/143 verified"), both of which are already surfaced on the big screen. A future two-sided version — where listeners signal preferences that feed back into auction pricing — is a real product direction, but it's not this product.
 
 ## Listener rewards: start with an internal balance
 
@@ -191,9 +200,9 @@ Then make the payout rail a later feature. The demo only needs to prove:
 
 Actual withdrawal can be Wave 2. This avoids turning the hackathon into a payments/KYC project.
 
-## Legal framing caveat
+## Legal framing
 
-Economically the 80% is strong. Legally/payment-wise, don't casually market it as "sharing ad revenue" until the rules for target jurisdictions have been checked. For the prototype, **"listener rewards funded by verified attention"** is the cleaner product framing.
+Economically the 80% is strong, but don't casually market it as "sharing ad revenue" — see [risks.md](risks.md#revenue-share-framing). For the prototype, **"listener rewards funded by verified attention"** is the cleaner product framing.
 
 ## The critical anti-gaming layer
 

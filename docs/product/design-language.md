@@ -2,7 +2,7 @@
 
 Slopstream is not a dashboard. It is a living, colorful, fluid canvas — an art installation that happens to be a marketplace. The product is named after slop: gooey, liquid, flowing abundance. The UI should _be_ slop.
 
-> **Current state.** The big screen's 3D fluid world is built — Phases 1–7 of the [3D overhaul plan](../hackathon/3d-overhaul-plan.md) are live: a ray-marched metaball fluid shader (`FluidBackground`), audio signal → shader uniforms, Rapier physics brand blobs (`BrandBlob` / `BrandBlobField`), a tier-evolving ad surface (`AdSurface` — orb / image plane / video plane / generating orb), a 3D glass threshold basin (`ThresholdBasin`), instanced clearing streams with 80/20 split (`ClearingStreams`), a glass proof receipt that condenses from vapor (`ProofReceipt3D`), and a mesh-based fluid fallback with capability detection (`FluidBackgroundMesh`). The fluid tint follows the bid leader and lerps to the new leader's palette on OUTBID (~600ms flood). Brand blobs are kinematic bodies driven by a manual critically-damped spring, with a one-shot velocity kick on OUTBID. An error boundary falls back to the Canvas 2D `AmbientCanvas` if WebGL fails. Phases 8–9 (listener/brand refinement, generation pipeline) remain. The listener and brand surfaces are 2D with 3D accents and are already built.
+> **Current state.** The big screen's 3D fluid world is built — Phases 1–7 of the [3D overhaul plan](../hackathon/3d-overhaul-plan.md) are live (see [progress](../hackathon/progress.md) for detailed build status). The listener and brand surfaces are 2D with 3D accents and are already built.
 
 ## Visual references
 
@@ -69,10 +69,12 @@ naturally inside the same scene:
 | Video         | A video-textured plane at center.                    | The video's audio track drives the fluid around it. The video is _in_ the slop, not _on_ the screen.           |
 | Premium       | Multiple planes — a mini-scene within the scene.     | Full audio reactivity across all surfaces.                                                                     |
 
-**The leaderboard is the blobs themselves.** No separate chip list. The brand
+**The leaderboard lives in the blobs themselves.** The brand
 blobs are arranged by bid amount in 3D space — leader at center, others
 receding with depth and blur. Re-sorting is a physics animation: blobs
 physically swap positions with spring forces. You _see_ the market in space.
+A small HUD chip list (`Leaderboard`) mirrors the ranking for glanceability —
+the blobs are the primary leaderboard, the chips are the readable fallback.
 
 **The attention threshold is a 3D fluid container.** A glass basin in the
 scene that fills with the brand's colored fluid. As verified counts rise, the

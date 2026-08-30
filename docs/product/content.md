@@ -135,4 +135,4 @@ Once claimed:
 
 This turns the free tier into an **automated outbound sales engine**.
 
-**Legal/consent caveat.** Generating an unsolicited ad for a real company and showing it publicly carries trademark, defamation, and right-of-publicity risk — arguably higher than the revenue-share framing, and it varies by jurisdiction. Before this runs against real companies: keep generated content clearly labelled as unofficial/AI-generated and parody where applicable, honor takedown/opt-out requests immediately, avoid implying endorsement, and check the rules for target jurisdictions. For the prototype, prefer fictional brands or companies that have opted in.
+**Legal/consent caveat.** Generating unsolicited ads for real companies carries trademark, defamation, and right-of-publicity risk. See [risks.md](risks.md#unsolicited-ai-generated-ads-cold-start-engine) — for the prototype, prefer fictional brands or opt-in companies.

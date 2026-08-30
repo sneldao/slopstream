@@ -23,7 +23,7 @@ Advertiser → Slopstream → verified attention → listener reward
 Brands don't simply buy impressions. **They compete for verified human attention.**
 
 - The stream is continuously populated with AI-generated ads. Brands can bid for upcoming slots, escalating from simple audio to richer image/video experiences.
-- While listening, viewers occasionally receive lightweight attention challenges: multiple-choice questions, "what did they just say?", fill-in-the-blank, true/false, image recognition, short phrase repetition, audio recognition, story continuity questions.
+- While listening, viewers occasionally receive lightweight attention challenges — recall, audio, visual, completion, true/false, sequence, voice, image (full taxonomy in [content](content.md#randomized-attention-challenges)).
 - If the listener successfully completes the challenge, Slopstream generates a cryptographic proof that the attention _condition_ was satisfied (the proof attests to challenge completion under the required conditions — it isn't a claim that a human was subjectively paying attention).
 - Only then does the corresponding advertising spend become verified/cleared spend.
 - A portion of that spend goes to the listener.
@@ -66,7 +66,7 @@ The product concept is:
 
 Build a human-attention marketplace, where cryptographic verification happens to be the thing that makes the marketplace trustworthy.
 
-The 80/20 split makes this much stronger:
+The 80/20 split makes this much stronger (full model in [economics](economics.md)):
 
 ```text
                  SLOPSTREAM
