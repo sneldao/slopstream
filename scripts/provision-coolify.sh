@@ -130,7 +130,6 @@ create_app() {
         limits_memory: $memory_limit,
         limits_cpus: "0.75",
         is_force_https_enabled: false,
-        autogenerate_domain: false,
         is_auto_deploy_enabled: false,
         instant_deploy: false,
         is_git_shallow_clone_enabled: true
@@ -179,7 +178,6 @@ reconcile_app() {
         limits_memory: $memory_limit,
         limits_cpus: "0.75",
         is_force_https_enabled: false,
-        autogenerate_domain: false,
         is_auto_deploy_enabled: false,
         instant_deploy: false,
         is_git_shallow_clone_enabled: true
