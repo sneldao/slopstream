@@ -1,0 +1,80 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "4000:4000"
+    env_file: apps/api/.env
+    environment:
+      DATABASE_URL: postgres://slopstream:slopstream@postgres:5432/slopstream
+      REDIS_URL: redis://redis:6379
+      PROOF_VERIFIER_URL: http://verifier:4100/v1/attention-proofs/verify
+      PROOF_VERIFIER_MODE: remote
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      verifier:
+        condition: service_started
+
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.verifier
+    ports:
+      - "4100:4100"
+    env_file: apps/verifier/.env
+
+  generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.generator
+    ports:
+      - "4300:4300"
+    env_file: apps/generator/.env
+    environment:
+      API_BASE_URL: http://api:4000
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+    ports:
+      - "4200:4200"
+    env_file: apps/orchestrator/.env
+    environment:
+      API_BASE_URL: http://api:4000
+      GENERATOR_BASE_URL: http://generator:4300
+    depends_on:
+      - api
+      - generator
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: slopstream
+      POSTGRES_PASSWORD: slopstream
+      POSTGRES_DB: slopstream
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slopstream"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:
