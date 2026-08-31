@@ -1,7 +1,5 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   FREE_BRAND_ID,
@@ -10,6 +8,11 @@ import {
   type GenerationResult,
   type ProductionTier,
 } from "@slopstream/shared";
+
+import {
+  createAssetPublisherFromEnv,
+  type AssetPublisher,
+} from "./assetPublisher.js";
 
 import type { GenerationProvider } from "./generator.js";
 import {
@@ -85,8 +88,10 @@ export interface ElevenLabsProviderConfig {
   voiceId: string;
   /** Public HTTPS origin serving immutable generated derivatives. */
   assetBaseUrl: string;
-  /** Local directory to save generated assets. */
+  /** Local directory to save generated assets when R2 upload is unset. */
   assetsDir: string;
+  /** Optional durable publisher; defaults to the local `/assets/` directory. */
+  publisher?: AssetPublisher;
   /** TTS model — `eleven_flash_v2_5` (cheap) or `eleven_v3` (expressive). */
   ttsModel: TtsModel;
   /** Maximum tier to generate. Requests above this are downgraded. */
@@ -157,12 +162,22 @@ function parseLlmTimeoutMs(value: string | undefined): number {
 export function createElevenLabsProviderFromEnv(
   environment: Environment,
 ): ElevenLabsGenerationProvider {
+  const assetBaseUrl = publicAssetBaseUrl(environment);
+  const assetsDir = optionalEnvironmentValue(
+    environment,
+    "ASSETS_DIR",
+    ASSETS_DIR,
+  )!;
   const config: ElevenLabsProviderConfig = {
     apiKey: requiredEnvironmentValue(environment, "ELEVENLABS_API_KEY"),
     voiceId: requiredEnvironmentValue(environment, "ELEVENLABS_VOICE_ID"),
     /** Public HTTPS origin serving immutable generated derivatives. */
-    assetBaseUrl: publicAssetBaseUrl(environment),
-    assetsDir: optionalEnvironmentValue(environment, "ASSETS_DIR", ASSETS_DIR)!,
+    assetBaseUrl,
+    assetsDir,
+    publisher: createAssetPublisherFromEnv(environment, {
+      assetsDir,
+      assetBaseUrl,
+    }),
     ttsModel: parseTtsModel(
       optionalEnvironmentValue(environment, "ELEVENLABS_TTS_MODEL"),
     ),
@@ -192,8 +207,9 @@ export function createElevenLabsProviderFromEnv(
  * - **Video** (video+): ElevenLabs video generation (`flows.video`) using
  *   `veo-3.1-fast-generate-001` with synchronized audio.
  *
- * Assets are saved locally and served by the generator's static file route.
- * The `assetUrl` in the result points to the served URL.
+ * Assets are published through `AssetPublisher`: locally for the demo
+ * `/assets/` route, or to the authenticated R2 uploader when
+ * `ASSET_UPLOAD_URL` and `ASSET_UPLOAD_TOKEN` are set.
  *
  * For `audio` tier: assetUrl = .mp3 (the AdSurface shows the orb)
  * For `audio_image` tier: assetUrl = .png (the AdSurface shows an image plane)
@@ -201,15 +217,22 @@ export function createElevenLabsProviderFromEnv(
  */
 export class ElevenLabsGenerationProvider implements GenerationProvider {
   private readonly client: ElevenLabsClient;
+  private readonly publisher: AssetPublisher;
 
   constructor(private readonly config: ElevenLabsProviderConfig) {
     this.client = new ElevenLabsClient({ apiKey: config.apiKey });
+    this.publisher =
+      config.publisher ??
+      createAssetPublisherFromEnv(
+        {},
+        {
+          assetsDir: config.assetsDir,
+          assetBaseUrl: config.assetBaseUrl,
+        },
+      );
   }
 
   async generate(request: GenerationRequest): Promise<GenerationResult> {
-    // Ensure the assets directory exists.
-    await mkdir(this.config.assetsDir, { recursive: true });
-
     // Cap the tier to the configured maximum (spend mitigation).
     const tier = capTier(request.tier, this.config.maxTier);
 
@@ -279,10 +302,15 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
 
     // Stage 2: Voice — TTS via ElevenLabs with the format's voice.
     const audioBytes = await this.synthesizeVoice(transcript, voiceId);
-    const audioKey = contentAddressedKey(audioBytes, "mp3");
-    await writeFile(join(this.config.assetsDir, audioKey), audioBytes);
-    const audioUrl = assetUrl(this.config.assetBaseUrl, audioKey);
-    const audio = mediaAsset(audioUrl, "audio/mpeg", audioBytes);
+    const publishedAudio = await this.publisher.publish(
+      audioBytes,
+      "audio/mpeg",
+    );
+    const audio = {
+      url: publishedAudio.url,
+      contentType: publishedAudio.contentType,
+      sha256: publishedAudio.sha256,
+    };
 
     const durationSec = estimateDurationSec(transcript);
     const summary = summaryFor(subject, description, format);
@@ -291,7 +319,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     if (tier === "audio") {
       return {
         segmentId: request.segmentId,
-        assetUrl: audioUrl,
+        assetUrl: publishedAudio.url,
         media: { version: 1, durationSec, audio },
         durationSec,
         transcript,
@@ -347,17 +375,20 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         imagePrompt,
         effectiveReference,
       );
-      const imageKey = contentAddressedKey(imageBytes, "png");
-      await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
-      const imageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
+      const publishedImage = await this.publisher.publish(
+        imageBytes,
+        "image/png",
+      );
       const visual = {
-        ...mediaAsset(imageUrl, "image/png", imageBytes),
+        url: publishedImage.url,
+        contentType: publishedImage.contentType,
+        sha256: publishedImage.sha256,
         type: "image" as const,
       };
 
       return {
         segmentId: request.segmentId,
-        assetUrl: imageUrl,
+        assetUrl: publishedImage.url,
         media: { version: 1, durationSec, audio, visual },
         durationSec,
         transcript,
@@ -366,14 +397,14 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
           provider: "elevenlabs",
           modelId: IMAGE_MODEL,
           prompt: imagePrompt,
-          heroImageUrl: imageUrl,
+          heroImageUrl: publishedImage.url,
         },
         audioMetadata: {
           provider: "elevenlabs",
           voiceId,
           modelId: this.config.ttsModel,
           format: "mp3_44100_128",
-          file: audioKey,
+          file: publishedAudio.objectKey,
           creativeFormat: format.name,
           tone: format.tone,
           ...scriptTelemetry,
@@ -397,9 +428,11 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       imagePrompt,
       effectiveReference,
     );
-    const imageKey = contentAddressedKey(imageBytes, "png");
-    await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
-    const heroImageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
+    const publishedPoster = await this.publisher.publish(
+      imageBytes,
+      "image/png",
+    );
+    const heroImageUrl = publishedPoster.url;
 
     // Feed the hero frame to Veo as an actual start frame — the old prompt
     // referenced a localhost URL the model could never fetch.
@@ -428,18 +461,21 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       durationSec,
       startFrame,
     );
-    const videoKey = contentAddressedKey(videoBytes, "mp4");
-    await writeFile(join(this.config.assetsDir, videoKey), videoBytes);
-    const videoUrl = assetUrl(this.config.assetBaseUrl, videoKey);
+    const publishedVideo = await this.publisher.publish(
+      videoBytes,
+      "video/mp4",
+    );
     const visual = {
-      ...mediaAsset(videoUrl, "video/mp4", videoBytes),
+      url: publishedVideo.url,
+      contentType: publishedVideo.contentType,
+      sha256: publishedVideo.sha256,
       type: "video" as const,
       posterUrl: heroImageUrl,
     };
 
     return {
       segmentId: request.segmentId,
-      assetUrl: videoUrl,
+      assetUrl: publishedVideo.url,
       media: { version: 1, durationSec, audio, visual },
       durationSec,
       transcript,
@@ -456,7 +492,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         voiceId,
         modelId: this.config.ttsModel,
         format: "mp3_44100_128",
-        file: audioKey,
+        file: publishedAudio.objectKey,
         creativeFormat: format.name,
         tone: format.tone,
         ...scriptTelemetry,
@@ -570,24 +606,6 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
 }
 
 // --- Helpers ---
-
-function assetUrl(base: string, key: string): string {
-  const b = base.endsWith("/") ? base.slice(0, -1) : base;
-  return `${b}/assets/${key}`;
-}
-
-function contentAddressedKey(bytes: Uint8Array, extension: string): string {
-  const sha256 = createHash("sha256").update(bytes).digest("hex");
-  return `${sha256}.${extension}`;
-}
-
-function mediaAsset(url: string, contentType: string, bytes: Uint8Array) {
-  return {
-    url,
-    contentType,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-  };
-}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

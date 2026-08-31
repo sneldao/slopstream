@@ -148,6 +148,14 @@ export class SegmentScheduler {
         : undefined;
     const upcomingCount = snapshot?.upcomingSegments.length ?? 0;
     const encoreActive = !!playback?.encore;
+    const upcomingDurationSec =
+      snapshot?.upcomingSegments.reduce(
+        (sum, segment) => sum + segment.durationSeconds,
+        0,
+      ) ?? 0;
+    const readyBufferSec = snapshotAvailable
+      ? Math.round((upcomingDurationSec + (remainingSec ?? 0)) * 10) / 10
+      : 0;
     const atRisk =
       snapshotAvailable &&
       this.generationInFlight &&
@@ -192,6 +200,7 @@ export class SegmentScheduler {
         snapshotAvailable,
         upcomingCount,
         processedSegments: this.processed.size,
+        readyBufferSec,
       },
       market: snapshot
         ? {

@@ -1,8 +1,9 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-import { createHash } from "node:crypto";
 import type { GenerationRequest, GenerationResult } from "@slopstream/shared";
+import { isPublicMediaUrl } from "@slopstream/shared";
 import { pathToFileURL } from "node:url";
 
+import { HttpAssetPublisher, type AssetPublisher } from "./assetPublisher.js";
 import { parseGenerationRequest } from "./server.js";
 
 const AUDIO_CONTENT_TYPE = "audio/mpeg";
@@ -14,13 +15,9 @@ export interface AudioSynthesizer {
   synthesize(transcript: string): Promise<Uint8Array>;
 }
 
-export interface AssetUploader {
-  upload(objectKey: string, body: Uint8Array, sha256: string): Promise<string>;
-}
-
 export interface AudioCommandDependencies {
   synthesizer: AudioSynthesizer;
-  uploader: AssetUploader;
+  publisher: AssetPublisher;
 }
 
 export interface AudioCommandConfig {
@@ -119,22 +116,9 @@ function summaryFor(request: GenerationRequest): string {
     : `Audio introduction: ${request.brief.trim()}`;
 }
 
-function objectKeyFor(sha256: string): string {
-  return `audio/${sha256}.mp3`;
-}
-
 function estimateDurationSec(transcript: string): number {
   const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(wordCount / WORDS_PER_SECOND));
-}
-
-function isAbsoluteUrl(value: string): boolean {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -154,23 +138,24 @@ export async function generateAudio(
     throw new Error("ElevenLabs returned empty audio");
   }
 
-  const sha256 = createHash("sha256").update(audio).digest("hex");
-  const objectKey = objectKeyFor(sha256);
-  const assetUrl = await dependencies.uploader.upload(objectKey, audio, sha256);
-  if (!isAbsoluteUrl(assetUrl)) {
+  const published = await dependencies.publisher.publish(
+    audio,
+    AUDIO_CONTENT_TYPE,
+  );
+  if (!isPublicMediaUrl(published.url)) {
     throw new Error("asset uploader returned an invalid asset URL");
   }
 
   return {
     segmentId: request.segmentId,
-    assetUrl,
+    assetUrl: published.url,
     media: {
       version: 1,
       durationSec: estimateDurationSec(transcript),
       audio: {
-        url: assetUrl,
+        url: published.url,
         contentType: AUDIO_CONTENT_TYPE,
-        sha256,
+        sha256: published.sha256,
       },
     },
     durationSec: estimateDurationSec(transcript),
@@ -179,26 +164,11 @@ export async function generateAudio(
     audioMetadata: {
       contentType: AUDIO_CONTENT_TYPE,
       durationEstimated: true,
-      objectKey,
+      objectKey: published.objectKey,
       provider: "elevenlabs",
       voiceId: config.voiceId,
     },
   };
-}
-
-function uploadUrlFor(assetUploadUrl: string, objectKey: string): string {
-  const base = assetUploadUrl.endsWith("/")
-    ? assetUploadUrl
-    : `${assetUploadUrl}/`;
-  return new URL(`v1/assets/${objectKey}`, base).toString();
-}
-
-function assetUrlFromResponse(value: unknown): string | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-  const assetUrl = (value as Record<string, unknown>).assetUrl;
-  return typeof assetUrl === "string" && assetUrl.trim() ? assetUrl : undefined;
 }
 
 function createProductionDependencies(
@@ -220,31 +190,10 @@ function createProductionDependencies(
         return new Uint8Array(await new Response(audioStream).arrayBuffer());
       },
     },
-    uploader: {
-      async upload(objectKey, body, sha256) {
-        const response = await fetch(
-          uploadUrlFor(config.assetUploadUrl, objectKey),
-          {
-            method: "PUT",
-            headers: {
-              authorization: `Bearer ${config.assetUploadToken}`,
-              "content-type": AUDIO_CONTENT_TYPE,
-              "x-content-sha256": sha256,
-            },
-            body: new Uint8Array(body),
-          },
-        );
-        if (!response.ok) {
-          throw new Error(`asset upload failed with status ${response.status}`);
-        }
-
-        const assetUrl = assetUrlFromResponse(await response.json());
-        if (assetUrl === undefined) {
-          throw new Error("asset upload response did not include an asset URL");
-        }
-        return assetUrl;
-      },
-    },
+    publisher: new HttpAssetPublisher(
+      config.assetUploadUrl,
+      config.assetUploadToken,
+    ),
   };
 }
 

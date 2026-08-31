@@ -7,11 +7,16 @@
     "dev": "wrangler dev --local",
     "generate:types": "wrangler types ./worker-configuration.d.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "deploy:dry-run": "wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "@slopstream/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.4.0",
     "typescript": "5.9.3",
+    "vitest": "3.2.7",
     "wrangler": "4.127.1"
   }
 }

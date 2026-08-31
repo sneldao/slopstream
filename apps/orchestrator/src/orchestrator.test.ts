@@ -393,6 +393,39 @@ describe("gateway ops metrics", () => {
       await gateway.close();
     }
   });
+
+  it("exposes Prometheus text from GET /metrics", async () => {
+    const gateway = new Gateway({ apiBaseUrl: "http://unused.test" });
+    gateway.setMetricsProvider(async () => ({
+      asOf: new Date().toISOString(),
+      segmentPlaySec: 30,
+      generation: {
+        inFlight: false,
+        lastDurationMs: 1200,
+        lastSegmentId: SEGMENT_ID,
+        atRisk: false,
+      },
+      playback: { active: false },
+      queue: {
+        snapshotAvailable: true,
+        upcomingCount: 0,
+        processedSegments: 1,
+        readyBufferSec: 0,
+      },
+      market: { nextSlotPriceUsd: 5 },
+    }));
+    const gatewayBaseUrl = await listen(gateway.server);
+    try {
+      const response = await fetch(`${gatewayBaseUrl}/metrics`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/plain");
+      await expect(response.text()).resolves.toContain(
+        "slopstream_queue_ready_buffer_seconds 0",
+      );
+    } finally {
+      await gateway.close();
+    }
+  });
 });
 
 describe("gateway CORS and proxy headers", () => {

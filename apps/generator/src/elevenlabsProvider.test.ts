@@ -145,4 +145,14 @@ describe("createElevenLabsProviderFromEnv", () => {
       }),
     ).not.toThrow();
   });
+
+  it("requires an upload token when a remote asset origin is configured", () => {
+    expect(() =>
+      createElevenLabsProviderFromEnv({
+        ...requiredEnvironment,
+        ASSET_BASE_URL: "https://assets.example.com/slopstream",
+        ASSET_UPLOAD_URL: "https://asset-uploader.example.test",
+      }),
+    ).toThrow("ASSET_UPLOAD_TOKEN");
+  });
 });

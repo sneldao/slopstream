@@ -29,6 +29,7 @@ import type {
   WsDelivery,
   WsEvent,
 } from "@slopstream/shared";
+import { prometheusMetricsText } from "./prometheusMetrics.js";
 
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -182,6 +183,11 @@ export class Gateway {
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/metrics") {
+      await this.handlePrometheusMetrics(res);
+      return;
+    }
+
     await this.proxy(req, res, url);
   }
 
@@ -209,6 +215,31 @@ export class Gateway {
         "content-type": "application/json",
       });
       res.end(JSON.stringify({ error: "metrics unavailable" }));
+    }
+  }
+
+  private async handlePrometheusMetrics(res: ServerResponse): Promise<void> {
+    if (!this.getMetrics) {
+      res.writeHead(503, {
+        ...CORS_HEADERS,
+        "content-type": "text/plain; charset=utf-8",
+      });
+      res.end("metrics unavailable\n");
+      return;
+    }
+    try {
+      const metrics = await this.getMetrics();
+      res.writeHead(200, {
+        ...CORS_HEADERS,
+        "content-type": "text/plain; version=0.0.4; charset=utf-8",
+      });
+      res.end(prometheusMetricsText(metrics));
+    } catch {
+      res.writeHead(502, {
+        ...CORS_HEADERS,
+        "content-type": "text/plain; charset=utf-8",
+      });
+      res.end("metrics unavailable\n");
     }
   }
 

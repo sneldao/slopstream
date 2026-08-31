@@ -18,6 +18,7 @@ import type {
 
 import {
   createGenerationService,
+  type GenerationJobStore,
   type GenerationProvider,
 } from "./generator.js";
 import type { GeneratorMode } from "./daytonaProvider.js";
@@ -224,6 +225,8 @@ export interface GeneratorServerOptions {
   apiToken?: string;
   /** Directory for serving generated assets. Defaults to ../assets. */
   assetsDir?: string;
+  /** Persistence for completed generations. Defaults to the in-memory store. */
+  jobStore?: GenerationJobStore;
 }
 
 function hasValidBearer(
@@ -245,8 +248,9 @@ export function createGeneratorServer({
   generatorMode = "stub",
   apiToken,
   assetsDir = ASSETS_DIR,
+  jobStore,
 }: GeneratorServerOptions = {}): Server {
-  const generator = createGenerationService(provider);
+  const generator = createGenerationService(provider, jobStore);
 
   return createServer((request, response) => {
     void (async () => {

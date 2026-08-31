@@ -59,7 +59,8 @@ packages/midnight/      Compiled ProofOfAttention artifacts + Midnight SDK wirin
 apps/api/               Backend API: ledger, auction, Stripe (Lane 2)
 apps/verifier/          Attention-proof verifier — stub JSON or live Midnight proofs (Lane 1)
 apps/orchestrator/      Stream orchestrator + WebSocket gateway (Lane 3)
-apps/generator/         Daytona generation pipeline + scraper (Lane 1)
+apps/generator/         Generation pipeline, SQLite job store, asset publisher (Lane 1)
+apps/asset-uploader/    Authenticated Cloudflare R2 write boundary for public media
 apps/web/               Next.js: big screen, listener client, brand console (Lane 3)
 docs/                   Product design and technical architecture
 ```
@@ -68,19 +69,19 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:verifier
 
 ## Documentation
 
-| Doc                                                                | Contents                                                                        |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| [docs/README.md](docs/README.md)                                   | Documentation map                                                               |
-| [docs/product/overview.md](docs/product/overview.md)               | Core idea, positioning, differentiators, proof-of-use future direction          |
-| [docs/product/economics.md](docs/product/economics.md)             | Economic model, reward pools, auction strategy, anti-gaming                     |
-| [docs/product/surfaces.md](docs/product/surfaces.md)               | Big screen, listener client, brand console, proof receipt                       |
-| [docs/product/design-language.md](docs/product/design-language.md) | Living canvas aesthetic, fluid event reactions, build stack                     |
-| [docs/product/content.md](docs/product/content.md)                 | The Continuum, attention challenges, free-AI-ads growth engine                  |
-| [docs/technical/architecture.md](docs/technical/architecture.md)   | System architecture, tech stack, generation pipeline                            |
-| [docs/technical/contracts.md](docs/technical/contracts.md)         | Midnight smart contracts                                                        |
-| [docs/technical/backend.md](docs/technical/backend.md)             | Money architecture, ledger schema, threshold/window mechanics, challenge engine |
-| [docs/technical/deployment.md](docs/technical/deployment.md)       | Coolify demo provisioning, topology, alert configuration, verification, and production safety gates |
-| [docs/hackathon/demo-script.md](docs/hackathon/demo-script.md)     | User flows and the live demo sequence                                           |
-| [docs/hackathon/judge-story.md](docs/hackathon/judge-story.md)     | First-10-seconds pitch, judge-friendly demo arc, and rehearsal guide            |
-| [docs/hackathon/build-order.md](docs/hackathon/build-order.md)     | P0 / P1 / P2 build priorities                                                   |
-| [docs/hackathon/team-split.md](docs/hackathon/team-split.md)       | Three parallel development lanes and shared-type seams                          |
+| Doc                                                                | Contents                                                                                           |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| [docs/README.md](docs/README.md)                                   | Documentation map                                                                                  |
+| [docs/product/overview.md](docs/product/overview.md)               | Core idea, positioning, differentiators, proof-of-use future direction                             |
+| [docs/product/economics.md](docs/product/economics.md)             | Economic model, reward pools, auction strategy, anti-gaming                                        |
+| [docs/product/surfaces.md](docs/product/surfaces.md)               | Big screen, listener client, brand console, proof receipt                                          |
+| [docs/product/design-language.md](docs/product/design-language.md) | Living canvas aesthetic, fluid event reactions, build stack                                        |
+| [docs/product/content.md](docs/product/content.md)                 | The Continuum, attention challenges, free-AI-ads growth engine                                     |
+| [docs/technical/architecture.md](docs/technical/architecture.md)   | System architecture, tech stack, generation pipeline                                               |
+| [docs/technical/contracts.md](docs/technical/contracts.md)         | Midnight smart contracts                                                                           |
+| [docs/technical/backend.md](docs/technical/backend.md)             | Money architecture, ledger schema, threshold/window mechanics, challenge engine                    |
+| [docs/technical/deployment.md](docs/technical/deployment.md)       | Coolify demo provisioning, R2/SQLite durability, alerts, verification, and production safety gates |
+| [docs/hackathon/demo-script.md](docs/hackathon/demo-script.md)     | User flows and the live demo sequence                                                              |
+| [docs/hackathon/judge-story.md](docs/hackathon/judge-story.md)     | First-10-seconds pitch, judge-friendly demo arc, and rehearsal guide                               |
+| [docs/hackathon/build-order.md](docs/hackathon/build-order.md)     | P0 / P1 / P2 build priorities                                                                      |
+| [docs/hackathon/team-split.md](docs/hackathon/team-split.md)       | Three parallel development lanes and shared-type seams                                             |

@@ -48,6 +48,22 @@ The orchestrator is the browser-facing gateway. It proxies REST commands and
 snapshots to the private API, owns the WebSocket sequence space, permits the
 `Idempotency-Key` CORS header, and forwards that header to the API.
 
+## Durability environment
+
+These settings are optional for the stub Coolify demo and required once
+generated media must survive a generator restart or leave the local disk:
+
+| Variable                 | Purpose                                                               |
+| ------------------------ | --------------------------------------------------------------------- |
+| `ASSET_UPLOAD_URL`       | Authenticated origin of `apps/asset-uploader` (`PUT /v1/assets/...`). |
+| `ASSET_UPLOAD_TOKEN`     | Bearer credential for that write boundary.                            |
+| `GENERATION_JOB_DB_PATH` | SQLite/WAL file for completed generation fingerprints and results.    |
+
+Without the upload pair, ElevenLabs still writes the generator `/assets/`
+directory. Without the job-store path, completed generations stay in memory.
+`ASSET_BASE_URL` remains required in every mode: it is the public HTTPS origin
+browsers fetch.
+
 ## Cost-controlled continuous-stream launch plan
 
 The first public media launch should improve durability and continuity without
@@ -56,9 +72,13 @@ launch posture**, not high availability: it is appropriate only while traffic,
 provider spend, and VPS capacity remain within explicit operating limits.
 
 **Implementation status:** the explicit manifest and buffered client-playout
-items below are implemented in this release. Durable R2 delivery, a persistent
-SQLite/WAL job store, and production-grade playout metrics remain launch
-prerequisites; this demo release does not claim to provide them.
+items below are implemented in this release. The generator can persist
+completed jobs to SQLite/WAL (`GENERATION_JOB_DB_PATH`) and publish
+audio/image/video derivatives through the authenticated R2 uploader when
+`ASSET_UPLOAD_URL` and `ASSET_UPLOAD_TOKEN` are set. The orchestrator exposes
+Prometheus text at `GET /metrics`. A server-published manifest revision
+pointer, cost caps, and durable ledger/outbox behavior remain launch
+prerequisites.
 
 ### Included launch changes
 
@@ -76,36 +96,40 @@ prerequisites; this demo release does not claim to provide them.
    settlement. The scheduler caps its playout and challenge window to the
    natural manifest duration, while an approved manifest-backed encore covers
    an unavailable queue without opening an economic window.
-3. **Required public-launch work: durable media delivery.** MP3, PNG, poster,
-   MP4, captions, and manifests must be written to the existing Cloudflare R2
-   asset layer, not retained only on the generator filesystem. The current
-   generator filesystem route is demo-only and not durable public delivery.
-   Direct ElevenLabs mode and the demo stub both require an explicit queryless
-   public HTTPS `ASSET_BASE_URL` served by a TLS proxy or CDN; they fail fast
-   rather than issuing a manifest the API will reject. The Coolify provisioner
-   requires that origin and ships deterministic MP3/PNG stub fixtures under
-   `/assets/`, but an operator must configure DNS, TLS, and routing before
-   deployment. Public asset responses must be cacheable; uploads remain
-   authenticated. Asset lifecycle rules keep only replay-ready derivatives for
-   the configured retention window and remove intermediates.
-4. **Required public-launch work: single-node durable jobs.** A mounted
-   SQLite/WAL database must persist segment, retry, idempotency, and
-   worker-lease state on the Coolify host. One worker consumes due
-   generation/playout jobs with bounded exponential retries and terminal
-   dead-letter status. A daily encrypted database backup is copied to R2.
-   This replaces in-memory-only recovery without introducing a second data
-   service.
+3. **Durable media delivery.** MP3, PNG, poster, MP4, captions, and manifests
+   should be written to the existing Cloudflare R2 asset layer rather than
+   retained only on the generator filesystem. The authenticated uploader
+   (`apps/asset-uploader`) now accepts content-addressed `audio/mpeg`,
+   `image/png`, and `video/mp4` objects. ElevenLabs and the Daytona audio
+   command publish through that Worker when `ASSET_UPLOAD_URL` and
+   `ASSET_UPLOAD_TOKEN` are set; without them, ElevenLabs still writes the
+   generator `/assets/` directory for the Coolify demo. Direct ElevenLabs mode
+   and the demo stub both require an explicit queryless public HTTPS
+   `ASSET_BASE_URL` served by a TLS proxy or CDN; they fail fast rather than
+   issuing a manifest the API will reject. The Coolify provisioner requires
+   that origin and ships deterministic MP3/PNG stub fixtures under `/assets/`,
+   but an operator must configure DNS, TLS, and routing before deployment.
+   Public asset responses must be cacheable; uploads remain authenticated.
+   Asset lifecycle rules keep only replay-ready derivatives for the configured
+   retention window and remove intermediates.
+4. **Single-node durable generation jobs.** Set `GENERATION_JOB_DB_PATH` to a
+   mounted SQLite/WAL file so completed generations, fingerprints, and
+   idempotent replays survive a generator restart. The in-memory store remains
+   the default for local tests. Remaining launch work is a worker that consumes
+   due generation/playout jobs with bounded exponential retries, terminal
+   dead-letter status, and a daily encrypted database backup copied to R2.
 5. **Required public-launch work: cost and continuity controls.** Provider
    calls must be deduplicated by a durable request fingerprint; each tier
    needs daily generation limits and each brand needs a spend cap. When the
    playout-ready buffer is below target, the stream uses an approved encore
    or low-cost station/interstitial asset rather than speculative paid
    generation or dead air.
-6. **Required public-launch work: playout observability.** A
-   Prometheus-compatible `/metrics` endpoint and structured logs must expose
-   ready-buffer seconds, generation latency, time-to-first-audio/frame, asset
-   failures, retries, fallback frequency, and dead-air duration. Alert
-   thresholds must use those aggregate measures only.
+6. **Playout observability.** `GET /ops/metrics` remains the JSON HUD snapshot.
+   `GET /metrics` exposes Prometheus text for ready-buffer seconds, generation
+   latency, in-flight/at-risk flags, encore counts, and queue depth. Remaining
+   launch work is time-to-first-audio/frame, asset-failure, retry, fallback,
+   and dead-air duration series, with alert thresholds on those aggregates
+   only.
 
 ### Free-tier guardrails
 
@@ -233,7 +257,11 @@ pnpm --filter @slopstream/shared build
 pnpm --filter @slopstream/api typecheck
 pnpm --filter @slopstream/web typecheck
 pnpm --filter @slopstream/orchestrator typecheck
+pnpm --filter @slopstream/generator typecheck
+pnpm --filter @slopstream/asset-uploader typecheck
 pnpm --filter @slopstream/api test -- --run
 pnpm --filter @slopstream/web test -- --run
 pnpm --filter @slopstream/orchestrator test -- --run
+pnpm --filter @slopstream/generator test -- --run
+pnpm --filter @slopstream/asset-uploader test -- --run
 ```

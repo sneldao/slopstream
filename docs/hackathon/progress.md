@@ -75,8 +75,9 @@ context }` request.
     generation entirely (TTS-only, cheapest path).
   - Template-based ad script generation from the brand brief (no separate
     LLM API key needed).
-  - Assets saved locally and served by the generator's `/assets/` static
-    route (CORS-enabled).
+  - Assets are published through `AssetPublisher`: locally under `/assets/`
+    for the Coolify demo, or to the authenticated R2 uploader when
+    `ASSET_UPLOAD_URL` and `ASSET_UPLOAD_TOKEN` are set.
   - `GENERATOR_MODE=elevenlabs` activates it; lazily imported to avoid
     loading the SDK in other modes.
 - **Static asset serving** (`apps/generator/src/server.ts`) — the generator
@@ -101,8 +102,8 @@ context }` request.
   remote proof server (`httpClientProofProvider`), testkit wallet with
   faucet auto-funding and tDUST generation. Scripts: `deploy` (fund + dust
   - deploy, prints wallet seed + contract address), `state` (read ledger),
-  `submit-proof` (smoke-test a circuit call). The listener secret is
-  rotated to fresh randomness in private state before every submission.
+    `submit-proof` (smoke-test a circuit call). The listener secret is
+    rotated to fresh randomness in private state before every submission.
 - **Midnight verifier mode** (`apps/verifier/src/midnightVerifier.ts`) —
   `VERIFIER_MODE=midnight` joins the deployed contract and records each
   structurally valid proof on-chain via `submitAttentionProof`, returning
@@ -125,8 +126,8 @@ context }` request.
 - **Daytona generation pipeline** — the provider/job interfaces exist, but
   the Daytona sandbox path is not yet configured. The ElevenLabs direct
   mode (`GENERATOR_MODE=elevenlabs`) provides real TTS/image/video
-  generation without a sandbox. A durable job store (beyond
-  `InMemoryGenerationJobStore`) is not yet wired.
+  generation without a sandbox. `SqliteGenerationJobStore` is wired behind
+  `GENERATION_JOB_DB_PATH`; the default remains `InMemoryGenerationJobStore`.
 - **Scraper** — `CompanyScraper` is wired in the orchestrator
   (`apps/orchestrator/src/index.ts`); when `PARALLEL_API_KEY` is set it
   periodically queries the Parallel Search API for newly launched companies
@@ -163,8 +164,10 @@ challenge-source`, verifies the returned canonical segment ID, and posts
 1. ~~Wire the Compact toolchain and implement `ProofOfAttention.compact`~~ —
    done; remaining: run the proof server on the VPS, deploy to preprod, and
    smoke-test with `submit-proof`.
-2. Replace the process-local verifier nonce set and generation job store with
-   durable shared storage before more than one service instance is used.
+2. Replace the process-local verifier nonce set with durable shared storage
+   before more than one verifier instance is used. Generation jobs persist
+   when `GENERATION_JOB_DB_PATH` is set; retries/dead-letter and ledger
+   durability are still launch work.
 3. Choose and configure Daytona/model/asset providers, then implement a real
    `GenerationProvider` behind the existing request/result contract.
 4. Have the Lane 3 scheduler invoke `SegmentPreparationService` against live
@@ -386,12 +389,13 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
     segment's hero image URL (`continuityImageUrl`) and snapshots live market
     pressure into `GenerationRequest.marketContext` before each generator call.
   - Ops HUD: `GET /ops/metrics` on the gateway returns `StreamOpsMetrics`
-    (generation latency, playback, queue depth, at-risk flag). The brand
-    console can poll it when `NEXT_PUBLIC_OPS_HUD=1`.
-  - 20 passing Vitest tests across cursor logic, market context helpers, ops
-    metrics route, a full fake-Lane-2 + fake-generator end-to-end drive
-    through one gateway sequence space, the dead-generator failure path, and
-    proxy/auth forwarding.
+    (generation latency, playback, queue depth, ready-buffer seconds, at-risk
+    flag). `GET /metrics` exposes the same snapshot as Prometheus text. The
+    brand console can poll the JSON route when `NEXT_PUBLIC_OPS_HUD=1`.
+  - 61 passing Vitest tests across cursor logic, market context helpers, ops
+    and Prometheus metrics routes, a full fake-Lane-2 + fake-generator
+    end-to-end drive through one gateway sequence space, the dead-generator
+    failure path, and proxy/auth forwarding.
 
 ### Lane 3: stubbed / not yet implemented
 
@@ -442,7 +446,7 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 ## Cross-lane integration status
 
 | Integration point                | Status                                                                                                                                                    |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------                      |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared types (`packages/shared`) | Frozen — all three lanes code against it                                                                                                                  |
 | Demo fixture → UI                | Working (Lane 3 owns player + fixture)                                                                                                                    |
 | Lane 2 API → Lane 1 verifier     | Working — authenticated remote handoff is covered by a real API-route → verifier HTTP integration test                                                    |

@@ -27,8 +27,13 @@ function dependencies(): AudioCommandDependencies {
     synthesizer: {
       synthesize: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     },
-    uploader: {
-      upload: vi.fn().mockResolvedValue(ASSET_URL),
+    publisher: {
+      publish: vi.fn().mockResolvedValue({
+        url: ASSET_URL,
+        sha256: SHA256,
+        objectKey: OBJECT_KEY,
+        contentType: "audio/mpeg" as const,
+      }),
     },
   };
 }
@@ -42,10 +47,9 @@ describe("audio generation command", () => {
     expect(providers.synthesizer.synthesize).toHaveBeenCalledWith(
       request.brief,
     );
-    expect(providers.uploader.upload).toHaveBeenCalledWith(
-      OBJECT_KEY,
+    expect(providers.publisher.publish).toHaveBeenCalledWith(
       new Uint8Array([1, 2, 3]),
-      SHA256,
+      "audio/mpeg",
     );
     expect(result).toEqual({
       segmentId: request.segmentId,
@@ -88,12 +92,17 @@ describe("audio generation command", () => {
       ),
     ).rejects.toThrow("audio command only supports tier=audio");
     expect(providers.synthesizer.synthesize).not.toHaveBeenCalled();
-    expect(providers.uploader.upload).not.toHaveBeenCalled();
+    expect(providers.publisher.publish).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid durable URL returned by the upload boundary", async () => {
     const providers = dependencies();
-    providers.uploader.upload = vi.fn().mockResolvedValue("not a URL");
+    providers.publisher.publish = vi.fn().mockResolvedValue({
+      url: "not a URL",
+      sha256: SHA256,
+      objectKey: OBJECT_KEY,
+      contentType: "audio/mpeg",
+    });
 
     await expect(generateAudio(environment, providers)).rejects.toThrow(
       "asset uploader returned an invalid asset URL",
@@ -109,6 +118,6 @@ describe("audio generation command", () => {
     await expect(generateAudio(environment, providers)).rejects.toThrow(
       "ElevenLabs unavailable",
     );
-    expect(providers.uploader.upload).not.toHaveBeenCalled();
+    expect(providers.publisher.publish).not.toHaveBeenCalled();
   });
 });

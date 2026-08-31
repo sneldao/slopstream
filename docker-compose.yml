@@ -36,6 +36,9 @@ services:
     env_file: apps/generator/.env
     environment:
       API_BASE_URL: http://api:4000
+      GENERATION_JOB_DB_PATH: /var/lib/slopstream/generation-jobs.sqlite
+    volumes:
+      - generator-data:/var/lib/slopstream
 
   orchestrator:
     build:
@@ -78,3 +81,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  generator-data:

@@ -391,6 +391,75 @@ export function playoutDurationFor(
   return Math.min(natural, cap);
 }
 
+/**
+ * Immutable object-key contract for durable public media. The digest is the
+ * object identity; a changed derivative must receive a new key.
+ */
+export const PUBLISHED_MEDIA = {
+  "audio/mpeg": {
+    kind: "audio",
+    extension: "mp3",
+    maxBytes: 25 * 1024 * 1024,
+  },
+  "image/png": {
+    kind: "image",
+    extension: "png",
+    maxBytes: 12 * 1024 * 1024,
+  },
+  "video/mp4": {
+    kind: "video",
+    extension: "mp4",
+    maxBytes: 64 * 1024 * 1024,
+  },
+} as const;
+
+export type PublishedMediaContentType = keyof typeof PUBLISHED_MEDIA;
+
+const SHA256_HEX = /^[a-f0-9]{64}$/;
+const PUBLISHED_OBJECT_KEY =
+  /^(audio|image|video)\/([a-f0-9]{64})\.(mp3|png|mp4)$/;
+
+export function isPublishedMediaContentType(
+  value: string,
+): value is PublishedMediaContentType {
+  return Object.hasOwn(PUBLISHED_MEDIA, value);
+}
+
+export function publishedObjectKey(
+  sha256: string,
+  contentType: PublishedMediaContentType,
+): string {
+  if (!SHA256_HEX.test(sha256)) {
+    throw new Error(
+      "published object key requires a lowercase SHA-256 hex digest",
+    );
+  }
+  const spec = PUBLISHED_MEDIA[contentType];
+  return `${spec.kind}/${sha256}.${spec.extension}`;
+}
+
+export function publishedMediaForObjectKey(objectKey: string):
+  | {
+      sha256: string;
+      contentType: PublishedMediaContentType;
+      maxBytes: number;
+    }
+  | undefined {
+  const match = PUBLISHED_OBJECT_KEY.exec(objectKey);
+  if (!match) return undefined;
+  const [, kind, sha256, extension] = match;
+  for (const [contentType, spec] of Object.entries(PUBLISHED_MEDIA)) {
+    if (spec.kind === kind && spec.extension === extension) {
+      return {
+        sha256,
+        contentType: contentType as PublishedMediaContentType,
+        maxBytes: spec.maxBytes,
+      };
+    }
+  }
+  return undefined;
+}
+
 export interface Segment {
   id: string;
   slot: number;
@@ -724,6 +793,9 @@ export interface StreamOpsMetrics {
     snapshotAvailable: boolean;
     upcomingCount: number;
     processedSegments: number;
+    /** Remaining current playout plus upcoming ready durations. 0 when the
+     *  API snapshot needed for queue math is unavailable. */
+    readyBufferSec?: number;
   };
   market: {
     leaderBrandId?: string;

@@ -91,7 +91,7 @@ The orchestrator keeps segments generating or ready ahead of playback with an **
 ## Component responsibilities
 
 - **Big screen** — Continuum playback, archive world, QR join. Market chrome is secondary; theater mode hides it for content-first demos. Consumes WebSocket events.
-- **Stream orchestrator** — the live brain: continuous segment queue, scheduler, stream continuity (The Continuum), attention challenge timing, local ops metrics (`GET /ops/metrics`), and an optional best-effort alert dispatcher. Alerting samples scheduler metrics but ignores queue-derived conditions when the API snapshot is unavailable; it cannot interrupt playback, auction handling, or settlement. Consumes auction/sponsorship results from the backend for paid beats — it never resolves auctions or settles money; the ledger is the single source of truth for both.
+- **Stream orchestrator** — the live brain: continuous segment queue, scheduler, stream continuity (The Continuum), attention challenge timing, local ops metrics (`GET /ops/metrics` JSON and `GET /metrics` Prometheus text), and an optional best-effort alert dispatcher. Alerting samples scheduler metrics but ignores queue-derived conditions when the API snapshot is unavailable; it cannot interrupt playback, auction handling, or settlement. Consumes auction/sponsorship results from the backend for paid beats — it never resolves auctions or settles money; the ledger is the single source of truth for both.
 - **Daytona pool** — disposable sandboxes for ad generation (LLM script, TTS, image generation, video generation); returns the generated asset to the orchestrator.
 - **Backend API** — brand accounts, Stripe balances, listener sessions, reward ledger and accounting, scraper ingestion, challenge generation, auction resolution (winner selection and slot assignment). Owns all clearing and settlement, and is the sole caller of Midnight and Stripe.
 - **Midnight** — proves conditions on-chain; consulted by the backend. See [contracts](contracts.md).
@@ -194,9 +194,10 @@ The verifier checks that the server-issued stub payload matches the listener/seg
 - This same rule applies to a free segment: its authoritative owner allocates the ID before calling the generator. The result carries a tier-appropriate placeholder asset URL, transcript, continuity summary, and optional audio/visual metadata. Lane 3 queues the result; Lane 2 consumes the transcript to pre-generate challenges.
 - `GENERATOR_MODE=stub` makes no provider calls. `GenerationProvider` and
   `GenerationJobStore` isolate the deterministic local implementation from a
-  future Daytona/provider and durable job store. A future Daytona
-  implementation replaces the provider internals while retaining this HTTP
-  boundary and segment correlation rule.
+  future Daytona/provider. `SqliteGenerationJobStore` (`GENERATION_JOB_DB_PATH`)
+  is the single-node durable implementation of that seam; the default remains
+  in-memory. A future Daytona implementation replaces the provider internals
+  while retaining this HTTP boundary and segment correlation rule.
 - `SegmentPreparationService` is the tested Lane 3 handoff for a closed
   auction winner: it marks the segment generating, calls the generator,
   validates the returned ID, persists `ready`, posts transcript/metadata to
@@ -205,27 +206,27 @@ The verifier checks that the server-issued stub payload matches the listener/seg
 
 ## Tech stack
 
-| Layer            | Technology                                                                                                                                                   |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Frontend         | Next.js                                                                                                                                                      |
-| Screen rendering | HTML media + CSS Continuum field — central portal, archive cards, typography, spheres and event ripples (see [design language](../product/design-language.md)) |
-| Optional 3D experiments | Retained R3F / Rapier prototype; not required by the shipped screen                                                                                   |
-| Optional material effects | Retained post-processing and metaball experiments; progressive enhancement only                                                                       |
-| 2D animation     | Framer Motion — spring physics for listener + brand surfaces and the floating HUD overlay                                                                    |
-| Audio reactivity | Web Audio API `AnalyserNode` → subtle CSS/DOM motion, portal treatment and listener visuals                                                                  |
-| Live transport   | HTTPS / REST commands + WebSocket projections                                                                                                                |
-| Backend          | Node + TypeScript                                                                                                                                            |
-| Queue            | Redis                                                                                                                                                        |
-| Database         | Postgres                                                                                                                                                     |
-| Generation       | Model-driven generation pipeline                                                                                                                             |
-| Optional sandboxing | Daytona — only for generated/user-supplied executable creative work or heavyweight disposable renders                                                     |
-| Contracts        | Compact / Midnight (Compact is Midnight's smart-contract language; Midnight is a privacy-preserving blockchain with private state and zero-knowledge proofs) |
-| Payments         | Stripe                                                                                                                                                       |
-| Audio            | TTS                                                                                                                                                          |
-| Visuals          | Image generation                                                                                                                                             |
-| Premium          | Video generation                                                                                                                                             |
-| Listener client  | Mobile web / QR                                                                                                                                              |
-| Authentication   | Lightweight session identity (listener); email/OAuth for brand console                                                                                       |
+| Layer                     | Technology                                                                                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend                  | Next.js                                                                                                                                                        |
+| Screen rendering          | HTML media + CSS Continuum field — central portal, archive cards, typography, spheres and event ripples (see [design language](../product/design-language.md)) |
+| Optional 3D experiments   | Retained R3F / Rapier prototype; not required by the shipped screen                                                                                            |
+| Optional material effects | Retained post-processing and metaball experiments; progressive enhancement only                                                                                |
+| 2D animation              | Framer Motion — spring physics for listener + brand surfaces and the floating HUD overlay                                                                      |
+| Audio reactivity          | Web Audio API `AnalyserNode` → subtle CSS/DOM motion, portal treatment and listener visuals                                                                    |
+| Live transport            | HTTPS / REST commands + WebSocket projections                                                                                                                  |
+| Backend                   | Node + TypeScript                                                                                                                                              |
+| Queue                     | Redis                                                                                                                                                          |
+| Database                  | Postgres                                                                                                                                                       |
+| Generation                | Model-driven generation pipeline                                                                                                                               |
+| Optional sandboxing       | Daytona — only for generated/user-supplied executable creative work or heavyweight disposable renders                                                          |
+| Contracts                 | Compact / Midnight (Compact is Midnight's smart-contract language; Midnight is a privacy-preserving blockchain with private state and zero-knowledge proofs)   |
+| Payments                  | Stripe                                                                                                                                                         |
+| Audio                     | TTS                                                                                                                                                            |
+| Visuals                   | Image generation                                                                                                                                               |
+| Premium                   | Video generation                                                                                                                                               |
+| Listener client           | Mobile web / QR                                                                                                                                                |
+| Authentication            | Lightweight session identity (listener); email/OAuth for brand console                                                                                         |
 
 **Authentication scope.** Listeners join via QR with a lightweight, anonymous bearer session — no account needed — and the browser stores its token plus commitment in `sessionStorage`. The brand console moves real money (Stripe top-ups, bids), so production requires a stronger identity (email/OAuth). The local hackathon profile is an intentional exception: it seeds ACME with `DEMO_ACME_BRAND_TOKEN`, exposed as `NEXT_PUBLIC_DEMO_BRAND_TOKEN` only for a deterministic demo. That token is not production authentication. Full KYC is explicitly out of scope (see [economics](../product/economics.md#listener-rewards-start-with-an-internal-balance)).
 

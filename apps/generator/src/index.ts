@@ -7,6 +7,13 @@ export {
   type GenerationJobStore,
   type GenerationProvider,
 } from "./generator.js";
+export { createSqliteGenerationJobStore } from "./sqliteJobStore.js";
+export {
+  createAssetPublisherFromEnv,
+  HttpAssetPublisher,
+  LocalDirectoryAssetPublisher,
+  type AssetPublisher,
+} from "./assetPublisher.js";
 export {
   configuredGeneratorMode,
   createGenerationProviderFromEnv,
@@ -28,10 +35,16 @@ import {
   configuredGeneratorMode,
   createGenerationProviderFromEnv,
 } from "./daytonaProvider.js";
+import { InMemoryGenerationJobStore } from "./generator.js";
 import { createGeneratorServer } from "./server.js";
+import { createSqliteGenerationJobStore } from "./sqliteJobStore.js";
 
 const configuredMode = configuredGeneratorMode(process.env);
 const provider = createGenerationProviderFromEnv(process.env);
+const jobDbPath = process.env.GENERATION_JOB_DB_PATH?.trim();
+const jobStore = jobDbPath
+  ? createSqliteGenerationJobStore(jobDbPath)
+  : new InMemoryGenerationJobStore();
 const port = Number(process.env.PORT ?? 4300);
 const configuredApiToken = process.env.GENERATOR_API_TOKEN?.trim();
 const demoApiToken = "slopstream-demo-generator-token";
@@ -45,6 +58,7 @@ const server = createGeneratorServer({
   provider,
   generatorMode: configuredMode,
   apiToken: configuredApiToken ?? demoApiToken,
+  jobStore,
 });
 
 server.listen(port, () => {
