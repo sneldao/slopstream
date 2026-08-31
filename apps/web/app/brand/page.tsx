@@ -291,6 +291,12 @@ export default function BrandPage() {
                   attention cleared
                 </span>
               )}
+              {state.lastSettlement.kind === "cleared" &&
+                state.lastSettlement.explanation && (
+                  <span style={styles.receiptExplanation}>
+                    {state.lastSettlement.explanation}
+                  </span>
+                )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1183,6 +1189,12 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--platform-text-dim)",
     fontSize: 11,
     fontWeight: 700,
+  },
+  receiptExplanation: {
+    color: "rgba(255,255,255,0.64)",
+    fontSize: 11,
+    fontWeight: 650,
+    lineHeight: 1.35,
   },
   bidConfirmed: {
     fontSize: 14,

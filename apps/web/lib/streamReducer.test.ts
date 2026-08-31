@@ -32,10 +32,28 @@ describe("streamReducer live lifecycle", () => {
       ...snapshot,
       placedVolumeUsd: 125,
       totalClearedVolumeUsd: 80,
+      latestClearedBid: {
+        bidId: "bid_1",
+        segmentId: "seg_1",
+        grossAmountUsd: 80,
+        listenerPoolUsd: 64,
+        platformRevenueUsd: 16,
+        explanation: "Recovered cleared-bid explanation.",
+        clearedAt: "2026-08-31T00:00:00.000Z",
+      },
     });
 
     expect(state.placedVolumeUsd).toBe(125);
     expect(state.totalClearedVolumeUsd).toBe(80);
+    expect(state.lastClear).toMatchObject({
+      burstId: 0,
+      explanation: "Recovered cleared-bid explanation.",
+    });
+    expect(state.lastSettlement).toMatchObject({
+      kind: "cleared",
+      flashId: 0,
+      explanation: "Recovered cleared-bid explanation.",
+    });
   });
 
   it("updates placed volume from a live bid event", () => {
@@ -74,6 +92,8 @@ describe("streamReducer live lifecycle", () => {
       grossAmountUsd: 10,
       listenerPoolUsd: 8,
       platformRevenueUsd: 2,
+      explanation:
+        "Won at $10.00: video production, cleared against 2 verified attention events; $8.00 allocated across verified listener rewards.",
     });
 
     expect(state.nowPlaying).toBeNull();
@@ -89,6 +109,8 @@ describe("streamReducer live lifecycle", () => {
       kind: "cleared",
       amountUsd: 10,
       listenerPoolUsd: 8,
+      explanation:
+        "Won at $10.00: video production, cleared against 2 verified attention events; $8.00 allocated across verified listener rewards.",
     });
   });
 
@@ -184,6 +206,8 @@ describe("streamReducer encore replays", () => {
       grossAmountUsd: 10,
       listenerPoolUsd: 8,
       platformRevenueUsd: 2,
+      explanation:
+        "Won at $10.00: video production, cleared against 2 verified attention events; $8.00 allocated across verified listener rewards.",
     });
     expect(after.nowPlaying?.id).toBe("seg_old");
     expect(after.nowPlayingEncore).toBe(true);

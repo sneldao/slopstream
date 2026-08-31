@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ClearingEngine } from "./clearing.js";
 import { composeSnapshot } from "./snapshot.js";
 import { setupHarness } from "./test-harness.js";
+import type { BidRow, RewardPoolRow, SegmentRow } from "./ledger.js";
 import { StubProofVerifier } from "./verifier.js";
 
 describe("composeSnapshot", () => {
@@ -55,6 +56,76 @@ describe("composeSnapshot", () => {
     expect(snapshot.recentSegments[0]).toMatchObject({
       assetUrl: "/assets/newer.webp",
       windowOpenedAtMs: now - 1_000,
+    });
+  });
+
+  it("keeps the latest cleared value-exchange explanation in recovery snapshots", () => {
+    const harness = setupHarness();
+    const clearing = new ClearingEngine(
+      harness.ledger,
+      harness.bus,
+      new StubProofVerifier(),
+      { listenerPct: 0.8, platformPct: 0.2 },
+    );
+    const clearedAtMs = 2_000_000;
+    const bid: BidRow = {
+      id: "bid_cleared",
+      brandId: "brand_1",
+      slot: 1,
+      amountCents: 2_500,
+      tier: "video",
+      status: "cleared",
+      segmentId: "seg_cleared",
+      createdAt: new Date(clearedAtMs).toISOString(),
+      updatedAt: new Date(clearedAtMs).toISOString(),
+    };
+    const segment: SegmentRow = {
+      id: "seg_cleared",
+      slot: 1,
+      brandId: "brand_1",
+      bidId: bid.id,
+      status: "done",
+      durationSec: 20,
+      summary: "cleared summary",
+      thresholdFraction: 0.6,
+      requiredEvents: 2,
+      windowOpenedAtMs: clearedAtMs - 20_000,
+      windowClosed: true,
+      clearedAmountCents: bid.amountCents,
+      clearedAtMs,
+    };
+    const pool: RewardPoolRow = {
+      id: "pool_cleared",
+      bidId: bid.id,
+      grossCents: bid.amountCents,
+      listenerPct: 0.8,
+      platformPct: 0.2,
+      eligibleCents: 2_000,
+      distributedCents: 2_000,
+      status: "closed",
+      createdAt: new Date(clearedAtMs).toISOString(),
+    };
+    harness.ledger.bids.set(bid.id, bid);
+    harness.ledger.segments.set(segment.id, segment);
+    harness.ledger.rewardPools.set(pool.id, pool);
+
+    const snapshot = composeSnapshot(
+      harness.ledger,
+      harness.bus,
+      harness.auction,
+      clearing,
+      clearedAtMs,
+    );
+
+    expect(snapshot.latestClearedBid).toEqual({
+      bidId: bid.id,
+      segmentId: segment.id,
+      grossAmountUsd: 25,
+      listenerPoolUsd: 20,
+      platformRevenueUsd: 5,
+      explanation:
+        "Won at $25.00: video production, cleared against 2 verified attention events; $20.00 allocated across verified listener rewards.",
+      clearedAt: new Date(clearedAtMs).toISOString(),
     });
   });
 });

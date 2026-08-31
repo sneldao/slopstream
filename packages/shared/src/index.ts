@@ -410,6 +410,8 @@ export type WsEvent =
       grossAmountUsd: number;
       listenerPoolUsd: number;
       platformRevenueUsd: number;
+      /** Public, factual explanation of the winning bid's value exchange. */
+      explanation?: string;
     }
   | {
       type: "bid.uncleared";
@@ -455,6 +457,18 @@ export interface WsDelivery {
  * Authoritative response of GET /stream/snapshot — initial load and
  * recovery after a missed event or reconnect.
  */
+export interface ClearedBidSettlement {
+  bidId: string;
+  segmentId: string;
+  grossAmountUsd: number;
+  listenerPoolUsd: number;
+  platformRevenueUsd: number;
+  /** Public, factual explanation of the completed value exchange. */
+  explanation: string;
+  /** ISO timestamp of the clearing evaluation. */
+  clearedAt: string;
+}
+
 export interface StreamSnapshot {
   asOfSequence: number;
   nowPlaying: Segment | null;
@@ -463,6 +477,9 @@ export interface StreamSnapshot {
    *  Age-capped at most 30 minutes old (by segment.windowOpenedAtMs); older
    *  segments roll off so the UI only keeps the window that still matters. */
   recentSegments: Segment[];
+  /** Latest public cleared-bid settlement. Allows reconnecting clients to
+   *  retain the value-exchange explanation after replacing live state. */
+  latestClearedBid?: ClearedBidSettlement;
   /** Segments that are generated/ready but not yet playing — the upcoming
    *  queue. Surfaces what's about to air so the screen can show "next up". */
   upcomingSegments: Segment[];
@@ -533,7 +550,7 @@ export interface GenerationRequest {
   sourceUrl?: string;
 }
 
-/** Orchestrator ops snapshot for the stream HUD (GET /ops/metrics). */
+/** Orchestrator ops snapshot for the stream HUD and alerting (GET /ops/metrics). */
 export interface StreamOpsMetrics {
   asOf: string;
   segmentPlaySec: number;
@@ -561,6 +578,9 @@ export interface StreamOpsMetrics {
   };
   queue: {
     nowPlayingStatus?: string;
+    /** False when the API snapshot needed for queue-derived metrics failed.
+     *  `upcomingCount` is then unavailable for alerting decisions. */
+    snapshotAvailable: boolean;
     upcomingCount: number;
     processedSegments: number;
   };

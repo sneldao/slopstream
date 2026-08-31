@@ -14,7 +14,8 @@ Product design and technical architecture for **The Continuum** — a live, infi
 
 - [architecture.md](technical/architecture.md) — system architecture diagram, component responsibilities, generation pipeline with disposable sandboxes, and the tech stack.
 - [contracts.md](technical/contracts.md) — the Midnight contracts: `ProofOfAttention`, `BidClearing`, `RewardClearing`, `PreviewRightsThreshold`.
-- [backend.md](technical/backend.md) — money architecture (Stripe as the only fiat rail), the Postgres ledger schema, the attention threshold and window mechanics, listener session identity, and the attention challenge engine.
+- [backend.md](technical/backend.md) — money architecture (Stripe as the only fiat rail), the Postgres ledger schema, the attention threshold and window mechanics, listener session identity, the attention challenge engine, and public event/ops contracts.
+- [deployment.md](technical/deployment.md) — Coolify demo provisioning, topology, optional operational alerts, verification, and production deployment gates.
 - [interactive-creative.md](technical/interactive-creative.md) — post-hackathon plan for Daytona-backed premium interactive creatives, including contract, safety, fallback, and rollout requirements.
 
 ## Hackathon

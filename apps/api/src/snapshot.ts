@@ -8,7 +8,7 @@ import type {
 } from "@slopstream/shared";
 import type { AuctionEngine } from "./auction.js";
 import { OPENING_PRICE_CENTS } from "./auction.js";
-import type { ClearingEngine } from "./clearing.js";
+import { clearedBidExplanation, type ClearingEngine } from "./clearing.js";
 import type { EventBus } from "./bus.js";
 import { activeChallenge } from "./challenges.js";
 import type { Ledger, SegmentRow } from "./ledger.js";
@@ -33,6 +33,32 @@ function toSharedSegment(segment: SegmentRow): SharedSegment {
     ...(segment.windowOpenedAtMs !== undefined
       ? { windowOpenedAtMs: segment.windowOpenedAtMs }
       : {}),
+  };
+}
+
+function latestClearedBidSummary(ledger: Ledger) {
+  const segment = [...ledger.segments.values()]
+    .filter(
+      (candidate) =>
+        candidate.clearedAtMs !== undefined && candidate.bidId !== null,
+    )
+    .sort((a, b) => (b.clearedAtMs ?? 0) - (a.clearedAtMs ?? 0))[0];
+  if (!segment?.bidId || segment.clearedAtMs === undefined) return undefined;
+
+  const bid = ledger.bids.get(segment.bidId);
+  const pool = [...ledger.rewardPools.values()].find(
+    (candidate) => candidate.bidId === segment.bidId,
+  );
+  if (!bid || bid.status !== "cleared" || !pool) return undefined;
+
+  return {
+    bidId: bid.id,
+    segmentId: segment.id,
+    grossAmountUsd: centsToUsd(pool.grossCents),
+    listenerPoolUsd: centsToUsd(pool.eligibleCents),
+    platformRevenueUsd: centsToUsd(pool.grossCents - pool.eligibleCents),
+    explanation: clearedBidExplanation(bid, segment, pool.eligibleCents),
+    clearedAt: new Date(segment.clearedAtMs).toISOString(),
   };
 }
 
@@ -83,6 +109,7 @@ export function composeSnapshot(
     asOfSequence: bus.sequence,
     nowPlaying: nowPlayingRow ? toSharedSegment(nowPlayingRow) : null,
     recentSegments,
+    latestClearedBid: latestClearedBidSummary(ledger),
     upcomingSegments,
     nowPlayingStartedAt:
       nowPlayingRow?.windowOpenedAtMs !== undefined

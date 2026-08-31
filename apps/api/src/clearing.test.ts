@@ -135,6 +135,8 @@ describe("attention window and clearing", () => {
       grossAmountUsd: 25,
       listenerPoolUsd: 20,
       platformRevenueUsd: 5,
+      explanation:
+        "Won at $25.00: video production, cleared against 2 verified attention events; $20.00 allocated across verified listener rewards.",
     });
 
     // Clearing is retry-safe and evaluates exactly once.

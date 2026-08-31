@@ -358,7 +358,11 @@ describe("gateway ops metrics", () => {
         atRisk: false,
       },
       playback: { active: false },
-      queue: { upcomingCount: 0, processedSegments: 1 },
+      queue: {
+        snapshotAvailable: true,
+        upcomingCount: 0,
+        processedSegments: 1,
+      },
       market: { nextSlotPriceUsd: 5 },
     }));
     const gatewayBaseUrl = await listen(gateway.server);
@@ -578,6 +582,9 @@ describe("orchestrator live slice", () => {
       parallelApiKey: "",
       scraperPollMs: 60_000,
       scraperMaxResults: 10,
+      alertPollMs: 5_000,
+      alertWebhookTimeoutMs: 5_000,
+      alertIdleThresholdMs: 10_000,
     };
 
     gateway = new Gateway({ apiBaseUrl });
@@ -712,6 +719,9 @@ describe("orchestrator live slice", () => {
       parallelApiKey: "",
       scraperPollMs: 60_000,
       scraperMaxResults: 10,
+      alertPollMs: 5_000,
+      alertWebhookTimeoutMs: 5_000,
+      alertIdleThresholdMs: 10_000,
     };
 
     gateway = new Gateway({ apiBaseUrl });
@@ -755,6 +765,9 @@ describe("orchestrator live slice", () => {
         parallelApiKey: "",
         scraperPollMs: 60_000,
         scraperMaxResults: 10,
+        alertPollMs: 5_000,
+        alertWebhookTimeoutMs: 5_000,
+        alertIdleThresholdMs: 10_000,
       },
       gateway,
       api,
@@ -863,6 +876,9 @@ describe("scheduler challenge firing guard", () => {
       parallelApiKey: "",
       scraperPollMs: 60_000,
       scraperMaxResults: 10,
+      alertPollMs: 5_000,
+      alertWebhookTimeoutMs: 5_000,
+      alertIdleThresholdMs: 10_000,
     };
     const scheduler = new SegmentScheduler({
       env,
@@ -929,6 +945,9 @@ describe("failed-segment retry", () => {
       parallelApiKey: "",
       scraperPollMs: 60_000,
       scraperMaxResults: 10,
+      alertPollMs: 5_000,
+      alertWebhookTimeoutMs: 5_000,
+      alertIdleThresholdMs: 10_000,
     };
 
     const gateway = new Gateway({ apiBaseUrl });
@@ -1015,6 +1034,9 @@ function encoreEnv(segmentPlaySec: number): OrchestratorEnv {
     parallelApiKey: "",
     scraperPollMs: 60_000,
     scraperMaxResults: 10,
+    alertPollMs: 5_000,
+    alertWebhookTimeoutMs: 5_000,
+    alertIdleThresholdMs: 10_000,
   };
 }
 

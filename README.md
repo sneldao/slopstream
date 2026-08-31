@@ -79,7 +79,7 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:verifier
 | [docs/technical/architecture.md](docs/technical/architecture.md)   | System architecture, tech stack, generation pipeline                            |
 | [docs/technical/contracts.md](docs/technical/contracts.md)         | Midnight smart contracts                                                        |
 | [docs/technical/backend.md](docs/technical/backend.md)             | Money architecture, ledger schema, threshold/window mechanics, challenge engine |
-| [docs/technical/deployment.md](docs/technical/deployment.md)       | Coolify demo provisioning, topology, verification, and production safety gates  |
+| [docs/technical/deployment.md](docs/technical/deployment.md)       | Coolify demo provisioning, topology, alert configuration, verification, and production safety gates |
 | [docs/hackathon/demo-script.md](docs/hackathon/demo-script.md)     | User flows and the live demo sequence                                           |
 | [docs/hackathon/judge-story.md](docs/hackathon/judge-story.md)     | First-10-seconds pitch, judge-friendly demo arc, and rehearsal guide            |
 | [docs/hackathon/build-order.md](docs/hackathon/build-order.md)     | P0 / P1 / P2 build priorities                                                   |

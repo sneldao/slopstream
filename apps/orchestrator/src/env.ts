@@ -34,6 +34,14 @@ export interface OrchestratorEnv {
   scraperPollMs: number;
   /** Max search results per scraper run. */
   scraperMaxResults: number;
+  /** Optional webhook for transition-based operational alerts. */
+  alertWebhookUrl?: string;
+  /** How often to sample scheduler metrics for operational alerts (ms). */
+  alertPollMs: number;
+  /** How long a single alert webhook request may run (ms). */
+  alertWebhookTimeoutMs: number;
+  /** How long the stream may stay idle before a dead-air alert (ms). */
+  alertIdleThresholdMs: number;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -98,6 +106,16 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): OrchestratorEnv {
     scraperMaxResults: positive(
       "SCRAPER_MAX_RESULTS",
       num(env.SCRAPER_MAX_RESULTS, 10),
+    ),
+    alertWebhookUrl: env.ALERT_WEBHOOK_URL?.trim() || undefined,
+    alertPollMs: positive("ALERT_POLL_MS", num(env.ALERT_POLL_MS, 5000)),
+    alertWebhookTimeoutMs: positive(
+      "ALERT_WEBHOOK_TIMEOUT_MS",
+      num(env.ALERT_WEBHOOK_TIMEOUT_MS, 5_000),
+    ),
+    alertIdleThresholdMs: positive(
+      "ALERT_IDLE_THRESHOLD_MS",
+      num(env.ALERT_IDLE_THRESHOLD_MS, 10_000),
     ),
   };
 }

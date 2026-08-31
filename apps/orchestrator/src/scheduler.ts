@@ -135,6 +135,7 @@ export class SegmentScheduler {
       snapshot = undefined;
     }
 
+    const snapshotAvailable = snapshot !== undefined;
     const playback = this.playback;
     const elapsedSec = playback
       ? (Date.now() - playback.startedAtMs) / 1000
@@ -146,6 +147,7 @@ export class SegmentScheduler {
     const upcomingCount = snapshot?.upcomingSegments.length ?? 0;
     const encoreActive = !!playback?.encore;
     const atRisk =
+      snapshotAvailable &&
       this.generationInFlight &&
       upcomingCount === 0 &&
       remainingSec !== undefined &&
@@ -185,6 +187,7 @@ export class SegmentScheduler {
       },
       queue: {
         nowPlayingStatus: snapshot?.nowPlaying?.status,
+        snapshotAvailable,
         upcomingCount,
         processedSegments: this.processed.size,
       },

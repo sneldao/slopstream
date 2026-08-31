@@ -64,18 +64,28 @@ The WebSocket is a **server-to-client projection**, not a mutation API. Clients 
 | Request a listener payout       | `POST /listener-sessions/me/payout-request`    | Records a hackathon payout request and debits the available internal balance; no external payout rail yet                                                          |
 | Read payout history             | `GET /listener-sessions/me/payouts`             | Authenticated, newest-first completed payout receipts                                                                                                               |
 | Read price history              | `GET /stream/price-history`                     | Public cleared-price points; `clearedAt` is the settlement evaluation time, with optional ISO `since`, `limit`, and `format=csv`                                   |
-| Load or recover stream state     | `GET /stream/snapshot`                         | Current segment, age-capped recent completed segments, the next generated/ready queue, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
+| Load or recover stream state     | `GET /stream/snapshot`                         | Current segment, age-capped recent completed segments, latest public cleared-bid settlement/explanation, the next generated/ready queue, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
 | Poll auction state               | `GET /auctions/current`, `GET /auctions/:slot` | `AuctionState` (status, deadline, standing bid, winner + `segmentId` after close)                                                                                  |
 
-Stream ops (local debug): `GET /ops/metrics` on the orchestrator gateway returns
-`StreamOpsMetrics` (generation latency, playback, queue depth). Enable the brand
-console HUD with `NEXT_PUBLIC_OPS_HUD=1`. This route is not proxied to Lane 2.
+Stream ops: `GET /ops/metrics` on the orchestrator gateway returns
+`StreamOpsMetrics` (generation latency, playback, queue depth) for the local
+HUD and optional operational alert dispatcher. `queue.snapshotAvailable`
+distinguishes a live queue snapshot from an API-read failure; `upcomingCount: 0`
+while unavailable must not be interpreted as an empty queue. Configure
+`ALERT_WEBHOOK_URL` to POST transition-based aggregate alerts, or leave it
+unset for local warning logs. The dispatcher emits `generation.at_risk`
+(warning) once per risk episode and `stream.idle` (critical) only after the
+configured idle threshold; webhook failures and timeouts are logged and retried
+on the next sample. Alerting is best-effort and never interrupts scheduling;
+the durable outbox/worker replacement is described in [Production durability
+plan](#production-durability-plan). Enable the brand-console HUD with
+`NEXT_PUBLIC_OPS_HUD=1`. This route is not proxied to Lane 2.
 
 Brand and listener commands authenticate with their bearer token. The orchestrator additionally authenticates with `ORCHESTRATOR_API_TOKEN` and drives the per-segment lifecycle against Lane 2 — `POST /segments/:id/generating`, `/ready`, `/challenge-source`, `/challenges/next` (Lane 3 decides when to fire; the response is a `PublicChallenge`, never the answer), `/playing` (opens the attention window and freezes `required_events`), `/window-closed` (exactly-once clearing evaluation), and `/failed` — so clearing state stays in the ledger even though playback lives in Lane 3. Invoking the generator similarly requires `GENERATOR_API_TOKEN`; production processes refuse to start with the checked-in demo defaults.
 
 The orchestrator gateway answers three local HTTP routes before reverse-proxying everything else to Lane 2: `GET /health`, `GET /stream/snapshot` (stamps `asOfSequence` into the gateway sequence space), and `GET /ops/metrics`.
 
-Commands are authenticated and validated at the API boundary; the API persists the result before it publishes the corresponding marketplace event to Redis. `POST /bids` accepts an optional `Idempotency-Key` header (or command-body key): repeating the same brand/key/amount returns the original bid without reserving funds again, while reusing the key with a different amount returns `409`. The public gateway permits and forwards this header. In the current demo, idempotency and bid-rate protection are bounded, process-local TTL maps; durable shared idempotency, rate limits, and audit logging remain production requirements. Clients must never treat a WebSocket message as evidence that a bid, balance, proof, or reward is settled.
+Commands are authenticated and validated at the API boundary; the API persists the result before it publishes the corresponding marketplace event to Redis. `POST /bids` accepts an optional `Idempotency-Key` header (or command-body key): repeating the same brand/key/amount returns the original bid without reserving funds again, while reusing the key with a different amount returns `409`. The public gateway permits and forwards this header. In the current demo, idempotency and bid-rate protection are bounded, process-local TTL maps; the production replacement is specified in [Production durability plan](#production-durability-plan). Clients must never treat a WebSocket message as evidence that a bid, balance, proof, or reward is settled.
 
 ### Listener session identity
 
@@ -89,7 +99,7 @@ If a later release adds a private WebSocket update, it must define a separately 
 
 Every gateway delivery wraps a `WsEvent` in a `WsDelivery` envelope carrying a monotonic `sequence` and opaque `eventId`. `WsDelivery` is defined in `packages/shared`, so all clients deduplicate and order deliveries against one shared shape. The sequence is transport metadata; the underlying `WsEvent` remains the business-event union described below.
 
-For the hackathon, Redis pub/sub does **not** need to become a durable replay log. On initial load or reconnect, the client fetches `GET /stream/snapshot` — a `StreamSnapshot` from `packages/shared` (`asOfSequence`, now playing, recent completed segments, a small generated/ready queue, brands, leaderboard, open auction deadline, stats, active `PublicChallenge`) — renders that authoritative state, and records its `asOfSequence`. It applies only later events; a duplicate is ignored, and a sequence gap triggers another snapshot fetch. This makes a dropped mobile connection recoverable without making the socket itself durable. `recentSegments` is newest-first, capped at eight, and excludes segments whose playback window opened more than 30 minutes ago; `upcomingSegments` is limited to the next three queue entries for the screen’s “Coming up” cue and the scheduler’s adaptive prefetch gate. `placedVolumeUsd` advances from live `bid.placed` deliveries, while cleared volume advances from `bid.cleared` and is reconciled by snapshots.
+For the hackathon, Redis pub/sub does **not** need to become a durable replay log. On initial load or reconnect, the client fetches `GET /stream/snapshot` — a `StreamSnapshot` from `packages/shared` (`asOfSequence`, now playing, recent completed segments, the latest public cleared-bid settlement/explanation, a small generated/ready queue, brands, leaderboard, open auction deadline, stats, active `PublicChallenge`) — renders that authoritative state, and records its `asOfSequence`. It applies only later events; a duplicate is ignored, and a sequence gap triggers another snapshot fetch. This makes a dropped mobile connection recoverable without making the socket itself durable. `recentSegments` is newest-first, capped at eight, and excludes segments whose playback window opened more than 30 minutes ago; `upcomingSegments` is limited to the next three queue entries for the screen’s “Coming up” cue and the scheduler’s adaptive prefetch gate. `placedVolumeUsd` advances from live `bid.placed` deliveries, while cleared volume advances from `bid.cleared` and is reconciled by snapshots.
 
 ### Public event reference
 
@@ -106,7 +116,7 @@ For the hackathon, Redis pub/sub does **not** need to become a durable replay lo
 | `segment.encore`      | Orchestrator replays a done segment to cover dead air (no clearing window, challenges, or rewards) | `segmentId`, `brandId`, `startedAt`, `slot`, `assetUrl`, `durationSec`, `summary`                                                    |
 | `challenge.fired`     | A challenge is pushed to listeners           | `PublicChallenge` object (`challengeId`, `segmentId`, `question`, `validFrom`, `validUntil`, `difficulty`) — **excludes the answer** |
 | `attention.verified`  | A valid attention event is recorded          | `segmentId`, aggregate `verifiedCount` / `total` / `threshold` (no listener identity)                                                |
-| `bid.cleared`         | Segment met threshold; bid clears            | `bidId`, `segmentId`, `grossAmount`, `listenerPool`, `platformRevenue`                                                               |
+| `bid.cleared`         | Segment met threshold; bid clears            | `bidId`, `segmentId`, `grossAmount`, `listenerPool`, `platformRevenue`, optional factual `explanation` of tier, verified-attention threshold, and listener-reward allocation |
 | `bid.uncleared`       | Threshold missed; bid returned               | `bidId`, `segmentId`, `returnedAmount`                                                                                               |
 | `bid.failed`          | Generation failed pre-playback; bid returned | `bidId`, `segmentId`, `returnedAmount`                                                                                               |
 | `reward.pool.updated` | Pool created or distributed                  | `poolId`, `bidId`, `eligibleAmount`, `distributedAmount`                                                                             |
@@ -117,6 +127,135 @@ Payloads carry only aggregate/public data — no listener identity or answers cr
 ## Backend ledger
 
 Postgres is the target accounting ledger. **The current hackathon implementation uses in-memory Maps** shaped like this schema; all amount columns remain integer cents, the shared wire types expose USD as numbers (`amountUsd`, `grossAmountUsd`, …), and the API boundary converts once. Clearing math (`gross × 80%`) and pool distribution run in integer cents with round-to-cent, so no float drift reaches the ledger.
+
+## Production durability plan
+
+The in-memory implementation is appropriate for a deterministic demo, but it is
+not safe as the source of truth once the service can restart, scale horizontally,
+or handle real money. A process restart currently erases balances, bids,
+reservations, rewards, payouts, idempotency keys, rate-limit counters, and alert
+latches. Multiple API replicas would also make those values disagree.
+
+The production boundary is:
+
+> **Postgres owns truth. Redis coordinates speed. Workers make side effects reliable.**
+
+### Ownership model
+
+| Concern | Production owner | Why |
+| --- | --- | --- |
+| Brands, balances, reservations, bids, auctions, segments, attention events, reward pools, listener rewards, payouts | Postgres | Durable history, constraints, auditability, and transactions for money and ownership |
+| Idempotency records for money-changing commands | Postgres, in the bid transaction | Retries must return the original result across replicas and deploys without reserving funds twice |
+| Rate limits, short-lived locks, presence, job queues, and live coordination | Redis | Shared low-latency coordination; this state can expire or be rebuilt |
+| Alert creation and delivery state | Postgres outbox plus a worker | Alerts must survive crashes, retry with backoff, and expose delivery history |
+| Browser-facing live projection | Gateway backed by persisted events | WebSockets remain a projection, never the financial source of truth |
+
+Redis must not become the authoritative ledger, even when configured with
+persistence. Losing a rate-limit counter is inconvenient; losing a balance or
+settlement record is unacceptable.
+
+### Money path and transaction boundaries
+
+The highest-priority migration is the money path:
+
+```text
+POST /bids
+  → reserve balance + create/update bid
+  → close auction
+  → realize segment
+  → clear or return reservation
+  → distribute reward pool
+  → request payout
+```
+
+Bid placement must be one Postgres transaction. Lock the auction row and the
+brand balance row, validate the current minimum and available funds, update the
+reservation, write the bid, mark any displaced standing bid, and commit before
+publishing the marketplace event. A concurrent request must never validate
+against a stale standing bid or spend the same available cents twice.
+
+A representative shape is:
+
+```sql
+BEGIN;
+SELECT * FROM auctions WHERE slot = $1 FOR UPDATE;
+SELECT * FROM brand_balances WHERE brand_id = $2 FOR UPDATE;
+-- validate minimum, debit available, increase reserved, write bid
+COMMIT;
+```
+
+Clearing and payout operations need the same exactly-once discipline. Use
+unique constraints and transactionally guarded status transitions so a retried
+`/window-closed` cannot create two reward pools or credit a listener twice, and
+a retried payout cannot debit the same balance twice.
+
+### Durable idempotency
+
+Move the current process-local bid map into an `idempotency_keys` table with a
+unique constraint on `(scope, brand_id, key)`. Store a normalized request
+fingerprint, the created resource ID, the response payload, status, and expiry.
+Create the idempotency record and the bid in the same transaction:
+
+1. A missing key claims the request and proceeds.
+2. A matching key/fingerprint returns the stored response.
+3. A reused key with a different amount returns `409`.
+4. A crashed or timed-out client can retry safely against any replica.
+
+Retention should be long enough to cover client retries and payment/network
+recovery, with an explicit cleanup policy rather than unbounded storage.
+
+### Shared rate limits in Redis
+
+Move the per-brand bid limiter to Redis using an atomic sliding-window or token
+bucket operation, for example `rate:bid:brand:{brandId}`. The operation must
+trim expired entries, count the current window, and add the new attempt
+atomically. Idempotent replays should be checked before consuming rate-limit
+capacity because they repeat an already accepted command rather than represent
+new bidding activity.
+
+This makes limits consistent across API replicas and prevents bypass by sending
+requests to different instances. Redis outage behavior must be chosen explicitly
+before launch: fail closed for high-risk mutation traffic, or use a bounded
+local fallback with clear monitoring and a documented abuse trade-off.
+
+### Durable alert delivery
+
+The current orchestrator webhook is intentionally best-effort. Before a
+money-bearing deployment, alert detection should create a durable
+`operational_alerts` outbox row containing a stable event ID, incident
+fingerprint, kind, severity, payload, attempt count, next-attempt time, and
+last error. A worker then claims pending rows, POSTs the alert, records success,
+and retries failures with exponential backoff. Persistent failures move to a
+dead-letter state and remain visible to operators.
+
+Use incident fingerprints to suppress duplicate alerts for one ongoing episode,
+and include the stable event ID in every delivery so the receiver can deduplicate
+its own retries. Alert delivery must remain outside the playback and settlement
+critical path; a slow or unavailable receiver must never stall the scheduler.
+
+### Migration phases and production gates
+
+Migrate incrementally rather than replacing every `Map` at once:
+
+1. **Ledger and bid safety** — add migrations and repository interfaces; move
+   brands, balances, auctions, bids, segments, and transactional bid placement;
+   move idempotency into the same transaction.
+2. **Rewards and payouts** — persist attention events, reward pools, listener
+   rewards, and payout records; prove close and payout operations are exactly
+   once under retries.
+3. **Redis coordination** — move rate limits, presence, locks, queues, and live
+   coordination; keep Postgres authoritative for business state.
+4. **Alert outbox** — replace direct webhook POSTs with durable rows, a retrying
+   worker, dead-letter handling, receiver authentication, and delivery metrics.
+5. **Failure testing and rollout** — run multiple API replicas and test restart,
+   concurrent bids, duplicate commands, Postgres/Redis outages, worker crashes,
+   webhook timeouts, and rolling deploys before enabling real balances or
+   payouts.
+
+The release is not production-ready until a restart preserves balances and
+auction state, concurrent bids serialize correctly, retries are idempotent,
+rate limits apply fleet-wide, reward/payout accounting is exactly once, and
+failed alerts are recoverable from an auditable queue.
 
 - `brands`
 - `brand_balances`

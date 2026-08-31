@@ -75,6 +75,21 @@ export interface ClearingConfig {
  */
 export const WRONG_ANSWER_SLACK = 5;
 
+/** Public explanation of the value exchange behind a cleared bid. */
+export function clearedBidExplanation(
+  bid: BidRow,
+  segment: SegmentRow,
+  listenerPoolCents: number,
+): string {
+  const tierLabel =
+    bid.tier === "audio_image" ? "audio + image" : bid.tier.replace("_", " ");
+  const required = segment.requiredEvents ?? 0;
+  const attentionLabel = `${required} verified attention ${
+    required === 1 ? "event" : "events"
+  }`;
+  return `Won at $${centsToUsd(bid.amountCents).toFixed(2)}: ${tierLabel} production, cleared against ${attentionLabel}; $${centsToUsd(listenerPoolCents).toFixed(2)} allocated across verified listener rewards.`;
+}
+
 export class ClearingEngine {
   constructor(
     private readonly ledger: Ledger,
@@ -308,6 +323,7 @@ export class ClearingEngine {
       grossAmountUsd: centsToUsd(grossCents),
       listenerPoolUsd: centsToUsd(eligibleCents),
       platformRevenueUsd: centsToUsd(grossCents - eligibleCents),
+      explanation: clearedBidExplanation(bid, segment, eligibleCents),
     });
     this.bus.publish({
       type: "reward.pool.updated",

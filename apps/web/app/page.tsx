@@ -222,6 +222,7 @@ export default function HomePage() {
             nextSlotPriceUsd={state.nextSlotPriceUsd}
             currentAuction={state.currentAuction}
             recentSegments={state.recentSegments}
+            clearedBidExplanation={state.lastSettlement?.explanation}
           />
         </div>
       )}

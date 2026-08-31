@@ -55,6 +55,7 @@ export interface ClearBurst {
   grossAmountUsd: number;
   listenerPoolUsd: number;
   platformRevenueUsd: number;
+  explanation?: string;
   /** Monotonic counter so the UI can key the burst animation per clear. */
   burstId: number;
 }
@@ -67,6 +68,7 @@ export interface SettlementFlash {
   amountUsd: number;
   listenerPoolUsd?: number;
   platformRevenueUsd?: number;
+  explanation?: string;
   flashId: number;
 }
 
@@ -140,6 +142,23 @@ export function snapshotToState(snapshot: StreamSnapshot): StreamState {
     listenerRewardsUsd: snapshot.listenerRewardsUsd,
     placedVolumeUsd: snapshot.placedVolumeUsd ?? 0,
     totalClearedVolumeUsd: snapshot.totalClearedVolumeUsd ?? 0,
+    lastClear: snapshot.latestClearedBid
+      ? {
+          ...snapshot.latestClearedBid,
+          burstId: 0,
+        }
+      : undefined,
+    lastSettlement: snapshot.latestClearedBid
+      ? {
+          kind: "cleared",
+          bidId: snapshot.latestClearedBid.bidId,
+          amountUsd: snapshot.latestClearedBid.grossAmountUsd,
+          listenerPoolUsd: snapshot.latestClearedBid.listenerPoolUsd,
+          platformRevenueUsd: snapshot.latestClearedBid.platformRevenueUsd,
+          explanation: snapshot.latestClearedBid.explanation,
+          flashId: 0,
+        }
+      : undefined,
     activeChallenge: snapshot.activeChallenge,
     attention: snapshot.nowPlayingAttentionThreshold
       ? {
@@ -352,6 +371,7 @@ export function reduceStreamEvent(
           grossAmountUsd: event.grossAmountUsd,
           listenerPoolUsd: event.listenerPoolUsd,
           platformRevenueUsd: event.platformRevenueUsd,
+          explanation: event.explanation,
           burstId: (prev.lastClear?.burstId ?? 0) + 1,
         },
         lastSettlement: {
@@ -360,6 +380,7 @@ export function reduceStreamEvent(
           amountUsd: event.grossAmountUsd,
           listenerPoolUsd: event.listenerPoolUsd,
           platformRevenueUsd: event.platformRevenueUsd,
+          explanation: event.explanation,
           flashId: (prev.lastSettlement?.flashId ?? 0) + 1,
         },
         nowPlaying:

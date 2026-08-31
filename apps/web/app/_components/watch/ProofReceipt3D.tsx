@@ -15,6 +15,7 @@ interface ReceiptData {
   grossAmountUsd: number;
   listenerPoolUsd: number;
   platformRevenueUsd: number;
+  explanation?: string;
 }
 
 /**
@@ -52,6 +53,7 @@ export function ProofReceipt3D({
         grossAmountUsd: burst.grossAmountUsd,
         listenerPoolUsd: burst.listenerPoolUsd,
         platformRevenueUsd: burst.platformRevenueUsd,
+        explanation: burst.explanation,
       });
     }
   }, [burst]);
@@ -142,6 +144,17 @@ export function ProofReceipt3D({
                 </span>
               </div>
             </motion.div>
+
+            {receipt.explanation && (
+              <motion.div
+                style={styles.explanation}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.95 }}
+              >
+                {receipt.explanation}
+              </motion.div>
+            )}
 
             <motion.div
               style={styles.footer}
@@ -290,6 +303,14 @@ const styles: Record<string, React.CSSProperties> = {
   splitAmount: {
     color: "#fff",
     fontVariantNumeric: "tabular-nums",
+  },
+  explanation: {
+    maxWidth: 360,
+    marginTop: 14,
+    color: "rgba(255, 255, 255, 0.66)",
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: 1.35,
   },
   footer: {
     marginTop: 20,

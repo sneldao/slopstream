@@ -200,7 +200,7 @@ This matches the free/low → image → video production escalation in the [gene
 
 ### What the brand sees after a segment clears
 
-As implemented, brands get their **balance view** (reserved → spent movement on `bid.cleared`, or the reservation returned on `bid.uncleared`) and their **bid status** via the API — no listener-level data, ever. The aggregate verification picture (listeners present, proofs verified, threshold met) is surfaced publicly on the big screen's stats HUD rather than as a per-brand report. A private post-clear verification report per campaign (aggregate only: verified count, threshold, pass rate) is a natural Wave 2 addition for advertiser trust.
+As implemented, brands get their **balance view** (reserved → spent movement on `bid.cleared`, or the reservation returned on `bid.uncleared`) and their **bid status** via the API — no listener-level data, ever. After a clear, the console and public receipt also show the same factual aggregate explanation: production tier, frozen verified-attention threshold, gross spend, and the amount allocated across verified listener rewards. This is not a per-viewer refund or a private campaign report. The aggregate verification picture (listeners present, proofs verified, threshold met) is surfaced publicly on the big screen's stats HUD rather than as a per-brand report. A private post-clear verification report per campaign (aggregate only: verified count, threshold, pass rate) is a natural Wave 2 addition for advertiser trust.
 
 ## D. The proof receipt
 

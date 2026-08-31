@@ -91,7 +91,7 @@ The orchestrator keeps segments generating or ready ahead of playback with an **
 ## Component responsibilities
 
 - **Big screen** — Continuum playback, archive world, QR join. Market chrome is secondary; theater mode hides it for content-first demos. Consumes WebSocket events.
-- **Stream orchestrator** — the live brain: continuous segment queue, scheduler, stream continuity (The Continuum), attention challenge timing, and local ops metrics (`GET /ops/metrics`). Consumes auction/sponsorship results from the backend for paid beats — it never resolves auctions or settles money; the ledger is the single source of truth for both.
+- **Stream orchestrator** — the live brain: continuous segment queue, scheduler, stream continuity (The Continuum), attention challenge timing, local ops metrics (`GET /ops/metrics`), and an optional best-effort alert dispatcher. Alerting samples scheduler metrics but ignores queue-derived conditions when the API snapshot is unavailable; it cannot interrupt playback, auction handling, or settlement. Consumes auction/sponsorship results from the backend for paid beats — it never resolves auctions or settles money; the ledger is the single source of truth for both.
 - **Daytona pool** — disposable sandboxes for ad generation (LLM script, TTS, image generation, video generation); returns the generated asset to the orchestrator.
 - **Backend API** — brand accounts, Stripe balances, listener sessions, reward ledger and accounting, scraper ingestion, challenge generation, auction resolution (winner selection and slot assignment). Owns all clearing and settlement, and is the sole caller of Midnight and Stripe.
 - **Midnight** — proves conditions on-chain; consulted by the backend. See [contracts](contracts.md).

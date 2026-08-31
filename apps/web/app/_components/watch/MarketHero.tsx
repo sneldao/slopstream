@@ -23,12 +23,14 @@ export function MarketHero({
   nextSlotPriceUsd,
   currentAuction,
   recentSegments,
+  clearedBidExplanation,
 }: {
   leaderboard: LeaderboardEntry[];
   brandById: Record<string, BrandSummary>;
   nextSlotPriceUsd: number;
   currentAuction?: { slot: number; closesAt: string };
   recentSegments: Segment[];
+  clearedBidExplanation?: string;
 }) {
   const leader = leaderboard[0];
   const leaderBrand = leader ? brandById[leader.brandId] : undefined;
@@ -75,6 +77,11 @@ export function MarketHero({
         <AuctionCountdown closesAt={currentAuction?.closesAt} />
       </div>
       {priceHistory.length > 0 && <PriceSparkline values={priceHistory} />}
+      {clearedBidExplanation && (
+        <p style={styles.explanation} aria-live="polite">
+          {clearedBidExplanation}
+        </p>
+      )}
     </motion.section>
   );
 }
@@ -221,6 +228,15 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: 4,
     borderRadius: "3px 3px 0 0",
     background: "var(--slop-yellow)",
+  },
+  explanation: {
+    maxWidth: "58ch",
+    margin: "8px 0 0",
+    color: "rgba(16,16,20,0.64)",
+    fontSize: 11,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    textAlign: "center",
   },
   sparklineLabel: {
     marginLeft: 8,

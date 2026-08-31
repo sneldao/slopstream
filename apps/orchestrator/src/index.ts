@@ -16,6 +16,7 @@
 // The orchestrator NEVER resolves auctions or settles money — the backend
 // ledger (apps/api) is the single source of truth for both.
 
+import { AlertDispatcher } from "./alerts.js";
 import { ApiClient } from "./apiClient.js";
 import { loadEnv } from "./env.js";
 import { Gateway } from "./gateway.js";
@@ -46,6 +47,27 @@ const scheduler = new SegmentScheduler({ env, gateway, api });
 gateway.setMetricsProvider(() => scheduler.getMetrics());
 await scheduler.start();
 
+const alerts = new AlertDispatcher({
+  webhookUrl: env.alertWebhookUrl,
+  idleThresholdMs: env.alertIdleThresholdMs,
+  webhookTimeoutMs: env.alertWebhookTimeoutMs,
+});
+let alertTimer: NodeJS.Timeout | undefined;
+const pollAlerts = async () => {
+  try {
+    await alerts.observe(await scheduler.getMetrics());
+  } catch (error) {
+    // Alerting must never interrupt the stream scheduler.
+    console.warn("[alerts] metrics observation failed:", error);
+  }
+  if (!schedulerStopped) {
+    alertTimer = setTimeout(() => void pollAlerts(), env.alertPollMs);
+    alertTimer.unref();
+  }
+};
+let schedulerStopped = false;
+void pollAlerts();
+
 // Cold-start scraper: when PARALLEL_API_KEY is configured, continuously
 // discover newly launched companies and ingest them into the API's free-ad
 // queue. Without a key the stream falls back to the demo fixture.
@@ -74,6 +96,8 @@ gateway.server.listen(env.port, () => {
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
+    schedulerStopped = true;
+    if (alertTimer) clearTimeout(alertTimer);
     scheduler.stop();
     feed.stop();
     scraper?.stop();
