@@ -24,6 +24,75 @@ const env: OrchestratorEnv = {
 };
 
 describe("SegmentScheduler metrics", () => {
+  it("caps ready and challenge timing to the natural manifest duration", async () => {
+    let readyDuration: number | undefined;
+    let challengeDuration: number | undefined;
+    const scheduler = new SegmentScheduler({
+      env: { ...env, genStageDelayMs: 0 },
+      gateway: { emit: () => {} } as unknown as Gateway,
+      api: {
+        markGenerating: async () => {},
+        snapshot: async () => {
+          throw new Error("market snapshot unavailable");
+        },
+        generate: async () => ({
+          segmentId: "seg_short",
+          assetUrl: "https://cdn.test/seg_short.mp3",
+          media: {
+            version: 1,
+            durationSec: 3,
+            audio: {
+              url: "https://cdn.test/seg_short.mp3",
+              contentType: "audio/mpeg",
+              sha256: "a".repeat(64),
+            },
+          },
+          durationSec: 3,
+          transcript: "Short audio.",
+          summary: "Short segment.",
+        }),
+        markReady: async (
+          _segmentId: string,
+          body: { durationSec: number },
+        ) => {
+          readyDuration = body.durationSec;
+        },
+        sendChallengeSource: async (
+          _segmentId: string,
+          body: { durationSec: number },
+        ) => {
+          challengeDuration = body.durationSec;
+        },
+      } as unknown as ApiClient,
+    });
+    const internals = scheduler as unknown as {
+      runGeneration: (
+        target: {
+          segmentId: string;
+          brandId: string;
+          brief: string;
+          tier: "audio";
+        },
+        slot: number,
+      ) => Promise<number>;
+    };
+
+    await expect(
+      internals.runGeneration(
+        {
+          segmentId: "seg_short",
+          brandId: "brand_short",
+          brief: "Short audio.",
+          tier: "audio",
+        },
+        1,
+      ),
+    ).resolves.toBe(3);
+    expect(readyDuration).toBe(3);
+    expect(challengeDuration).toBe(3);
+    scheduler.stop();
+  });
+
   it("marks queue-derived metrics unavailable when the API snapshot fails", async () => {
     const scheduler = new SegmentScheduler({
       env,

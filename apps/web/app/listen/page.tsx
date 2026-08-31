@@ -12,6 +12,8 @@ import {
 } from "@slopstream/shared";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
+import { playbackAudioUrl } from "@/lib/mediaPlayback";
+import { useMediaPreload } from "@/lib/mediaPreload";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { AudioVisualizer } from "./_components/AudioVisualizer";
 import { AttentionCheck } from "./_components/AttentionCheck";
@@ -32,12 +34,12 @@ import { PayoutSheet } from "./_components/PayoutSheet";
  */
 export default function ListenPage() {
   const { state, connectionStatus } = useStream();
-  const audioUrl = state.nowPlaying?.assetUrl?.match(/\.(mp3|wav|ogg)$/i)
-    ? state.nowPlaying.assetUrl
-    : undefined;
+  useMediaPreload(state.upcomingSegments);
+  const audioUrl = playbackAudioUrl(state.nowPlaying);
   const { signalRef, unlock, muted, toggleMute } = useAudioSignal(
     !!state.nowPlaying,
     audioUrl,
+    state.nowPlayingStartedAt,
   );
   const { play } = useSoundDesign();
   const [joined, setJoined] = useState(false);

@@ -548,6 +548,107 @@ describe("publishLifecycleEvents gate", () => {
     });
   });
 
+  it("rejects unsafe manifests and publishes the validated media contract", async () => {
+    await withServer(undefined, async (harness, baseUrl) => {
+      const segmentId = await wonSegment(harness);
+      const post = (path: string, body?: unknown) =>
+        fetch(`${baseUrl}/segments/${segmentId}${path}`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${ORCHESTRATOR_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body ?? {}),
+        });
+      const media = {
+        version: 1,
+        durationSec: 20,
+        audio: {
+          url: "https://cdn.test/segment.mp3",
+          contentType: "audio/mpeg",
+          sha256: "a".repeat(64),
+        },
+        visual: {
+          url: "https://cdn.test/segment.mp4",
+          contentType: "video/mp4",
+          sha256: "b".repeat(64),
+          type: "video",
+          posterUrl: "https://cdn.test/segment.png",
+        },
+      };
+
+      expect((await post("/generating")).status).toBe(200);
+      expect(
+        (
+          await post("/ready", {
+            assetUrl: media.visual.url,
+            media: {
+              ...media,
+              audio: { ...media.audio, url: "javascript:alert(1)" },
+            },
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await post("/ready", {
+            assetUrl: media.visual.url,
+            media: {
+              ...media,
+              audio: {
+                ...media.audio,
+                url: "https://token@cdn.test/segment.mp3",
+              },
+            },
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await post("/ready", {
+            assetUrl: media.visual.url,
+            media: { ...media, audio: { ...media.audio, sha256: "invalid" } },
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await post("/ready", {
+            assetUrl: media.audio.url,
+            media,
+          })
+        ).status,
+      ).toBe(400);
+
+      expect(
+        (
+          await post("/ready", {
+            assetUrl: media.visual.url,
+            media,
+            durationSec: media.durationSec + 1,
+          })
+        ).status,
+      ).toBe(400);
+
+      expect(
+        (
+          await post("/ready", {
+            assetUrl: media.visual.url,
+            media,
+            durationSec: media.durationSec,
+          })
+        ).status,
+      ).toBe(200);
+      expect(harness.events.at(-1)).toEqual({
+        type: "segment.ready",
+        segmentId,
+        assetUrl: media.visual.url,
+        media,
+        durationSec: 20,
+      });
+    });
+  });
+
   it("does not republish lifecycle events when commands are retried", async () => {
     await withServer(undefined, async (harness, baseUrl) => {
       const segmentId = await wonSegment(harness);
@@ -566,6 +667,22 @@ describe("publishLifecycleEvents gate", () => {
       expect((await post("/generating")).status).toBe(200);
       const ready = {
         assetUrl: "https://cdn.test/segment.mp4",
+        media: {
+          version: 1,
+          durationSec: 20,
+          audio: {
+            url: "https://cdn.test/segment.mp3",
+            contentType: "audio/mpeg",
+            sha256: "a".repeat(64),
+          },
+          visual: {
+            url: "https://cdn.test/segment.mp4",
+            contentType: "video/mp4",
+            sha256: "b".repeat(64),
+            type: "video",
+            posterUrl: "https://cdn.test/segment.png",
+          },
+        },
         durationSec: 20,
         summary: "test segment",
       };

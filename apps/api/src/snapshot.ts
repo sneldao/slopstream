@@ -21,6 +21,7 @@ function toSharedSegment(segment: SegmentRow): SharedSegment {
     slot: segment.slot,
     brandId: segment.brandId,
     assetUrl: segment.mediaUrl,
+    ...(segment.media ? { media: segment.media } : {}),
     durationSeconds: segment.durationSec,
     summary: segment.summary,
     status: segment.status,

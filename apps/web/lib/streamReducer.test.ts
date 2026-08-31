@@ -26,6 +26,23 @@ const snapshot: StreamSnapshot = {
   placedVolumeUsd: 0,
 };
 
+const media = {
+  version: 1 as const,
+  durationSec: 30,
+  audio: {
+    url: "https://cdn.test/seg_1.mp3",
+    contentType: "audio/mpeg",
+    sha256: "a".repeat(64),
+  },
+  visual: {
+    url: "https://cdn.test/seg_1.mp4",
+    contentType: "video/mp4",
+    sha256: "b".repeat(64),
+    type: "video" as const,
+    posterUrl: "https://cdn.test/seg_1.png",
+  },
+};
+
 describe("streamReducer live lifecycle", () => {
   it("hydrates cumulative market totals from a reconnect snapshot", () => {
     const state = snapshotToState({
@@ -53,6 +70,98 @@ describe("streamReducer live lifecycle", () => {
       kind: "cleared",
       flashId: 0,
       explanation: "Recovered cleared-bid explanation.",
+    });
+  });
+
+  it("carries a validated manifest from ready into live playback", () => {
+    const generating = reduceStreamEvent(
+      snapshotToState({ ...snapshot, nowPlaying: null }),
+      {
+        type: "segment.generating",
+        segmentId: "seg_1",
+        slot: 1,
+        tier: "video",
+        brandId: "brand_1",
+      },
+    );
+    const ready = reduceStreamEvent(generating, {
+      type: "segment.ready",
+      segmentId: "seg_1",
+      assetUrl: media.visual.url,
+      media,
+      durationSec: media.durationSec,
+    });
+    const playing = reduceStreamEvent(ready, {
+      type: "segment.playing",
+      segmentId: "seg_1",
+      brandId: "brand_1",
+      startedAt: "2026-08-31T12:00:00.000Z",
+    });
+
+    expect(ready.generation?.media).toEqual(media);
+    expect(ready.upcomingSegments[0]?.media).toEqual(media);
+    expect(playing.nowPlaying?.media).toEqual(media);
+    expect(playing.nowPlaying?.assetUrl).toBe(media.visual.url);
+  });
+
+  it("retains queued manifest media when a reconnecting client receives playing", () => {
+    const readySegment = {
+      id: "seg_queued",
+      slot: 2,
+      brandId: "brand_2",
+      assetUrl: media.visual.url,
+      media,
+      durationSeconds: media.durationSec,
+      summary: "Queued segment summary.",
+      status: "ready" as const,
+    };
+    const state = reduceStreamEvent(
+      snapshotToState({
+        ...snapshot,
+        nowPlaying: null,
+        upcomingSegments: [readySegment],
+      }),
+      {
+        type: "segment.playing",
+        segmentId: "seg_queued",
+        brandId: "brand_2",
+        startedAt: "2026-08-31T12:00:00.000Z",
+        windowOpenedAtMs: "2026-08-31T12:00:00.000Z",
+      },
+    );
+
+    expect(state.nowPlaying).toMatchObject({
+      id: "seg_queued",
+      slot: 2,
+      brandId: "brand_2",
+      assetUrl: media.visual.url,
+      media,
+      durationSeconds: media.durationSec,
+      summary: "Queued segment summary.",
+      status: "playing",
+      windowOpenedAtMs: Date.parse("2026-08-31T12:00:00.000Z"),
+    });
+  });
+
+  it("projects ready media without a local generation event", () => {
+    const state = reduceStreamEvent(
+      snapshotToState({ ...snapshot, nowPlaying: null }),
+      {
+        type: "segment.ready",
+        segmentId: "seg_late",
+        assetUrl: media.visual.url,
+        media,
+        durationSec: media.durationSec,
+      },
+    );
+
+    expect(state.generation).toBeUndefined();
+    expect(state.upcomingSegments[0]).toMatchObject({
+      id: "seg_late",
+      assetUrl: media.visual.url,
+      media,
+      durationSeconds: media.durationSec,
+      status: "ready",
     });
   });
 

@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { GenerationRequest } from "@slopstream/shared";
 
 import { FORMATS } from "./creativeFormats.js";
-import { imagePromptFor, videoPromptFor } from "./elevenlabsProvider.js";
+import {
+  createElevenLabsProviderFromEnv,
+  imagePromptFor,
+  videoPromptFor,
+} from "./elevenlabsProvider.js";
 
 const REQUEST: GenerationRequest = {
   segmentId: "seg_1",
@@ -105,5 +109,40 @@ describe("videoPromptFor", () => {
     expect(withContinuity).not.toContain("localhost");
     expect(without).not.toContain("previous segment's palette");
     expect(without).not.toContain("localhost");
+  });
+});
+
+describe("createElevenLabsProviderFromEnv", () => {
+  const requiredEnvironment = {
+    ELEVENLABS_API_KEY: "test-api-key",
+    ELEVENLABS_VOICE_ID: "test-voice-id",
+  };
+
+  it.each([
+    "http://localhost:4300",
+    "https://localhost:4300",
+    "https://127.0.0.1",
+    "https://10.0.0.5",
+    "https://192.168.1.10",
+    "https://[::1]",
+    "https://[::127.0.0.1]",
+    "https://[fc00::1]",
+    "https://assets.slopstream.local",
+  ])("rejects a non-public asset origin: %s", (assetBaseUrl) => {
+    expect(() =>
+      createElevenLabsProviderFromEnv({
+        ...requiredEnvironment,
+        ASSET_BASE_URL: assetBaseUrl,
+      }),
+    ).toThrow("ASSET_BASE_URL must be a queryless public HTTPS URL");
+  });
+
+  it("accepts a queryless public HTTPS asset origin", () => {
+    expect(() =>
+      createElevenLabsProviderFromEnv({
+        ...requiredEnvironment,
+        ASSET_BASE_URL: "https://assets.example.com/slopstream",
+      }),
+    ).not.toThrow();
   });
 });

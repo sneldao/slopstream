@@ -33,6 +33,22 @@ describe("SegmentPreparationService", () => {
           {
             segmentId: winner.segmentId,
             assetUrl: "https://assets.example/segment_one.mp4",
+            media: {
+              version: 1,
+              durationSec: 30,
+              audio: {
+                url: "https://assets.example/segment_one.mp3",
+                contentType: "audio/mpeg",
+                sha256: "a".repeat(64),
+              },
+              visual: {
+                url: "https://assets.example/segment_one.mp4",
+                contentType: "video/mp4",
+                sha256: "b".repeat(64),
+                type: "video",
+                posterUrl: "https://assets.example/segment_one.png",
+              },
+            },
             durationSec: 30,
             transcript: "Trustworthy service, real value.",
             summary: "A concise trust story.",
@@ -49,6 +65,7 @@ describe("SegmentPreparationService", () => {
       "http://api.test/",
       "http://generator.test/",
       fetcher,
+      20,
     );
     const result = await service.prepare(winner, ["Previous story."]);
 
@@ -63,8 +80,15 @@ describe("SegmentPreparationService", () => {
       segmentId: winner.segmentId,
       previousSummaries: ["Previous story."],
     });
-    expect(calls[2].body).toMatchObject({ assetUrl: result.assetUrl });
-    expect(calls[3].body).toMatchObject({ transcript: result.transcript });
+    expect(calls[2].body).toMatchObject({
+      assetUrl: result.assetUrl,
+      media: result.media,
+      durationSec: 20,
+    });
+    expect(calls[3].body).toMatchObject({
+      transcript: result.transcript,
+      durationSec: 20,
+    });
   });
 
   it("marks the segment failed when generation fails", async () => {

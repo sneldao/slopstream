@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
+import { playbackAudioUrl } from "@/lib/mediaPlayback";
+import { useMediaPreload } from "@/lib/mediaPreload";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { useTheaterMode } from "@/lib/useTheaterMode";
 import { FREE_BRAND_ID, FREE_BRAND_SUMMARY } from "@slopstream/shared";
@@ -28,19 +30,17 @@ const Scene = dynamic(
 /** The Continuum — live stream home at `/`. */
 export default function HomePage() {
   const { state, connectionStatus } = useStream();
+  useMediaPreload(state.upcomingSegments);
   const { theater, toggle: toggleTheater } = useTheaterMode(true);
   const [marketOpen, setMarketOpen] = useState(false);
   const showMarket = !theater && marketOpen;
-  // Audio-tier segments have .mp3 as the asset; image/video tiers store the
-  // visual as assetUrl but the .mp3 TTS file exists alongside on the generator.
-  const audioUrl = state.nowPlaying?.assetUrl
-    ? state.nowPlaying.assetUrl.match(/\.(mp3|wav|ogg)$/i)
-      ? state.nowPlaying.assetUrl
-      : state.nowPlaying.assetUrl.replace(/\.(mp4|png|jpe?g|webp)$/i, ".mp3")
-    : undefined;
+  // Explicit manifests are authoritative. Direct legacy MP3s remain playable
+  // during migration; visual URLs are never rewritten into guessed narration.
+  const audioUrl = playbackAudioUrl(state.nowPlaying);
   const { signalRef, unlock, muted, toggleMute } = useAudioSignal(
     !!state.nowPlaying,
     audioUrl,
+    state.nowPlayingStartedAt,
   );
   const { play } = useSoundDesign();
   // Resolved client-side only: a prerendered/projector frame has no

@@ -1,5 +1,9 @@
 import { Daytona } from "@daytona/sdk";
-import type { GenerationRequest, GenerationResult } from "@slopstream/shared";
+import {
+  isMediaManifest,
+  type GenerationRequest,
+  type GenerationResult,
+} from "@slopstream/shared";
 
 import {
   StubGenerationProvider,
@@ -98,6 +102,7 @@ function parseCommandOutput(
   const {
     segmentId,
     assetUrl,
+    media,
     durationSec,
     transcript,
     summary,
@@ -108,6 +113,7 @@ function parseCommandOutput(
   if (
     segmentId !== expectedSegmentId ||
     !isNonEmptyString(assetUrl) ||
+    !isMediaManifest(media) ||
     typeof durationSec !== "number" ||
     !Number.isFinite(durationSec) ||
     durationSec <= 0 ||
@@ -122,6 +128,7 @@ function parseCommandOutput(
   return {
     segmentId,
     assetUrl,
+    media,
     durationSec,
     transcript,
     summary,
@@ -304,7 +311,7 @@ export function createGenerationProviderFromEnv(
   const mode = configuredGeneratorMode(environment);
 
   if (mode === "stub") {
-    return new StubGenerationProvider();
+    return new StubGenerationProvider(environment.ASSET_BASE_URL);
   }
 
   if (mode === "elevenlabs") {

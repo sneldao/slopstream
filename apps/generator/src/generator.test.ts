@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
@@ -8,8 +9,11 @@ import {
   generate,
   InMemoryGenerationJobStore,
   MAX_COMPLETED_GENERATIONS,
+  StubGenerationProvider,
 } from "./generator.js";
 import { createGeneratorServer } from "./server.js";
+
+const TEST_ASSET_BASE_URL = "https://assets.example.test";
 
 const request = {
   segmentId: "segment:one",
@@ -21,11 +25,11 @@ const request = {
 
 describe("stub generator", () => {
   it("returns a tier-appropriate result while preserving Lane 2's segment ID", () => {
-    const result = generate(request);
+    const result = generate(request, TEST_ASSET_BASE_URL);
 
     expect(result).toMatchObject({
       segmentId: request.segmentId,
-      assetUrl: expect.stringContaining("stub-audio-image.mp4"),
+      assetUrl: expect.stringContaining("/assets/seg_verify_clean.png"),
       durationSec: 30,
       audioMetadata: { mode: "stub", tier: "audio_image" },
       visualMetadata: { mode: "stub", tier: "audio_image" },
@@ -35,7 +39,7 @@ describe("stub generator", () => {
   });
 
   it("replays identical segment requests and rejects conflicting reuse", async () => {
-    const generator = createStubGenerator();
+    const generator = createStubGenerator(TEST_ASSET_BASE_URL);
 
     const first = await generator.generate(request);
     const replay = await generator.generate({ ...request });
@@ -56,15 +60,15 @@ describe("stub generator", () => {
   });
 
   it("keeps audio results audio-only", () => {
-    const result = generate({ ...request, tier: "audio" });
+    const result = generate({ ...request, tier: "audio" }, TEST_ASSET_BASE_URL);
 
-    expect(result.assetUrl).toContain("stub-audio.mp3");
+    expect(result.assetUrl).toContain("/assets/approval-sample-002.mp3");
     expect(result.visualMetadata).toBeUndefined();
   });
 
   it("evicts the oldest completed generations beyond the in-memory cap", async () => {
     const store = new InMemoryGenerationJobStore();
-    const result = generate(request);
+    const result = generate(request, TEST_ASSET_BASE_URL);
 
     for (let i = 0; i < MAX_COMPLETED_GENERATIONS + 1; i += 1) {
       await store.put(`segment:${i}`, {
@@ -87,7 +91,9 @@ describe("generator HTTP boundary", () => {
   let baseUrl: string;
 
   beforeEach(async () => {
-    server = createGeneratorServer();
+    server = createGeneratorServer({
+      provider: new StubGenerationProvider(TEST_ASSET_BASE_URL),
+    });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     const { port } = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${port}`;
@@ -135,11 +141,28 @@ describe("generator HTTP boundary", () => {
     });
   });
 
+  it("serves the bundled stub fixture under the advertised assets path", async () => {
+    const generated = generate(request, TEST_ASSET_BASE_URL);
+    const asset = await fetch(`${baseUrl}/assets/approval-sample-002.mp3`);
+    const bytes = new Uint8Array(await asset.arrayBuffer());
+
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get("content-type")).toBe("audio/mpeg");
+    expect(asset.headers.get("cache-control")).toBe("no-store");
+    expect(bytes.byteLength).toBeGreaterThan(0);
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+      generated.media.audio.sha256,
+    );
+  });
+
   it("protects generation work when a service token is configured", async () => {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     );
-    server = createGeneratorServer({ apiToken: "generator-secret" });
+    server = createGeneratorServer({
+      apiToken: "generator-secret",
+      provider: new StubGenerationProvider(TEST_ASSET_BASE_URL),
+    });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     const { port } = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${port}`;

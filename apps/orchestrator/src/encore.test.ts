@@ -7,6 +7,7 @@ import {
 } from "./marketContext.js";
 import {
   pickEncoreCandidate,
+  playoutDurationFor,
   prefetchDepthFor,
   updateEwma,
   type EncoreRing,
@@ -88,6 +89,14 @@ describe("prefetchDepthFor", () => {
   });
 });
 
+describe("playoutDurationFor", () => {
+  it("caps the window to natural media duration without extending it", () => {
+    expect(playoutDurationFor(30, 20)).toBe(20);
+    expect(playoutDurationFor(3.9, 20)).toBe(3);
+    expect(playoutDurationFor(30, 45)).toBe(30);
+  });
+});
+
 describe("pickEncoreCandidate", () => {
   it("skips segments without an asset and the immediately previous one", () => {
     const recent = [
@@ -135,6 +144,22 @@ describe("pickEncoreCandidate", () => {
       pickEncoreCandidate(recent, ring({ lastEncoreBrandId: FREE_BRAND_ID }))
         ?.id,
     ).toBe("seg_2"); // only candidate — variety penalty cannot empty the list
+  });
+
+  it("accepts manifest-only audio when choosing an encore", () => {
+    const manifestOnly = seg("seg_1", {
+      assetUrl: undefined,
+      media: {
+        version: 1,
+        durationSec: 20,
+        audio: {
+          url: "https://cdn.test/seg_1.mp3",
+          contentType: "audio/mpeg",
+          sha256: "a".repeat(64),
+        },
+      },
+    });
+    expect(pickEncoreCandidate([manifestOnly], ring())?.id).toBe("seg_1");
   });
 
   it("returns null when everything is excluded", () => {

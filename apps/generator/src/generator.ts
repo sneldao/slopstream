@@ -1,36 +1,75 @@
-import type {
-  GenerationRequest,
-  GenerationResult,
-  ProductionTier,
+import {
+  isMediaManifest,
+  isPublicMediaUrl,
+  type GenerationRequest,
+  type GenerationResult,
+  type ProductionTier,
 } from "@slopstream/shared";
 
-function assetPathForTier(tier: ProductionTier): string {
-  switch (tier) {
-    case "audio":
-      return "stub-audio.mp3";
-    case "audio_image":
-      return "stub-audio-image.mp4";
-    case "video":
-    case "premium":
-      return "stub-video.mp4";
+const STUB_AUDIO_KEY = "approval-sample-002.mp3";
+const STUB_AUDIO_SHA256 =
+  "a1c390b9af58d99270f2a17276b031298e1ede4d4f9c53067135552f78355773";
+const STUB_VISUAL_KEY = "seg_verify_clean.png";
+const STUB_VISUAL_SHA256 =
+  "71f3d648dd0d980c6c25b42d61843d1c84269a82bd4c32edc545e3cd6bcc347b";
+
+function publicStubAssetBaseUrl(value: string | undefined): string {
+  if (!isPublicMediaUrl(value)) {
+    throw new Error(
+      "ASSET_BASE_URL must be a queryless public HTTPS URL when GENERATOR_MODE=stub",
+    );
   }
+  return new URL(value).toString().replace(/\/$/, "");
+}
+
+function manifestForStub(
+  baseUrl: string,
+  tier: ProductionTier,
+  durationSec: number,
+) {
+  const audioUrl = `${baseUrl}/assets/${STUB_AUDIO_KEY}`;
+  const visualUrl = `${baseUrl}/assets/${STUB_VISUAL_KEY}`;
+  const visual =
+    tier === "audio"
+      ? undefined
+      : {
+          url: visualUrl,
+          contentType: "image/png",
+          sha256: STUB_VISUAL_SHA256,
+          type: "image" as const,
+        };
+  return {
+    version: 1 as const,
+    durationSec,
+    audio: {
+      url: audioUrl,
+      contentType: "audio/mpeg",
+      sha256: STUB_AUDIO_SHA256,
+    },
+    ...(visual ? { visual } : {}),
+  };
 }
 
 /**
  * Deterministic implementation used by the local provider. It preserves the
  * public GenerationResult contract that a Daytona-backed provider must keep.
  */
-export function generate(request: GenerationRequest): GenerationResult {
-  const assetBaseUrl = (
-    process.env.ASSET_BASE_URL ?? "https://placeholders.slopstream.local"
-  ).replace(/\/$/, "");
+export function generate(
+  request: GenerationRequest,
+  assetBaseUrl = process.env.ASSET_BASE_URL,
+): GenerationResult {
+  const publicAssetBaseUrl = publicStubAssetBaseUrl(assetBaseUrl);
   const previousContext =
     request.previousSummaries.join(" / ") || "nothing yet";
+  const durationSec = 30;
+  const media = manifestForStub(publicAssetBaseUrl, request.tier, durationSec);
+  const assetUrl = media.visual?.url ?? media.audio.url;
 
   return {
     segmentId: request.segmentId,
-    assetUrl: `${assetBaseUrl}/${assetPathForTier(request.tier)}`,
-    durationSec: 30,
+    assetUrl,
+    media,
+    durationSec,
     transcript: `[stub ${request.tier} ad for ${request.brandId ?? "free company"}: ${request.brief}]`,
     summary: `[stub continuation from: ${previousContext}]`,
     visualMetadata:
@@ -47,8 +86,14 @@ export interface GenerationProvider {
 }
 
 export class StubGenerationProvider implements GenerationProvider {
+  private readonly assetBaseUrl: string;
+
+  constructor(assetBaseUrl = process.env.ASSET_BASE_URL) {
+    this.assetBaseUrl = publicStubAssetBaseUrl(assetBaseUrl);
+  }
+
   async generate(request: GenerationRequest): Promise<GenerationResult> {
-    return generate(request);
+    return generate(request, this.assetBaseUrl);
   }
 }
 
@@ -120,6 +165,7 @@ function isGenerationResult(
     value.segmentId === segmentId &&
     typeof value.assetUrl === "string" &&
     value.assetUrl.length > 0 &&
+    isMediaManifest(value.media) &&
     Number.isFinite(value.durationSec) &&
     value.durationSec > 0 &&
     typeof value.transcript === "string" &&
@@ -158,8 +204,10 @@ export function createGenerationService(
 }
 
 /** @deprecated Use createGenerationService for a provider/store boundary. */
-export function createStubGenerator(): {
+export function createStubGenerator(
+  assetBaseUrl = process.env.ASSET_BASE_URL,
+): {
   generate(request: GenerationRequest): Promise<GenerationOutcome>;
 } {
-  return createGenerationService();
+  return createGenerationService(new StubGenerationProvider(assetBaseUrl));
 }

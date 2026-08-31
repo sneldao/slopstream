@@ -253,14 +253,153 @@ export interface Bid {
 export type SegmentStatus =
   "queued" | "generating" | "ready" | "playing" | "done" | "failed";
 
+/** A publicly playable, immutable media derivative. */
+export interface MediaAsset {
+  url: string;
+  contentType: string;
+  /** Lowercase SHA-256 of the exact published bytes. */
+  sha256: string;
+}
+
+/**
+ * Public, token-free media contract for one segment. URLs must point to
+ * immutable cacheable derivatives; private prompts, uploads, and identities
+ * never cross this boundary.
+ */
+export interface MediaManifest {
+  version: 1;
+  /** Natural duration of the published media, before playout policy applies. */
+  durationSec: number;
+  audio: MediaAsset;
+  visual?: MediaAsset & {
+    type: "image" | "video";
+    posterUrl?: string;
+  };
+  captionsUrl?: string;
+}
+
+/**
+ * Whether an IPv4 literal cannot identify a publicly reachable asset host.
+ * DNS names are intentionally not resolved at this trust boundary: resolution
+ * would make manifest validation network-dependent and vulnerable to DNS
+ * rebinding. Known local, private, link-local, carrier-grade, and multicast
+ * literals are nevertheless rejected before they reach browser clients.
+ */
+function isNonPublicIpv4(hostname: string): boolean {
+  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) return false;
+  const octets = hostname.split(".").map(Number);
+  if (octets.some((octet) => octet > 255)) return true;
+  const [first, second] = octets;
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && (second === 0 || second === 168)) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+function isNonPublicIpv6(hostname: string): boolean {
+  const normalized = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return (
+    normalized === "::" ||
+    normalized.startsWith("::") ||
+    /^f[cd][0-9a-f]{0,2}:/.test(normalized) ||
+    /^fe[89ab][0-9a-f]?:/.test(normalized)
+  );
+}
+
+/**
+ * A media manifest is a public, cacheable browser contract. Requiring HTTPS,
+ * a non-local host, and no credentials, query, or fragment prevents a
+ * manifest from carrying an ambient credential or downgrading asset transport.
+ */
+export function isPublicMediaUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2048)
+    return false;
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      hostname.length > 0 &&
+      hostname !== "localhost" &&
+      !hostname.endsWith(".localhost") &&
+      !hostname.endsWith(".local") &&
+      !isNonPublicIpv4(hostname) &&
+      !isNonPublicIpv6(hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isMediaAsset(
+  value: unknown,
+  mediaPrefix: string,
+): value is MediaAsset {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const asset = value as Record<string, unknown>;
+  return (
+    isPublicMediaUrl(asset.url) &&
+    typeof asset.contentType === "string" &&
+    asset.contentType.startsWith(mediaPrefix) &&
+    typeof asset.sha256 === "string" &&
+    /^[a-f0-9]{64}$/.test(asset.sha256)
+  );
+}
+
+/** Runtime validation at generator, API, and worker trust boundaries. */
+export function isMediaManifest(value: unknown): value is MediaManifest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const manifest = value as Record<string, unknown>;
+  if (
+    manifest.version !== 1 ||
+    typeof manifest.durationSec !== "number" ||
+    !Number.isFinite(manifest.durationSec) ||
+    manifest.durationSec <= 0 ||
+    !isMediaAsset(manifest.audio, "audio/") ||
+    (manifest.captionsUrl !== undefined &&
+      !isPublicMediaUrl(manifest.captionsUrl))
+  ) {
+    return false;
+  }
+  if (manifest.visual === undefined) return true;
+  if (!manifest.visual || typeof manifest.visual !== "object") return false;
+  const visual = manifest.visual as Record<string, unknown>;
+  return (
+    ((visual.type === "image" && isMediaAsset(visual, "image/")) ||
+      (visual.type === "video" && isMediaAsset(visual, "video/"))) &&
+    (visual.posterUrl === undefined || isPublicMediaUrl(visual.posterUrl))
+  );
+}
+
+export function playoutDurationFor(
+  naturalDurationSec: number,
+  configuredCapSec: number,
+): number {
+  const natural = Math.max(1, Math.floor(naturalDurationSec));
+  const cap = Math.max(1, Math.floor(configuredCapSec));
+  return Math.min(natural, cap);
+}
+
 export interface Segment {
   id: string;
   slot: number;
   /** null = free ad generated from scraped startup data. */
   brandId: string | null;
-  /** Generated asset URL. Same field name as GenerationResult.assetUrl and
-   *  the `segment.ready` event — one concept, one name across the seam. */
+  /** @deprecated Use `media`; retained while persisted demo segments migrate. */
   assetUrl?: string;
+  /** Explicit public media contract. All current generators must provide it. */
+  media?: MediaManifest;
   durationSeconds: number;
   /** The Continuum continuity input for the next generation. */
   summary: string;
@@ -361,6 +500,7 @@ export type WsEvent =
       type: "segment.ready";
       segmentId: string;
       assetUrl: string;
+      media: MediaManifest;
       durationSec: number;
     }
   | {
@@ -384,6 +524,7 @@ export type WsEvent =
       startedAt: string;
       slot: number;
       assetUrl: string;
+      media?: MediaManifest;
       durationSec: number;
       summary: string;
       /** ISO timestamp of when the attention window opened (playback start).
@@ -594,7 +735,10 @@ export interface StreamOpsMetrics {
 
 export interface GenerationResult {
   segmentId: string;
+  /** @deprecated Use `media`; retained at the generator boundary for migration. */
   assetUrl: string;
+  /** Explicit media contract consumed by API persistence and all clients. */
+  media: MediaManifest;
   durationSec: number;
   /** Feeds Lane 2's challenge engine. */
   transcript: string;

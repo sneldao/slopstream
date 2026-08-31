@@ -45,7 +45,14 @@ function createEmptySignal(): AudioSignal {
   };
 }
 
-export function useAudioSignal(active: boolean, audioUrl?: string) {
+export type AudioPlaybackState =
+  "idle" | "loading" | "playing" | "degraded" | "ended";
+
+export function useAudioSignal(
+  active: boolean,
+  audioUrl?: string,
+  startedAt?: string,
+) {
   const signalRef = useRef<AudioSignal>(createEmptySignal());
   const rafRef = useRef<number>(0);
   const phaseRef = useRef(0);
@@ -53,7 +60,11 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
   const beatEnergyRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [playbackState, setPlaybackState] =
+    useState<AudioPlaybackState>("idle");
   const mutedRef = useRef(false);
+  const canPlayRef = useRef(false);
+  const playRef = useRef<() => void>(() => {});
 
   // Web Audio nodes for real audio analysis.
   const audioElRef = useRef<HTMLAudioElement | null>(null);
@@ -69,6 +80,9 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
   // Set up real audio when an audioUrl is provided.
   useEffect(() => {
     if (!audioUrl) {
+      setPlaybackState("idle");
+      canPlayRef.current = false;
+      playRef.current = () => {};
       // Tear down any existing real audio.
       if (audioElRef.current) {
         audioElRef.current.pause();
@@ -86,9 +100,12 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
     // Create audio element.
     const audio = new Audio();
     audio.src = audioUrl;
+    audio.preload = "auto";
     audio.crossOrigin = "anonymous";
     audio.loop = false;
     audio.muted = mutedRef.current;
+    canPlayRef.current = false;
+    setPlaybackState("loading");
     audioElRef.current = audio;
 
     // Create AudioContext + AnalyserNode.
@@ -111,21 +128,52 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
       analyserRef.current = null;
     }
 
-    // Attempt to start. Autoplay policy usually blocks this because each new
-    // audioUrl creates a fresh AudioContext outside a user gesture (the
-    // join-time unlock only covers the first one).
-    if (ctx.state === "suspended") void ctx.resume();
-    audio.play().catch(() => {
-      // Autoplay blocked — stays silent until the pointerdown retry below.
-    });
+    // Synchronize a late join/reconnect to the server-owned clock once the
+    // file has metadata. The scheduler remains authoritative for settlement;
+    // this only prevents a local listener from replaying the ad from zero.
+    const syncToLivePosition = () => {
+      if (!startedAt || !Number.isFinite(audio.duration)) return;
+      const elapsedSec = Math.max(
+        0,
+        (Date.now() - Date.parse(startedAt)) / 1000,
+      );
+      if (elapsedSec < audio.duration - 0.25) {
+        try {
+          audio.currentTime = elapsedSec;
+        } catch {
+          // Seeking remains best-effort for media served without ranges.
+        }
+      }
+    };
+    const startPlayback = () => {
+      if (!active || !canPlayRef.current) return;
+      syncToLivePosition();
+      if (ctx.state === "suspended") void ctx.resume();
+      void audio.play().catch(() => {
+        // A user gesture can retry this through unlock/pointerdown.
+      });
+    };
+    const onCanPlay = () => {
+      canPlayRef.current = true;
+      startPlayback();
+    };
+    const onPlaying = () => setPlaybackState("playing");
+    const onError = () => setPlaybackState("degraded");
+    const onEnded = () => setPlaybackState("ended");
+    audio.addEventListener("canplay", onCanPlay);
+    audio.addEventListener("playing", onPlaying);
+    audio.addEventListener("error", onError);
+    audio.addEventListener("ended", onEnded);
+    playRef.current = startPlayback;
+    audio.load();
+    if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) onCanPlay();
 
     // Retry on any pointerdown until the first successful resume, so audio
     // keeps surviving ad changes on mobile. The listener is lightweight and
     // removed as soon as both the context and the element are running (and
     // always on cleanup).
     const onPointerDown = () => {
-      if (ctx.state === "suspended") void ctx.resume();
-      if (audio.paused) void audio.play().catch(() => {});
+      startPlayback();
       if (ctx.state !== "suspended" && !audio.paused) {
         document.removeEventListener("pointerdown", onPointerDown);
       }
@@ -134,6 +182,12 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
 
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
+      audio.removeEventListener("canplay", onCanPlay);
+      audio.removeEventListener("playing", onPlaying);
+      audio.removeEventListener("error", onError);
+      audio.removeEventListener("ended", onEnded);
+      canPlayRef.current = false;
+      playRef.current = () => {};
       audio.pause();
       audio.src = "";
       audioElRef.current = null;
@@ -142,7 +196,7 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
       analyserRef.current = null;
       freqDataRef.current = null;
     };
-  }, [audioUrl]);
+  }, [active, audioUrl, startedAt]);
 
   const tick = useCallback(() => {
     const phase = phaseRef.current;
@@ -242,27 +296,23 @@ export function useAudioSignal(active: boolean, audioUrl?: string) {
 
   /** Resume AudioContext + play the media element after a user gesture. */
   const unlock = useCallback(() => {
-    const ctx = audioCtxRef.current;
-    if (ctx?.state === "suspended") {
-      void ctx.resume();
-    }
-    const audio = audioElRef.current;
-    if (audio && audio.paused) {
-      void audio.play().catch(() => {
-        // Still blocked or missing asset — synthesized signal continues.
-      });
-    }
+    playRef.current();
   }, []);
 
   const toggleMute = useCallback(() => {
     setMuted((m) => !m);
-    // The mute control is a user gesture, so it can also unlock audio that
-    // started suspended (new AudioContexts created outside a gesture).
-    const ctx = audioCtxRef.current;
-    if (ctx && ctx.state === "suspended") void ctx.resume();
-    const audio = audioElRef.current;
-    if (audio && audio.paused) void audio.play().catch(() => {});
+    // The mute control is a user gesture, so it can also unlock a newly
+    // ready source without bypassing the canplay gate.
+    playRef.current();
   }, []);
 
-  return { signalRef, ready, unlock, muted, toggleMute, setMuted };
+  return {
+    signalRef,
+    ready,
+    playbackState,
+    unlock,
+    muted,
+    toggleMute,
+    setMuted,
+  };
 }

@@ -1,7 +1,9 @@
-import type {
-  AuctionState,
-  GenerationRequest,
-  GenerationResult,
+import {
+  isMediaManifest,
+  playoutDurationFor,
+  type AuctionState,
+  type GenerationRequest,
+  type GenerationResult,
 } from "@slopstream/shared";
 
 type Winner = NonNullable<AuctionState["winner"]>;
@@ -21,6 +23,7 @@ function isGenerationResult(
     result.segmentId === segmentId &&
     typeof result.assetUrl === "string" &&
     result.assetUrl.length > 0 &&
+    isMediaManifest(result.media) &&
     typeof result.durationSec === "number" &&
     Number.isFinite(result.durationSec) &&
     result.durationSec > 0 &&
@@ -44,6 +47,8 @@ export class SegmentPreparationService {
     apiBaseUrl: string,
     generatorBaseUrl: string,
     private readonly fetcher: FetchLike = fetch,
+    /** Must match the scheduler's configured playout ceiling. */
+    private readonly segmentPlaySec = Number.POSITIVE_INFINITY,
   ) {
     this.apiBaseUrl = trimTrailingSlash(apiBaseUrl);
     this.generatorBaseUrl = trimTrailingSlash(generatorBaseUrl);
@@ -79,14 +84,19 @@ export class SegmentPreparationService {
         throw new Error("generator returned an invalid or mismatched segment");
       }
 
+      const durationSec = playoutDurationFor(
+        result.media.durationSec,
+        this.segmentPlaySec,
+      );
       await this.postApi(`/segments/${winner.segmentId}/ready`, {
         assetUrl: result.assetUrl,
-        durationSec: result.durationSec,
+        media: result.media,
+        durationSec,
         summary: result.summary,
       });
       await this.postApi(`/segments/${winner.segmentId}/challenge-source`, {
         transcript: result.transcript,
-        durationSec: result.durationSec,
+        durationSec,
         visualMetadata: result.visualMetadata,
         audioMetadata: result.audioMetadata,
       });

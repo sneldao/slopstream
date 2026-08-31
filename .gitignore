@@ -11,8 +11,11 @@ dist/
 .next/
 *.tsbuildinfo
 
-# Generated media from the local generator pipeline
-apps/generator/assets/
+# Generated media from the local generator pipeline. Keep only the deterministic
+# stub fixtures required to build and exercise the demo image.
+apps/generator/assets/*
+!apps/generator/assets/approval-sample-002.mp3
+!apps/generator/assets/seg_verify_clean.png
 
 # Dependencies / builds — belt-and-braces for nested layouts
 **/node_modules/

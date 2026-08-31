@@ -322,6 +322,22 @@ function createFakeGenerator(): { server: Server; requests: unknown[] } {
       JSON.stringify({
         segmentId: request.segmentId,
         assetUrl: "https://cdn.test/asset.mp4",
+        media: {
+          version: 1,
+          durationSec: 30,
+          audio: {
+            url: "https://cdn.test/asset.mp3",
+            contentType: "audio/mpeg",
+            sha256: "a".repeat(64),
+          },
+          visual: {
+            url: "https://cdn.test/asset.mp4",
+            contentType: "video/mp4",
+            sha256: "b".repeat(64),
+            type: "video",
+            posterUrl: "https://cdn.test/asset.png",
+          },
+        },
         durationSec: 30,
         transcript: "Zephyr Quantum delivers blazing fast pipelines",
         summary: "A test summary",

@@ -36,6 +36,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const MAX_REQUEST_BYTES = 64 * 1024;
+const IMMUTABLE_ASSET_KEY = /^[a-f0-9]{64}\.(mp3|mp4|png|jpe?g|webp|webm)$/;
 const PRODUCTION_TIERS = new Set<ProductionTier>([
   "audio",
   "audio_image",
@@ -283,7 +284,9 @@ export function createGeneratorServer({
             "content-type": contentType,
             "content-length": data.length,
             "access-control-allow-origin": "*",
-            "cache-control": "public, max-age=3600",
+            "cache-control": IMMUTABLE_ASSET_KEY.test(key)
+              ? "public, max-age=31536000, immutable"
+              : "no-store",
           });
           response.end(data);
         } catch {

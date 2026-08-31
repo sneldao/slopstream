@@ -18,6 +18,8 @@ COPY --from=build /app/packages/shared/package.json ./packages/shared/
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/apps/generator/package.json ./apps/generator/
 COPY --from=build /app/apps/generator/dist ./apps/generator/dist
+COPY --from=build /app/apps/generator/assets/approval-sample-002.mp3 ./apps/generator/stub-fixtures/approval-sample-002.mp3
+COPY --from=build /app/apps/generator/assets/seg_verify_clean.png ./apps/generator/stub-fixtures/seg_verify_clean.png
 COPY --from=build /app/apps/generator/node_modules ./apps/generator/node_modules
 EXPOSE 4300
-CMD ["node", "apps/generator/dist/index.js"]
+CMD ["/bin/sh", "-c", "mkdir -p /app/apps/generator/assets; for asset in approval-sample-002.mp3 seg_verify_clean.png; do [ -e /app/apps/generator/assets/$asset ] || cp /app/apps/generator/stub-fixtures/$asset /app/apps/generator/assets/$asset; done; exec node apps/generator/dist/index.js"]

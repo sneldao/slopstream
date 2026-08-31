@@ -1,4 +1,5 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { createHash } from "node:crypto";
 import type { GenerationRequest, GenerationResult } from "@slopstream/shared";
 import { pathToFileURL } from "node:url";
 
@@ -14,7 +15,7 @@ export interface AudioSynthesizer {
 }
 
 export interface AssetUploader {
-  upload(objectKey: string, body: Uint8Array): Promise<string>;
+  upload(objectKey: string, body: Uint8Array, sha256: string): Promise<string>;
 }
 
 export interface AudioCommandDependencies {
@@ -118,8 +119,8 @@ function summaryFor(request: GenerationRequest): string {
     : `Audio introduction: ${request.brief.trim()}`;
 }
 
-function objectKeyFor(segmentId: string): string {
-  return `audio/${encodeURIComponent(segmentId)}.mp3`;
+function objectKeyFor(sha256: string): string {
+  return `audio/${sha256}.mp3`;
 }
 
 function estimateDurationSec(transcript: string): number {
@@ -153,8 +154,9 @@ export async function generateAudio(
     throw new Error("ElevenLabs returned empty audio");
   }
 
-  const objectKey = objectKeyFor(request.segmentId);
-  const assetUrl = await dependencies.uploader.upload(objectKey, audio);
+  const sha256 = createHash("sha256").update(audio).digest("hex");
+  const objectKey = objectKeyFor(sha256);
+  const assetUrl = await dependencies.uploader.upload(objectKey, audio, sha256);
   if (!isAbsoluteUrl(assetUrl)) {
     throw new Error("asset uploader returned an invalid asset URL");
   }
@@ -162,6 +164,15 @@ export async function generateAudio(
   return {
     segmentId: request.segmentId,
     assetUrl,
+    media: {
+      version: 1,
+      durationSec: estimateDurationSec(transcript),
+      audio: {
+        url: assetUrl,
+        contentType: AUDIO_CONTENT_TYPE,
+        sha256,
+      },
+    },
     durationSec: estimateDurationSec(transcript),
     transcript,
     summary: summaryFor(request),
@@ -210,7 +221,7 @@ function createProductionDependencies(
       },
     },
     uploader: {
-      async upload(objectKey, body) {
+      async upload(objectKey, body, sha256) {
         const response = await fetch(
           uploadUrlFor(config.assetUploadUrl, objectKey),
           {
@@ -218,6 +229,7 @@ function createProductionDependencies(
             headers: {
               authorization: `Bearer ${config.assetUploadToken}`,
               "content-type": AUDIO_CONTENT_TYPE,
+              "x-content-sha256": sha256,
             },
             body: new Uint8Array(body),
           },

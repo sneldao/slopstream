@@ -12,18 +12,20 @@
 // the API through the marketplace feed. See docs/technical/architecture.md —
 // "Component responsibilities".
 
-import type {
-  AuctionState,
-  GenerationStage,
-  ProductionTier,
-  PublicChallenge,
-  Segment,
-  StreamOpsMetrics,
+import {
+  FREE_BRAND_ID,
+  playoutDurationFor,
+  type AuctionState,
+  type GenerationStage,
+  type ProductionTier,
+  type PublicChallenge,
+  type Segment,
+  type StreamOpsMetrics,
 } from "@slopstream/shared";
-import { FREE_BRAND_ID } from "@slopstream/shared";
 import type { ApiClient } from "./apiClient.js";
 import {
   pickEncoreCandidate,
+  playableAssetUrl,
   prefetchDepthFor,
   updateEwma,
   type EncoreRing,
@@ -387,8 +389,8 @@ export class SegmentScheduler {
     console.log(`[scheduler] slot ${slot} -> segment ${segmentId} (${label})`);
 
     try {
-      await this.runGeneration(target, slot);
-      await this.startPlayback(segmentId, brandId, slot);
+      const durationSec = await this.runGeneration(target, slot);
+      await this.startPlayback(segmentId, brandId, slot, durationSec);
     } catch (error) {
       console.error(`[scheduler] drive failed for ${segmentId}:`, error);
       // Lane 2 releases the reservation and emits bid.failed itself. Only
@@ -411,7 +413,7 @@ export class SegmentScheduler {
   private async runGeneration(
     target: DriveTarget,
     slot: number,
-  ): Promise<void> {
+  ): Promise<number> {
     const { segmentId, brandId, brief, tier, sourceUrl } = target;
     this.driving = true;
     this.generationInFlight = true;
@@ -453,7 +455,7 @@ export class SegmentScheduler {
       void generation.catch(() => {});
       for (const stage of GENERATION_STAGES) {
         await this.delay(this.env.genStageDelayMs);
-        if (this.stopped) return;
+        if (this.stopped) return this.env.segmentPlaySec;
         this.gateway.emit({
           type: "generation.progress",
           slot,
@@ -462,6 +464,10 @@ export class SegmentScheduler {
         });
       }
       const result = await generation;
+      const durationSec = playoutDurationFor(
+        result.media.durationSec,
+        this.env.segmentPlaySec,
+      );
       this.lastGenDurationMs = Date.now() - genStartedAt;
       this.lastGenSegmentId = segmentId;
       this.genDurationEwmaMs = updateEwma(
@@ -471,22 +477,25 @@ export class SegmentScheduler {
       this.continuityImageUrl =
         continuityFromResult(result) ?? this.continuityImageUrl;
 
-      // Compressed playback: the orchestrator's segmentPlaySec — not the
-      // generator's duration — is authoritative for the window timeline.
+      // `MediaManifest.durationSec` remains the natural asset duration. The
+      // persisted play window is capped to it so exhausted audio never leaves
+      // a timer-driven visual loop on air.
       await this.api.markReady(segmentId, {
         assetUrl: result.assetUrl,
-        durationSec: this.env.segmentPlaySec,
+        media: result.media,
+        durationSec,
         summary: result.summary,
       });
       this.gateway.emit({
         type: "segment.ready",
         segmentId,
         assetUrl: result.assetUrl,
-        durationSec: this.env.segmentPlaySec,
+        media: result.media,
+        durationSec,
       });
       await this.api.sendChallengeSource(segmentId, {
         transcript: result.transcript,
-        durationSec: this.env.segmentPlaySec,
+        durationSec,
         visualMetadata: result.visualMetadata,
         audioMetadata: result.audioMetadata,
       });
@@ -494,6 +503,7 @@ export class SegmentScheduler {
         ...this.previousSummaries,
         result.summary,
       ].slice(-2);
+      return durationSec;
     } finally {
       this.driving = false;
       this.generationInFlight = false;
@@ -504,6 +514,7 @@ export class SegmentScheduler {
     segmentId: string,
     brandId: string,
     _slot: number,
+    durationSec = this.env.segmentPlaySec,
   ): Promise<void> {
     // Block chained encores from starting while a live segment is incoming.
     this.liveIncoming = true;
@@ -524,7 +535,7 @@ export class SegmentScheduler {
         segmentId,
         brandId,
         Date.parse(receipt.startedAt),
-        this.env.segmentPlaySec,
+        durationSec,
       );
     } finally {
       this.liveIncoming = false;
@@ -684,6 +695,12 @@ export class SegmentScheduler {
   }
 
   private beginEncorePlayback(segment: Segment): void {
+    const assetUrl = playableAssetUrl(segment);
+    if (!assetUrl) return;
+    const durationSec = playoutDurationFor(
+      segment.media?.durationSec ?? segment.durationSeconds,
+      this.env.segmentPlaySec,
+    );
     let settle!: () => void;
     const settled = new Promise<void>((resolve) => {
       settle = resolve;
@@ -703,15 +720,16 @@ export class SegmentScheduler {
       brandId,
       startedAt: new Date().toISOString(),
       slot: segment.slot,
-      assetUrl: segment.assetUrl as string,
-      durationSec: this.env.segmentPlaySec,
+      assetUrl,
+      ...(segment.media ? { media: segment.media } : {}),
+      durationSec,
       summary: segment.summary,
     });
 
     const playback: Playback = {
       segmentId: segment.id,
       startedAtMs: Date.now(),
-      durationSec: this.env.segmentPlaySec,
+      durationSec,
       held: null,
       encore: true,
       done: settle,

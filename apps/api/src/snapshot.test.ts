@@ -24,6 +24,21 @@ describe("composeSnapshot", () => {
         status,
         durationSec: 20,
         mediaUrl: `/assets/${id}.webp`,
+        media: {
+          version: 1,
+          durationSec: 20,
+          audio: {
+            url: `https://cdn.test/${id}.mp3`,
+            contentType: "audio/mpeg",
+            sha256: "a".repeat(64),
+          },
+          visual: {
+            url: `https://cdn.test/${id}.webp`,
+            contentType: "image/webp",
+            sha256: "b".repeat(64),
+            type: "image",
+          },
+        },
         summary: `${id} summary`,
         thresholdFraction: 0.6,
         windowOpenedAtMs: openedAt,
@@ -55,6 +70,10 @@ describe("composeSnapshot", () => {
     ]);
     expect(snapshot.recentSegments[0]).toMatchObject({
       assetUrl: "/assets/newer.webp",
+      media: {
+        audio: { url: "https://cdn.test/newer.mp3" },
+        visual: { url: "https://cdn.test/newer.webp", type: "image" },
+      },
       windowOpenedAtMs: now - 1_000,
     });
   });

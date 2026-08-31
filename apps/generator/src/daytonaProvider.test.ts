@@ -20,6 +20,22 @@ const request = {
 const commandOutput = {
   segmentId: request.segmentId,
   assetUrl: "https://assets.example.test/segment-daytona.mp4",
+  media: {
+    version: 1,
+    durationSec: 24,
+    audio: {
+      url: "https://assets.example.test/segment-daytona.mp3",
+      contentType: "audio/mpeg",
+      sha256: "a".repeat(64),
+    },
+    visual: {
+      url: "https://assets.example.test/segment-daytona.mp4",
+      contentType: "video/mp4",
+      sha256: "b".repeat(64),
+      type: "video",
+      posterUrl: "https://assets.example.test/segment-daytona.png",
+    },
+  },
   durationSec: 24,
   transcript: "A durable media generation pipeline is ready.",
   summary: "The pipeline has launched.",
@@ -142,10 +158,22 @@ describe("DaytonaGenerationProvider", () => {
 });
 
 describe("Daytona configuration", () => {
-  it("keeps stub mode as the default without constructing a Daytona client", () => {
+  it("requires a public HTTPS asset origin in stub mode", () => {
     const clientFactory = vi.fn();
 
-    const provider = createGenerationProviderFromEnv({}, clientFactory);
+    expect(() => createGenerationProviderFromEnv({}, clientFactory)).toThrow(
+      "ASSET_BASE_URL must be a queryless public HTTPS URL when GENERATOR_MODE=stub",
+    );
+    expect(clientFactory).not.toHaveBeenCalled();
+  });
+
+  it("builds the default stub provider with a public HTTPS asset origin", () => {
+    const clientFactory = vi.fn();
+
+    const provider = createGenerationProviderFromEnv(
+      { ASSET_BASE_URL: "https://assets.example.test" },
+      clientFactory,
+    );
 
     expect(configuredGeneratorMode({})).toBe("stub");
     expect(provider).toBeInstanceOf(StubGenerationProvider);

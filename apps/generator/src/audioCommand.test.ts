@@ -5,6 +5,10 @@ import {
   type AudioCommandDependencies,
 } from "./audioCommand.js";
 
+const SHA256 =
+  "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81";
+const OBJECT_KEY = `audio/${SHA256}.mp3`;
+const ASSET_URL = `https://assets.example.test/slopstream/${OBJECT_KEY}`;
 const request = {
   segmentId: "segment:audio one",
   brandId: "brand:one",
@@ -24,11 +28,7 @@ function dependencies(): AudioCommandDependencies {
       synthesize: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     },
     uploader: {
-      upload: vi
-        .fn()
-        .mockResolvedValue(
-          "https://assets.example.test/slopstream/audio/segment%3Aaudio%20one.mp3",
-        ),
+      upload: vi.fn().mockResolvedValue(ASSET_URL),
     },
   };
 }
@@ -43,20 +43,29 @@ describe("audio generation command", () => {
       request.brief,
     );
     expect(providers.uploader.upload).toHaveBeenCalledWith(
-      "audio/segment%3Aaudio%20one.mp3",
+      OBJECT_KEY,
       new Uint8Array([1, 2, 3]),
+      SHA256,
     );
     expect(result).toEqual({
       segmentId: request.segmentId,
-      assetUrl:
-        "https://assets.example.test/slopstream/audio/segment%3Aaudio%20one.mp3",
+      assetUrl: ASSET_URL,
+      media: {
+        version: 1,
+        durationSec: 3,
+        audio: {
+          url: ASSET_URL,
+          contentType: "audio/mpeg",
+          sha256: SHA256,
+        },
+      },
       durationSec: 3,
       transcript: request.brief,
       summary: `Audio continuation after "${request.previousSummaries[0]}": ${request.brief}`,
       audioMetadata: {
         contentType: "audio/mpeg",
         durationEstimated: true,
-        objectKey: "audio/segment%3Aaudio%20one.mp3",
+        objectKey: OBJECT_KEY,
         provider: "elevenlabs",
         voiceId: "voice-test",
       },

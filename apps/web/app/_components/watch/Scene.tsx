@@ -425,13 +425,18 @@ function MediaAsset({
   brand?: BrandSummary;
 }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [segment.assetUrl]);
-  const mediaType = useMemo(
-    () => continuumAssetType(segment.assetUrl),
-    [segment.assetUrl],
-  );
+  const [ready, setReady] = useState(false);
+  const visual = segment.media?.visual;
+  // `assetUrl` remains only for already-persisted demo history during the
+  // manifest migration. Newly generated segments always use `media.visual`.
+  const mediaUrl = visual?.url ?? segment.assetUrl;
+  const mediaType = visual?.type ?? continuumAssetType(mediaUrl);
+  useEffect(() => {
+    setFailed(false);
+    setReady(false);
+  }, [mediaUrl]);
 
-  if (!segment.assetUrl || failed || mediaType === "audio") {
+  if (!mediaUrl || failed || mediaType === "audio") {
     return (
       <div
         className="continuum-portal__placement"
@@ -445,27 +450,55 @@ function MediaAsset({
 
   if (mediaType === "video") {
     return (
-      <video
-        className="continuum-portal__media"
-        src={segment.assetUrl}
-        autoPlay
-        muted
-        loop
-        playsInline
-        onError={() => setFailed(true)}
-      />
+      <>
+        {!ready && (
+          <div
+            className="continuum-portal__placement"
+            style={{
+              background: `linear-gradient(135deg, ${brand?.primaryColor ?? "#45a7ff"}, ${brand?.secondaryColor ?? "#b8ff65"})`,
+            }}
+            aria-hidden
+          />
+        )}
+        <video
+          className="continuum-portal__media"
+          src={mediaUrl}
+          poster={visual?.posterUrl}
+          preload="auto"
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{ opacity: ready ? 1 : 0 }}
+          onCanPlay={() => setReady(true)}
+          onError={() => setFailed(true)}
+        />
+      </>
     );
   }
 
   return (
-    // Generated asset URLs are dynamic and cannot use next/image host allowlists.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      className="continuum-portal__media"
-      src={segment.assetUrl}
-      alt=""
-      onError={() => setFailed(true)}
-    />
+    <>
+      {!ready && (
+        <div
+          className="continuum-portal__placement"
+          style={{
+            background: `linear-gradient(135deg, ${brand?.primaryColor ?? "#45a7ff"}, ${brand?.secondaryColor ?? "#b8ff65"})`,
+          }}
+          aria-hidden
+        />
+      )}
+      {/* Generated asset URLs are dynamic and cannot use next/image host allowlists. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="continuum-portal__media"
+        src={mediaUrl}
+        alt=""
+        style={{ opacity: ready ? 1 : 0 }}
+        onLoad={() => setReady(true)}
+        onError={() => setFailed(true)}
+      />
+    </>
   );
 }
 

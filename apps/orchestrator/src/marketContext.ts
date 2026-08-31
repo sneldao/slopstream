@@ -33,8 +33,10 @@ export function continuityFromResult(
 ): string | undefined {
   const hero = result.visualMetadata?.heroImageUrl;
   if (typeof hero === "string" && hero.length > 0) return hero;
-  if (/\.(png|jpe?g|webp)$/i.test(result.assetUrl)) return result.assetUrl;
-  return undefined;
+  // ApiClient.generate() receives untrusted JSON despite the static contract.
+  const visual = result.media?.visual;
+  if (visual?.posterUrl) return visual.posterUrl;
+  return visual?.type === "image" ? visual.url : undefined;
 }
 
 /** Encore gate thresholds — mirror marketSting in the generator so the

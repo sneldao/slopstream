@@ -1,9 +1,11 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   FREE_BRAND_ID,
+  isPublicMediaUrl,
   type GenerationRequest,
   type GenerationResult,
   type ProductionTier,
@@ -81,7 +83,7 @@ function capTier(
 export interface ElevenLabsProviderConfig {
   apiKey: string;
   voiceId: string;
-  /** Base URL for serving assets (e.g. http://localhost:4300). */
+  /** Public HTTPS origin serving immutable generated derivatives. */
   assetBaseUrl: string;
   /** Local directory to save generated assets. */
   assetsDir: string;
@@ -113,6 +115,16 @@ function optionalEnvironmentValue(
 ): string | undefined {
   const value = environment[name]?.trim();
   return value || fallback;
+}
+
+function publicAssetBaseUrl(environment: Environment): string {
+  const value = requiredEnvironmentValue(environment, "ASSET_BASE_URL");
+  if (!isPublicMediaUrl(value)) {
+    throw new Error(
+      "ASSET_BASE_URL must be a queryless public HTTPS URL when GENERATOR_MODE=elevenlabs",
+    );
+  }
+  return new URL(value).toString().replace(/\/$/, "");
 }
 
 function parseTtsModel(value: string | undefined): TtsModel {
@@ -148,11 +160,8 @@ export function createElevenLabsProviderFromEnv(
   const config: ElevenLabsProviderConfig = {
     apiKey: requiredEnvironmentValue(environment, "ELEVENLABS_API_KEY"),
     voiceId: requiredEnvironmentValue(environment, "ELEVENLABS_VOICE_ID"),
-    assetBaseUrl: optionalEnvironmentValue(
-      environment,
-      "ASSET_BASE_URL",
-      `http://localhost:${environment.PORT ?? 4300}`,
-    )!,
+    /** Public HTTPS origin serving immutable generated derivatives. */
+    assetBaseUrl: publicAssetBaseUrl(environment),
     assetsDir: optionalEnvironmentValue(environment, "ASSETS_DIR", ASSETS_DIR)!,
     ttsModel: parseTtsModel(
       optionalEnvironmentValue(environment, "ELEVENLABS_TTS_MODEL"),
@@ -270,8 +279,10 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
 
     // Stage 2: Voice — TTS via ElevenLabs with the format's voice.
     const audioBytes = await this.synthesizeVoice(transcript, voiceId);
-    const audioKey = `${request.segmentId}.mp3`;
+    const audioKey = contentAddressedKey(audioBytes, "mp3");
     await writeFile(join(this.config.assetsDir, audioKey), audioBytes);
+    const audioUrl = assetUrl(this.config.assetBaseUrl, audioKey);
+    const audio = mediaAsset(audioUrl, "audio/mpeg", audioBytes);
 
     const durationSec = estimateDurationSec(transcript);
     const summary = summaryFor(subject, description, format);
@@ -280,7 +291,8 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     if (tier === "audio") {
       return {
         segmentId: request.segmentId,
-        assetUrl: assetUrl(this.config.assetBaseUrl, audioKey),
+        assetUrl: audioUrl,
+        media: { version: 1, durationSec, audio },
         durationSec,
         transcript,
         summary,
@@ -335,12 +347,18 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         imagePrompt,
         effectiveReference,
       );
-      const imageKey = `${request.segmentId}.png`;
+      const imageKey = contentAddressedKey(imageBytes, "png");
       await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
+      const imageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
+      const visual = {
+        ...mediaAsset(imageUrl, "image/png", imageBytes),
+        type: "image" as const,
+      };
 
       return {
         segmentId: request.segmentId,
-        assetUrl: assetUrl(this.config.assetBaseUrl, imageKey),
+        assetUrl: imageUrl,
+        media: { version: 1, durationSec, audio, visual },
         durationSec,
         transcript,
         summary,
@@ -348,7 +366,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
           provider: "elevenlabs",
           modelId: IMAGE_MODEL,
           prompt: imagePrompt,
-          heroImageUrl: assetUrl(this.config.assetBaseUrl, imageKey),
+          heroImageUrl: imageUrl,
         },
         audioMetadata: {
           provider: "elevenlabs",
@@ -379,7 +397,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       imagePrompt,
       effectiveReference,
     );
-    const imageKey = `${request.segmentId}.png`;
+    const imageKey = contentAddressedKey(imageBytes, "png");
     await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
     const heroImageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
 
@@ -410,12 +428,19 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       durationSec,
       startFrame,
     );
-    const videoKey = `${request.segmentId}.mp4`;
+    const videoKey = contentAddressedKey(videoBytes, "mp4");
     await writeFile(join(this.config.assetsDir, videoKey), videoBytes);
+    const videoUrl = assetUrl(this.config.assetBaseUrl, videoKey);
+    const visual = {
+      ...mediaAsset(videoUrl, "video/mp4", videoBytes),
+      type: "video" as const,
+      posterUrl: heroImageUrl,
+    };
 
     return {
       segmentId: request.segmentId,
-      assetUrl: assetUrl(this.config.assetBaseUrl, videoKey),
+      assetUrl: videoUrl,
+      media: { version: 1, durationSec, audio, visual },
       durationSec,
       transcript,
       summary,
@@ -549,6 +574,19 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
 function assetUrl(base: string, key: string): string {
   const b = base.endsWith("/") ? base.slice(0, -1) : base;
   return `${b}/assets/${key}`;
+}
+
+function contentAddressedKey(bytes: Uint8Array, extension: string): string {
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  return `${sha256}.${extension}`;
+}
+
+function mediaAsset(url: string, contentType: string, bytes: Uint8Array) {
+  return {
+    url,
+    contentType,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+  };
 }
 
 function delay(ms: number): Promise<void> {

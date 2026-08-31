@@ -6,6 +6,7 @@
 import type {
   BidStatus,
   ChallengeType,
+  MediaManifest,
   ProductionTier,
   RewardPoolStatus,
   SegmentStatus,
@@ -61,6 +62,7 @@ export interface SegmentRow {
   status: SegmentStatus;
   durationSec: number;
   mediaUrl?: string;
+  media?: MediaManifest;
   summary: string;
   /** Platform-set threshold fraction frozen onto the segment at creation. */
   thresholdFraction: number;

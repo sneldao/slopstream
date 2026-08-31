@@ -10,16 +10,18 @@ import {
   type Response,
 } from "express";
 import { timingSafeEqual } from "node:crypto";
-import type {
-  AttentionProofSubmission,
-  Bid,
-  ChallengeSourceCommand,
-  CreateBrandCommand,
-  IngestScrapedCompaniesCommand,
-  PlaceBidCommand,
-  ProductionTier,
-  TakedownCommand,
-  TopUpCommand,
+import {
+  isMediaManifest,
+  type AttentionProofSubmission,
+  type Bid,
+  type ChallengeSourceCommand,
+  type CreateBrandCommand,
+  type IngestScrapedCompaniesCommand,
+  type MediaManifest,
+  type PlaceBidCommand,
+  type ProductionTier,
+  type TakedownCommand,
+  type TopUpCommand,
 } from "@slopstream/shared";
 import type { AuctionEngine } from "./auction.js";
 import type { ClearingEngine } from "./clearing.js";
@@ -470,17 +472,34 @@ export function createRouter(deps: ApiDeps): Router {
       const segment = requireSegment(req);
       const body = req.body as {
         assetUrl?: string;
+        media?: MediaManifest;
         durationSec?: number;
         summary?: string;
       };
+      assert(isMediaManifest(body?.media), 400, "valid media is required");
+      const canonicalAssetUrl = body.media.visual?.url ?? body.media.audio.url;
       assert(
-        typeof body?.assetUrl === "string" && body.assetUrl.length > 0,
+        body.assetUrl === canonicalAssetUrl,
         400,
-        "assetUrl is required",
+        "assetUrl must match the media manifest",
       );
+
+      const requestedDurationSec = body.durationSec ?? body.media.durationSec;
+      assert(
+        typeof requestedDurationSec === "number" &&
+          Number.isFinite(requestedDurationSec) &&
+          requestedDurationSec > 0 &&
+          requestedDurationSec <= body.media.durationSec,
+        400,
+        "durationSec must not exceed the media duration",
+      );
+      const canonicalDurationSec = Math.floor(requestedDurationSec);
+      assert(canonicalDurationSec >= 1, 400, "durationSec must be at least 1");
       if (segment.status === "ready") {
         assert(
           segment.mediaUrl === body.assetUrl &&
+            segment.durationSec === canonicalDurationSec &&
+            JSON.stringify(segment.media) === JSON.stringify(body.media) &&
             (body.summary === undefined || segment.summary === body.summary),
           409,
           "conflicting ready retry",
@@ -489,6 +508,7 @@ export function createRouter(deps: ApiDeps): Router {
           segmentId: segment.id,
           status: segment.status,
           assetUrl: segment.mediaUrl,
+          media: segment.media,
         });
         return;
       }
@@ -498,9 +518,8 @@ export function createRouter(deps: ApiDeps): Router {
         `segment cannot become ready from ${segment.status}`,
       );
       segment.mediaUrl = body.assetUrl;
-      if (typeof body.durationSec === "number" && body.durationSec > 0) {
-        segment.durationSec = Math.round(body.durationSec);
-      }
+      segment.media = body.media;
+      segment.durationSec = canonicalDurationSec;
       if (typeof body.summary === "string") segment.summary = body.summary;
       segment.status = "ready";
       if (publishLifecycleEvents) {
@@ -508,6 +527,7 @@ export function createRouter(deps: ApiDeps): Router {
           type: "segment.ready",
           segmentId: segment.id,
           assetUrl: segment.mediaUrl!,
+          media: segment.media!,
           durationSec: segment.durationSec,
         });
       }
@@ -515,6 +535,7 @@ export function createRouter(deps: ApiDeps): Router {
         segmentId: segment.id,
         status: segment.status,
         assetUrl: segment.mediaUrl,
+        media: segment.media,
       });
     }),
   );
@@ -545,9 +566,10 @@ export function createRouter(deps: ApiDeps): Router {
         return;
       }
       assert(
-        typeof body?.durationSec === "number" && body.durationSec > 0,
+        typeof body?.durationSec === "number" &&
+          body.durationSec === segment.durationSec,
         400,
-        "durationSec is required",
+        "durationSec must match the ready segment duration",
       );
       const challenges = generateChallenges(ledger, {
         segmentId: segment.id,

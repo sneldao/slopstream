@@ -2,7 +2,11 @@
 // The scheduler owns the state (EncoreRing); these functions decide depth
 // and candidate selection so they can be tested without timers or HTTP.
 
-import { FREE_BRAND_ID, type Segment } from "@slopstream/shared";
+import {
+  FREE_BRAND_ID,
+  playoutDurationFor,
+  type Segment,
+} from "@slopstream/shared";
 
 /** Exponentially weighted moving average of generation duration (ms). */
 export function updateEwma(
@@ -27,6 +31,15 @@ export function prefetchDepthFor(
   return Math.min(3, Math.max(1, depth));
 }
 
+export { playoutDurationFor } from "@slopstream/shared";
+
+/** Explicit manifest media is preferred; assetUrl remains a migration fallback. */
+export function playableAssetUrl(segment: Segment): string | undefined {
+  return (
+    segment.media?.visual?.url ?? segment.media?.audio.url ?? segment.assetUrl
+  );
+}
+
 export interface EncoreRing {
   /** Last segment aired live OR as an encore — never replayed immediately. */
   lastAiredSegmentId?: string;
@@ -47,7 +60,8 @@ export function pickEncoreCandidate(
   ring: EncoreRing,
 ): Segment | null {
   const eligible = recent.filter(
-    (s) => !!s.assetUrl && s.id !== ring.lastAiredSegmentId,
+    (s) =>
+      playableAssetUrl(s) !== undefined && s.id !== ring.lastAiredSegmentId,
   );
   if (eligible.length === 0) return null;
 

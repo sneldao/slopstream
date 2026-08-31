@@ -10,6 +10,7 @@ import type {
   AuctionState,
   GenerationRequest,
   GenerationResult,
+  MediaManifest,
   PublicChallenge,
   ScrapedCompanySubmission,
   StreamSnapshot,
@@ -144,7 +145,12 @@ export class ApiClient {
 
   async markReady(
     segmentId: string,
-    body: { assetUrl: string; durationSec: number; summary: string },
+    body: {
+      assetUrl: string;
+      media: MediaManifest;
+      durationSec: number;
+      summary: string;
+    },
   ): Promise<void> {
     await this.postApi(`/segments/${segmentId}/ready`, body);
   }

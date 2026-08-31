@@ -7,9 +7,82 @@ set -euo pipefail
 # after all application resources have reached a healthy state.
 
 host="${1:-nuncio-vultr}"
+asset_base_url="${SLOPSTREAM_ASSET_BASE_URL:-}"
+asset_authority="${asset_base_url#https://}"
+asset_authority="${asset_authority%%/*}"
+asset_host="$(ASSET_BASE_URL="${asset_base_url}" node --input-type=module --eval '
+  try {
+    const url = new URL(process.env.ASSET_BASE_URL ?? "");
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      process.exit(1);
+    }
+    process.stdout.write(url.hostname);
+  } catch {
+    process.exit(1);
+  }
+' 2>/dev/null)" || asset_host=""
+parsed_asset_host="${asset_host}"
+if [[ "${asset_host}" == \[* ]]; then
+  asset_host="${asset_host#\[}"
+  asset_host="${asset_host%%\]*}"
+fi
+asset_host="${asset_host%.}"
 
-ssh -o BatchMode=yes -o ConnectTimeout=15 "$host" 'bash -s' <<'REMOTE_SCRIPT'
+is_non_public_asset_host() {
+  local candidate="$1"
+  local first second third fourth
+  candidate="$(printf '%s' "${candidate}" | tr '[:upper:]' '[:lower:]')"
+  case "${candidate}" in
+    localhost|*.localhost|*.local) return 0 ;;
+  esac
+  # Public deployment should use a DNS hostname. Reject all literal IPv6
+  # addresses here, including IPv4-compatible loopback forms.
+  if [[ "${candidate}" == *:* ]]; then
+    return 0
+  fi
+  if [[ ! "${candidate}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+    return 1
+  fi
+  IFS=. read -r first second third fourth <<<"${candidate}"
+  first=$((10#${first}))
+  second=$((10#${second}))
+  third=$((10#${third}))
+  fourth=$((10#${fourth}))
+  if (( first > 255 || second > 255 || third > 255 || fourth > 255 )); then
+    return 0
+  fi
+  ((
+    first == 0 ||
+      first == 10 ||
+      first == 127 ||
+      (first == 100 && second >= 64 && second <= 127) ||
+      (first == 169 && second == 254) ||
+      (first == 172 && second >= 16 && second <= 31) ||
+      (first == 192 && (second == 0 || second == 168)) ||
+      (first == 198 && (second == 18 || second == 19)) ||
+      first >= 224
+  ))
+}
+
+if [[ ! "${asset_base_url}" =~ ^https://[^[:space:]/?#@]+(/[^?#]*)?$ ]] ||
+  [[ "${asset_authority}" == *%* ]] ||
+  [[ "${parsed_asset_host}" != "${asset_host}" ]] ||
+  is_non_public_asset_host "${asset_host}"; then
+  echo "Set SLOPSTREAM_ASSET_BASE_URL to a public HTTPS origin serving /assets/." >&2
+  exit 2
+fi
+asset_base_url_b64="$(printf '%s' "${asset_base_url}" | base64 | tr -d '\n')"
+
+ssh -o BatchMode=yes -o ConnectTimeout=15 "${host}" "SLOPSTREAM_ASSET_BASE_URL_B64=${asset_base_url_b64} bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
+
+asset_base_url="$(printf '%s' "${SLOPSTREAM_ASSET_BASE_URL_B64}" | base64 -d)"
 
 base_url="http://127.0.0.1:8000/api/v1"
 # Unique per run so concurrent provisioning cannot revoke another run's
@@ -234,13 +307,15 @@ bulk_envs "${verifier_uuid}" "$(jq -nc --arg verifier_token "${verifier_token}" 
   ]}
 ')"
 
-bulk_envs "${generator_uuid}" "$(jq -nc --arg generator_token "${generator_token}" '
+bulk_envs "${generator_uuid}" "$(jq -nc \
+  --arg generator_token "${generator_token}" \
+  --arg asset_base_url "${asset_base_url}" '
   {data: [
     {key: "NODE_ENV", value: "production"},
     {key: "PORT", value: "4300"},
     {key: "GENERATOR_MODE", value: "stub"},
     {key: "GENERATOR_API_TOKEN", value: $generator_token, is_shown_once: true},
-    {key: "ASSET_BASE_URL", value: "http://144.202.117.160:4304"}
+    {key: "ASSET_BASE_URL", value: $asset_base_url}
   ]}
 ')"
 
@@ -307,5 +382,6 @@ jq -nc \
   --arg verifier_uuid "${verifier_uuid}" \
   --arg generator_uuid "${generator_uuid}" \
   --arg orchestrator_uuid "${orchestrator_uuid}" \
-  '{project_uuid: $project_uuid, destination_uuid: $destination_uuid, applications: {api: $api_uuid, verifier: $verifier_uuid, generator: $generator_uuid, orchestrator: $orchestrator_uuid}, public_endpoints: {gateway: "http://144.202.117.160:4204", assets: "http://144.202.117.160:4304"}}'
+  --arg asset_base_url "${asset_base_url}" \
+  '{project_uuid: $project_uuid, destination_uuid: $destination_uuid, applications: {api: $api_uuid, verifier: $verifier_uuid, generator: $generator_uuid, orchestrator: $orchestrator_uuid}, public_endpoints: {gateway: "http://144.202.117.160:4204", assets: $asset_base_url}}'
 REMOTE_SCRIPT

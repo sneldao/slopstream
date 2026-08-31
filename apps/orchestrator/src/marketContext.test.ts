@@ -4,6 +4,12 @@ import {
   marketContextFromSnapshot,
 } from "./marketContext.js";
 
+const audio = {
+  url: "https://cdn.test/seg_1.mp3",
+  contentType: "audio/mpeg",
+  sha256: "a".repeat(64),
+};
+
 describe("marketContextFromSnapshot", () => {
   it("maps leaderboard and attention into generation context", () => {
     const ctx = marketContextFromSnapshot({
@@ -41,6 +47,18 @@ describe("continuityFromResult", () => {
       continuityFromResult({
         segmentId: "seg_1",
         assetUrl: "https://cdn.test/seg_1.mp4",
+        media: {
+          version: 1,
+          durationSec: 10,
+          audio,
+          visual: {
+            url: "https://cdn.test/seg_1.mp4",
+            contentType: "video/mp4",
+            sha256: "b".repeat(64),
+            type: "video",
+            posterUrl: "https://cdn.test/seg_1.png",
+          },
+        },
         durationSec: 10,
         transcript: "t",
         summary: "s",
@@ -54,6 +72,17 @@ describe("continuityFromResult", () => {
       continuityFromResult({
         segmentId: "seg_1",
         assetUrl: "https://cdn.test/seg_1.webp",
+        media: {
+          version: 1,
+          durationSec: 10,
+          audio,
+          visual: {
+            url: "https://cdn.test/seg_1.webp",
+            contentType: "image/webp",
+            sha256: "c".repeat(64),
+            type: "image",
+          },
+        },
         durationSec: 10,
         transcript: "t",
         summary: "s",

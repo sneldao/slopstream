@@ -46,6 +46,8 @@ export interface GenerationState {
   ready: boolean;
   /** Asset URL from `segment.ready` — carried into the playing segment. */
   assetUrl?: string;
+  /** Explicit media manifest from `segment.ready`. */
+  media?: Segment["media"];
   /** Duration from `segment.ready` — carried into the playing segment. */
   durationSeconds?: number;
 }
@@ -248,40 +250,74 @@ export function reduceStreamEvent(
     }
 
     case "segment.ready": {
-      if (!prev.generation) return next;
+      const queued = prev.upcomingSegments.find(
+        (segment) => segment.id === event.segmentId,
+      );
+      const readySegment: Segment = {
+        ...queued,
+        id: event.segmentId,
+        slot: prev.generation?.slot ?? queued?.slot ?? 0,
+        brandId: prev.generation?.brandId ?? queued?.brandId ?? null,
+        assetUrl: event.assetUrl,
+        media: event.media,
+        durationSeconds: event.durationSec,
+        summary: queued?.summary ?? "",
+        status: "ready",
+      };
       return {
         ...next,
-        generation: {
-          ...prev.generation,
-          ready: true,
-          doneStages: ALL_STAGES.slice(),
-          assetUrl: event.assetUrl,
-          durationSeconds: event.durationSec,
-        },
+        ...(prev.generation
+          ? {
+              generation: {
+                ...prev.generation,
+                ready: true,
+                doneStages: ALL_STAGES.slice(),
+                assetUrl: event.assetUrl,
+                media: event.media,
+                durationSeconds: event.durationSec,
+              },
+            }
+          : {}),
+        // Warm the next explicit manifest before segment.playing arrives.
+        upcomingSegments: [
+          readySegment,
+          ...prev.upcomingSegments.filter((s) => s.id !== event.segmentId),
+        ],
       };
     }
 
     case "segment.playing": {
       const gen = prev.generation;
+      const queued = prev.upcomingSegments.find(
+        (segment) => segment.id === event.segmentId,
+      );
+      const currentSegment =
+        prev.nowPlaying?.id === event.segmentId ? prev.nowPlaying : queued;
       const previousSegment =
         prev.nowPlaying && prev.nowPlaying.id !== event.segmentId
           ? { ...prev.nowPlaying, status: "done" as const }
           : undefined;
-      const segment: Segment =
-        prev.nowPlaying && prev.nowPlaying.id === event.segmentId
-          ? { ...prev.nowPlaying, status: "playing" }
-          : {
-              id: event.segmentId,
-              slot: gen?.slot ?? 0,
-              brandId: event.brandId,
-              durationSeconds: gen?.durationSeconds ?? 0,
-              summary: "",
-              status: "playing",
-              ...(gen?.assetUrl ? { assetUrl: gen.assetUrl } : {}),
-              ...(event.windowOpenedAtMs
-                ? { windowOpenedAtMs: Date.parse(event.windowOpenedAtMs) }
-                : {}),
-            };
+      const segment: Segment = {
+        ...currentSegment,
+        id: event.segmentId,
+        slot: currentSegment?.slot ?? gen?.slot ?? 0,
+        brandId: event.brandId,
+        durationSeconds:
+          currentSegment?.durationSeconds ?? gen?.durationSeconds ?? 0,
+        summary: currentSegment?.summary ?? "",
+        status: "playing",
+        ...(currentSegment?.assetUrl || gen?.assetUrl
+          ? { assetUrl: currentSegment?.assetUrl ?? gen?.assetUrl }
+          : {}),
+        ...(currentSegment?.media || gen?.media
+          ? { media: currentSegment?.media ?? gen?.media }
+          : {}),
+        ...(event.windowOpenedAtMs
+          ? { windowOpenedAtMs: Date.parse(event.windowOpenedAtMs) }
+          : currentSegment?.windowOpenedAtMs
+            ? { windowOpenedAtMs: currentSegment.windowOpenedAtMs }
+            : {}),
+      };
       return {
         ...next,
         nowPlaying: segment,
@@ -321,6 +357,7 @@ export function reduceStreamEvent(
           slot: event.slot,
           brandId: event.brandId,
           assetUrl: event.assetUrl,
+          ...(event.media ? { media: event.media } : {}),
           durationSeconds: event.durationSec,
           summary: event.summary,
           status: "playing",
