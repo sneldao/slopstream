@@ -22,6 +22,7 @@ export function NowPlaying({
   generation,
   activeChallenge,
   encore = false,
+  nextSlotPriceUsd = 0,
 }: {
   nowPlaying: Segment | null;
   nowPlayingStartedAt?: string;
@@ -30,6 +31,8 @@ export function NowPlaying({
   activeChallenge: PublicChallenge | undefined;
   encore?: boolean;
   signalRef: React.RefObject<unknown>;
+  /** Current ask for the next slot — lets free slots sell the auction. */
+  nextSlotPriceUsd?: number;
 }) {
   const primary = brand?.primaryColor;
 
@@ -45,6 +48,8 @@ export function NowPlaying({
             brand={brand}
             startedAt={nowPlayingStartedAt}
             encore={encore}
+            isFree={nowPlaying.brandId === null}
+            nextSlotPriceUsd={nextSlotPriceUsd}
           />
         ) : generation ? (
           <GenerationLabels key="gen" generation={generation} brand={brand} />
@@ -70,9 +75,17 @@ function EmptyMarket() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <div style={styles.emptyKicker}>Waiting for a bid</div>
+      <div style={styles.emptyKicker}>The market is open</div>
+      {/* Plain pitch — what this is, who pays, who gets paid. */}
+      <div style={styles.emptyPitch}>
+        Companies bid live for ad slots on this channel.
+      </div>
+      <div style={styles.emptySub}>
+        Every bid is public, every view is verified on-chain, and verified
+        viewers get paid from every cleared bid.
+      </div>
       <div style={styles.emptyPulse}>
-        <i className="empty-pulse__dot" /> Market open
+        <i className="empty-pulse__dot" /> Waiting for the first bid
       </div>
     </motion.div>
   );
@@ -118,11 +131,16 @@ function PlayingLabels({
   brand,
   startedAt,
   encore = false,
+  isFree = false,
+  nextSlotPriceUsd = 0,
 }: {
   segment: Segment;
   brand: BrandSummary | undefined;
   startedAt?: string;
   encore?: boolean;
+  /** Free scraped-filler slot — deliberately austere; sells the auction. */
+  isFree?: boolean;
+  nextSlotPriceUsd?: number;
 }) {
   return (
     <motion.div
@@ -133,15 +151,21 @@ function PlayingLabels({
       transition={{ type: "spring", stiffness: 120, damping: 22 }}
     >
       <motion.div
-        style={styles.adBadge}
+        style={{
+          ...styles.adBadge,
+          ...(isFree ? styles.adBadgeFree : {}),
+        }}
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        {encore ? "ENCORE" : "NOW PLAYING"}
+        {encore ? "ENCORE" : isFree ? "FREE SLOT — NOBODY PAID" : "NOW PLAYING"}
       </motion.div>
       <motion.div
-        style={styles.adBrand}
+        style={{
+          ...styles.adBrand,
+          ...(isFree ? styles.adBrandFree : {}),
+        }}
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{
@@ -153,10 +177,21 @@ function PlayingLabels({
       >
         {brand?.name ?? "Free Ad"}
       </motion.div>
-      {startedAt && (
-        <div style={styles.adTime}>
-          live · {new Date(startedAt).toLocaleTimeString()}
+      {/* Free slots sell the auction instead of pretending to be premium. */}
+      {isFree ? (
+        <div style={styles.adFreeNote}>
+          Nobody paid for this slot
+          {nextSlotPriceUsd > 0
+            ? ` — the next one starts at $${nextSlotPriceUsd.toFixed(0)}`
+            : ""}
+          . Bid to take it.
         </div>
+      ) : (
+        startedAt && (
+          <div style={styles.adTime}>
+            live · {new Date(startedAt).toLocaleTimeString()}
+          </div>
+        )
       )}
     </motion.div>
   );
@@ -218,6 +253,13 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 0,
     fontWeight: 650,
     lineHeight: 1.25,
+  },
+  emptyPitch: {
+    fontSize: "clamp(22px, 3.2vw, 40px)",
+    fontWeight: 900,
+    lineHeight: 1.1,
+    letterSpacing: "-0.02em",
+    color: "var(--slop-ink)",
   },
   emptyPulse: {
     display: "flex",
@@ -305,6 +347,24 @@ const styles: Record<string, React.CSSProperties> = {
     color: "rgba(16,16,20,0.66)",
   },
   adTime: { fontSize: 12, color: "rgba(16,16,20,0.5)", marginTop: 8 },
+  adBadgeFree: {
+    color: "rgba(16,16,20,0.55)",
+    background: "rgba(16,16,20,0.06)",
+    border: "1px dashed rgba(16,16,20,0.3)",
+  },
+  adBrandFree: {
+    color: "rgba(16,16,20,0.45)",
+    fontSize: "clamp(24px, 3vw, 44px)",
+    fontWeight: 800,
+  },
+  adFreeNote: {
+    marginTop: 10,
+    maxWidth: 520,
+    fontSize: "clamp(13px, 1.4vw, 17px)",
+    fontWeight: 700,
+    lineHeight: 1.35,
+    color: "rgba(16,16,20,0.6)",
+  },
   challenge: {
     position: "absolute",
     top: "clamp(72px, 10vh, 104px)",

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { QRCodeSVG } from "qrcode.react";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useSoundDesign } from "@/lib/useSoundDesign";
@@ -14,6 +13,8 @@ import { StatsFooter } from "./_components/watch/StatsFooter";
 import { OutbidFlashOverlay } from "./_components/watch/OutbidFlash";
 import { BlobChip } from "./_components/watch/SoftBlob";
 import { ProofReceipt3D } from "./_components/watch/ProofReceipt3D";
+import { MarketHero } from "./_components/watch/MarketHero";
+import { EarnCta } from "./_components/watch/EarnCta";
 import { SurfaceHeader } from "./_components/SurfaceHeader";
 import { LoopStatus } from "./_components/LoopStatus";
 import { listenerJoinUrl } from "@/lib/listenerJoinUrl";
@@ -171,6 +172,7 @@ export default function HomePage() {
           activeChallenge={state.activeChallenge}
           encore={!!state.nowPlayingEncore}
           signalRef={signalRef}
+          nextSlotPriceUsd={state.nextSlotPriceUsd}
         />
         <OutbidFlashOverlay
           flash={state.lastOutbid}
@@ -208,6 +210,19 @@ export default function HomePage() {
 
       {!theater && (
         <LoopStatus state={state} tone="light" className="screen-loop-status" />
+      )}
+
+      {/* The Market Hero — the auction is the product, so it gets center
+          stage: live price of the next slot, standing top bid, deadline. */}
+      {!theater && (
+        <div style={styles.marketHeroAnchor}>
+          <MarketHero
+            leaderboard={state.leaderboard}
+            brandById={state.brandById}
+            nextSlotPriceUsd={state.nextSlotPriceUsd}
+            currentAuction={state.currentAuction}
+          />
+        </div>
       )}
 
       {!theater && (
@@ -275,13 +290,16 @@ export default function HomePage() {
           <div style={styles.comingUpList}>
             {state.upcomingSegments.map((seg, i) => {
               const b = seg.brandId ? state.brandById[seg.brandId] : undefined;
-              const name = b?.name ?? "Free Ad";
+              const isFree = !seg.brandId;
+              const name = b?.name ?? "FREE — nobody paid";
               return (
                 <div key={seg.id} style={styles.comingUpItem}>
                   <span
                     style={{
                       ...styles.comingUpDot,
-                      background: b?.primaryColor ?? "#888",
+                      background: isFree
+                        ? "rgba(16,16,20,0.25)"
+                        : (b?.primaryColor ?? "#888"),
                     }}
                   />
                   <span style={styles.comingUpName}>{name}</span>
@@ -291,6 +309,7 @@ export default function HomePage() {
                   {seg.status === "ready" && (
                     <span style={styles.comingUpStatus}>ready</span>
                   )}
+                  {isFree && <span style={styles.comingUpFree}>free</span>}
                   {i === 0 && <span style={styles.comingUpNext}>next</span>}
                 </div>
               );
@@ -299,40 +318,13 @@ export default function HomePage() {
         </motion.div>
       )}
 
-      <aside
-        className={`screen-join${idleRecruit || state.activeChallenge ? " slop-join-pulse" : ""}${theater ? " screen-join--theater" : ""}`}
-        style={styles.joinPanel}
-        aria-label="Join Slopstream as a listener"
-      >
-        <div style={styles.qrFrame}>
-          {listenerUrl ? (
-            <QRCodeSVG
-              value={listenerUrl}
-              size={idleRecruit || theater ? 108 : 82}
-              bgColor="#ffffff"
-              fgColor="#0b0b1a"
-              level="M"
-              title="Listener join QR code"
-            />
-          ) : (
-            // Hold the space until the real join URL resolves client-side.
-            <span
-              aria-hidden
-              style={{
-                width: idleRecruit || theater ? 108 : 82,
-                height: idleRecruit || theater ? 108 : 82,
-              }}
-            />
-          )}
-        </div>
-        <div style={styles.joinTitle}>
-          {state.activeChallenge
-            ? "PROOF OPEN"
-            : idleRecruit
-              ? "SCAN TO EARN"
-              : "LISTEN"}
-        </div>
-      </aside>
+      {/* Earn CTA — the QR promoted to a first-class call to action. */}
+      <EarnCta
+        listenerUrl={listenerUrl}
+        idleRecruit={idleRecruit}
+        activeChallenge={!!state.activeChallenge}
+        theater={theater}
+      />
 
       {!theater && state.attention && (
         <motion.div
@@ -627,44 +619,30 @@ const styles: Record<string, React.CSSProperties> = {
     color: "rgba(16,16,20,0.58)",
     marginLeft: 4,
   },
+  marketHeroAnchor: {
+    position: "fixed",
+    top: "clamp(14px, 2.5vw, 26px)",
+    left: 0,
+    right: 0,
+    display: "flex",
+    justifyContent: "center",
+    zIndex: 10,
+    pointerEvents: "none",
+  },
   statsFloat: {
     position: "fixed",
     bottom: "clamp(16px, 3vw, 32px)",
     left: "clamp(16px, 3vw, 32px)",
     zIndex: 10,
   },
-  joinPanel: {
-    position: "fixed",
-    right: "clamp(16px, 3vw, 40px)",
-    bottom: "clamp(16px, 3vw, 32px)",
-    zIndex: 12,
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: 10,
-    borderRadius: 18,
-    background: "rgba(244,241,232,0.9)",
-    backdropFilter: "blur(16px)",
-    border: "1px solid rgba(16,16,20,0.24)",
-    boxShadow: "5px 6px 0 rgba(16,16,20,0.16)",
-  },
-  qrFrame: {
-    display: "flex",
-    padding: 6,
-    borderRadius: 8,
-    background: "#fff",
-  },
-  joinTitle: {
-    fontSize: 12,
-    fontWeight: 900,
-    letterSpacing: 2,
-    color: "var(--slop-ink)",
-  },
-  joinCopy: {
-    marginTop: 5,
-    maxWidth: 130,
-    fontSize: 12,
-    lineHeight: 1.35,
-    color: "rgba(16,16,20,0.62)",
+  comingUpFree: {
+    fontSize: 9,
+    fontWeight: 800,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: "rgba(244,241,232,0.66)",
+    border: "1px dashed rgba(244,241,232,0.4)",
+    padding: "2px 6px",
+    borderRadius: 999,
   },
 };
