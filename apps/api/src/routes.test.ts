@@ -124,6 +124,56 @@ describe("HTTP authorization boundaries", () => {
     expect(body.companies).toHaveLength(1);
   });
 
+  it("takedown endpoint opts out a company and removes it from listings", async () => {
+    const company = {
+      name: "OptOut Inc",
+      source: "hacker_news" as const,
+      sourceUrl: "https://optout.example",
+      tagline: "tagline",
+    };
+    await fetch(`${baseUrl}/companies/scraped`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ORCHESTRATOR_TOKEN}`,
+      },
+      body: JSON.stringify({ companies: [company] }),
+    });
+
+    const takedown = await fetch(`${baseUrl}/companies/takedown`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceUrl: "https://optout.example" }),
+    });
+    expect(takedown.ok).toBe(true);
+    expect(await takedown.json()).toEqual({ found: true, optedOut: true });
+
+    const list = await fetch(`${baseUrl}/companies/scraped`, {
+      headers: { Authorization: `Bearer ${ORCHESTRATOR_TOKEN}` },
+    });
+    const body = (await list.json()) as { companies: unknown[] };
+    expect(body.companies).toHaveLength(0);
+  });
+
+  it("takedown with unknown URL returns found:false", async () => {
+    const response = await fetch(`${baseUrl}/companies/takedown`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceUrl: "https://unknown.example" }),
+    });
+    expect(response.ok).toBe(true);
+    expect(await response.json()).toEqual({ found: false, optedOut: false });
+  });
+
+  it("takedown without sourceUrl returns 400", async () => {
+    const response = await fetch(`${baseUrl}/companies/takedown`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(response.status).toBe(400);
+  });
+
   it("requires an authenticated brand to act only for itself", async () => {
     const acme = fundedBrand(harness, "Acme", 100);
     const rival = fundedBrand(harness, "Rival", 100);

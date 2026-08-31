@@ -71,6 +71,10 @@ export interface SegmentRow {
   /** Set when a grace-period close is scheduled but not yet evaluated. */
   windowClosingAtMs?: number;
   windowClosed: boolean;
+  /** Cleared bid amount, frozen when the attention window closes successfully.
+   *  The durable price-of-attention history — served on the segment and the
+   *  price-history API. */
+  clearedAmountCents?: number;
   /** Generation brief for free (scraped-company) segments; paid segments
    *  resolve the brief from their brand at read time. */
   brief?: string;
@@ -175,6 +179,8 @@ export interface ScrapedCompanyRow {
   claimed: boolean;
   /** Set when the company has been turned into a free stream segment. */
   usedAtMs?: number;
+  /** Set when the company has opted out of being featured. */
+  optedOut?: boolean;
 }
 
 export class Ledger {
@@ -259,11 +265,11 @@ export class Ledger {
     return { added, duplicates };
   }
 
-  /** Oldest scraped company that has not been turned into a segment yet. */
+  /** Oldest scraped company that has not been turned into a segment yet and has not opted out. */
   nextUnusedScrapedCompany(): ScrapedCompanyRow | undefined {
     let best: ScrapedCompanyRow | undefined;
     for (const row of this.scrapedCompanies.values()) {
-      if (row.usedAtMs === undefined) {
+      if (row.usedAtMs === undefined && !row.optedOut) {
         if (!best || row.scrapedAt < best.scrapedAt) best = row;
       }
     }
@@ -273,6 +279,16 @@ export class Ledger {
   markScrapedCompanyUsed(id: string): void {
     const row = this.scrapedCompanies.get(id);
     if (row && row.usedAtMs === undefined) row.usedAtMs = Date.now();
+  }
+
+  /** Opt a company out of being featured. Looked up by sourceUrl. */
+  markOptedOut(sourceUrl: string): { found: boolean; optedOut: boolean } {
+    const id = this.scrapedByUrl.get(sourceUrl);
+    if (!id) return { found: false, optedOut: false };
+    const row = this.scrapedCompanies.get(id);
+    if (!row) return { found: false, optedOut: false };
+    row.optedOut = true;
+    return { found: true, optedOut: true };
   }
 
   brandByToken(token: string): BrandRow | undefined {

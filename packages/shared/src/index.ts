@@ -265,6 +265,10 @@ export interface Segment {
   /** The Continuum continuity input for the next generation. */
   summary: string;
   status: SegmentStatus;
+  /** Cleared bid amount, set once the segment's attention window closed
+   *  successfully. Absent for free segments and uncleared/failed bids. This
+   *  is the durable price-of-attention history the big screen charts. */
+  clearedAmountUsd?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -574,6 +578,8 @@ export interface ScrapedCompany {
   claimed: boolean;
   /** Set once the company has been turned into a free stream segment. */
   usedAt?: string;
+  /** Set when the company has opted out of being featured. */
+  optedOut?: boolean;
 }
 
 /** One scraped-company submission to POST /companies/scraped. */
@@ -583,6 +589,15 @@ export interface ScrapedCompanySubmission {
   sourceUrl: string;
   tagline?: string;
   description?: string;
+}
+
+export interface TakedownCommand {
+  sourceUrl: string;
+}
+
+export interface TakedownResult {
+  found: boolean;
+  optedOut: boolean;
 }
 
 /** POST /companies/scraped (orchestrator bearer). */

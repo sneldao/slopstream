@@ -18,6 +18,7 @@ import type {
   IngestScrapedCompaniesCommand,
   PlaceBidCommand,
   ProductionTier,
+  TakedownCommand,
   TopUpCommand,
 } from "@slopstream/shared";
 import type { AuctionEngine } from "./auction.js";
@@ -174,9 +175,24 @@ export function createRouter(deps: ApiDeps): Router {
     wrap((req, res) => {
       requireOrchestrator(orchestratorApiToken, req);
       const unused = [...ledger.scrapedCompanies.values()]
-        .filter((c) => c.usedAtMs === undefined)
+        .filter((c) => c.usedAtMs === undefined && !c.optedOut)
         .sort((a, b) => a.scrapedAt.localeCompare(b.scrapedAt));
       res.json({ companies: unused });
+    }),
+  );
+
+  // Public takedown endpoint — anyone can request a company opt-out.
+  router.post(
+    "/companies/takedown",
+    wrap((req, res) => {
+      const body = req.body as TakedownCommand;
+      assert(
+        typeof body?.sourceUrl === "string" && body.sourceUrl.length > 0,
+        400,
+        "sourceUrl is required",
+      );
+      const result = ledger.markOptedOut(body.sourceUrl);
+      res.json(result);
     }),
   );
 
