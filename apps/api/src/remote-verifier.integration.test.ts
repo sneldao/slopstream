@@ -107,6 +107,7 @@ describe("remote verifier integration", () => {
         market,
         windowGraceSec: 0,
         orchestratorApiToken: "test-orchestrator-token",
+        brandCreatorToken: "test-brand-creator-token",
       }),
     );
     app.use(apiErrorHandler);

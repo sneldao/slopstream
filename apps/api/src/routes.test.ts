@@ -9,6 +9,7 @@ import { StubProofVerifier } from "./verifier.js";
 
 const CLEARING_CONFIG = { listenerPct: 0.8, platformPct: 0.2 };
 const ORCHESTRATOR_TOKEN = "test-orchestrator-token";
+const BRAND_CREATOR_TOKEN = "test-brand-creator-token";
 
 interface ListenerSessionResponse {
   token: string;
@@ -43,6 +44,7 @@ describe("HTTP authorization boundaries", () => {
         market: harness.market,
         windowGraceSec: 0,
         orchestratorApiToken: ORCHESTRATOR_TOKEN,
+        brandCreatorToken: BRAND_CREATOR_TOKEN,
       }),
     );
     app.use(apiErrorHandler);
@@ -174,6 +176,50 @@ describe("HTTP authorization boundaries", () => {
     expect(response.status).toBe(400);
   });
 
+  it("POST /brands requires a brand creator bearer token", async () => {
+    const noToken = await fetch(`${baseUrl}/brands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "X",
+        primaryColor: "#000",
+        secondaryColor: "#fff",
+        brief: "b",
+      }),
+    });
+    expect(noToken.status).toBe(401);
+
+    const wrongToken = await fetch(`${baseUrl}/brands`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer wrong",
+      },
+      body: JSON.stringify({
+        name: "X",
+        primaryColor: "#000",
+        secondaryColor: "#fff",
+        brief: "b",
+      }),
+    });
+    expect(wrongToken.status).toBe(403);
+
+    const ok = await fetch(`${baseUrl}/brands`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BRAND_CREATOR_TOKEN}`,
+      },
+      body: JSON.stringify({
+        name: "TestBrand",
+        primaryColor: "#000",
+        secondaryColor: "#fff",
+        brief: "brief",
+      }),
+    });
+    expect(ok.status).toBe(201);
+  });
+
   it("requires an authenticated brand to act only for itself", async () => {
     const acme = fundedBrand(harness, "Acme", 100);
     const rival = fundedBrand(harness, "Rival", 100);
@@ -285,6 +331,7 @@ describe("publishLifecycleEvents gate", () => {
         market: harness.market,
         windowGraceSec: 0,
         orchestratorApiToken: ORCHESTRATOR_TOKEN,
+        brandCreatorToken: BRAND_CREATOR_TOKEN,
         publishLifecycleEvents,
       }),
     );

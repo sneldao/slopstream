@@ -13,7 +13,8 @@
   "dependencies": {
     "@slopstream/shared": "workspace:*",
     "express": "^5.1.0",
-    "redis": "6.2.1"
+    "redis": "6.2.1",
+    "stripe": "^17.7.0"
   },
   "devDependencies": {
     "@slopstream/verifier": "workspace:*",

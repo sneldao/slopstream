@@ -7,13 +7,14 @@ import express from "express";
 import { AuctionEngine } from "./auction.js";
 import { ClearingEngine } from "./clearing.js";
 import { MarketplaceBus, connectRedisPublisher } from "./bus.js";
-import { loadEnv } from "./env.js";
+import { isStripeLive, loadEnv } from "./env.js";
 import { Ledger } from "./ledger.js";
 import { MarketService } from "./market.js";
 import { apiErrorHandler, createRouter } from "./routes.js";
 import { DEMO_SCRAPED_COMPANIES } from "./demoSeed.js";
 import { centsToUsd } from "./money.js";
 import { createVerifier } from "./verifier.js";
+import { StripeService } from "./stripe.js";
 
 const env = loadEnv();
 
@@ -40,6 +41,17 @@ const auction = new AuctionEngine(ledger, bus, {
   },
 });
 const market = new MarketService(ledger);
+
+const stripeService = isStripeLive(env)
+  ? new StripeService({
+      secretKey: env.stripeSecretKey,
+      webhookSecret: env.stripeWebhookSecret,
+      successBaseUrl: env.stripeSuccessBaseUrl,
+      ledger,
+      market,
+    })
+  : undefined;
+if (stripeService) console.log("[stripe] live mode enabled");
 
 // Demo seed: funded fictional brands so the auction runs cold (SEED_DEMO=0 disables).
 if (env.seedDemo) {
@@ -106,6 +118,25 @@ app.use((_req, res, next) => {
   }
   next();
 });
+
+// Stripe webhook needs raw body — must be registered before express.json().
+if (stripeService) {
+  app.post(
+    "/webhooks/stripe",
+    express.raw({ type: "application/json" }),
+    async (req, res) => {
+      const signature = req.header("stripe-signature") ?? "";
+      try {
+        await stripeService.handleWebhook(req.body as Buffer, signature);
+        res.sendStatus(200);
+      } catch (err) {
+        console.error("[stripe] webhook error:", err);
+        res.sendStatus(400);
+      }
+    },
+  );
+}
+
 app.use(express.json());
 app.use(
   createRouter({
@@ -116,6 +147,8 @@ app.use(
     market,
     windowGraceSec: env.windowGraceSec,
     orchestratorApiToken: env.orchestratorApiToken,
+    brandCreatorToken: env.brandCreatorToken,
+    stripeService,
     publishLifecycleEvents: env.publishLifecycleEvents,
   }),
 );

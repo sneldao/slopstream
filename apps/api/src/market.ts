@@ -169,6 +169,16 @@ export class MarketService {
     return { charge, balance: toBalanceView(balance) };
   }
 
+  /** Credit a brand balance from a verified Stripe webhook. */
+  creditFromStripe(brandId: string, amountCents: number): BalanceView {
+    const brand = this.ledger.brands.get(brandId);
+    assert(brand, 404, `unknown brand ${brandId}`);
+    assert(amountCents > 0, 400, "amount must be positive");
+    const balance = this.ledger.balances.get(brand.id)!;
+    balance.availableCents += amountCents;
+    return toBalanceView(balance);
+  }
+
   /** Create or resume a listener session (bearer token = identity). */
   createListenerSession(
     resumed?: ListenerSessionRow,

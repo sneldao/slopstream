@@ -30,6 +30,7 @@ import type { MarketService } from "./market.js";
 import { toBalanceView, toBrandSummary, toListenerSession } from "./market.js";
 import { ApiError, assert, centsToUsd } from "./money.js";
 import { composeSnapshot } from "./snapshot.js";
+import type { StripeService } from "./stripe.js";
 
 export interface ApiDeps {
   ledger: Ledger;
@@ -41,6 +42,10 @@ export interface ApiDeps {
   windowGraceSec: number;
   /** Shared bearer credential for orchestrator-only lifecycle commands. */
   orchestratorApiToken: string;
+  /** Bearer token required to create a brand via POST /brands. */
+  brandCreatorToken: string;
+  /** Stripe service (undefined when in mock mode). */
+  stripeService?: StripeService;
   /**
    * Publish segment.* / challenge.fired from the lifecycle endpoints.
    * Defaults to true; set false when the Lane 3 orchestrator emits those
@@ -96,6 +101,16 @@ function requireOrchestrator(expectedToken: string, req: Request): void {
   );
 }
 
+function requireBrandCreator(expectedToken: string, req: Request): void {
+  const token = bearerToken(req);
+  assert(token, 401, "missing brand creator bearer token");
+  assert(
+    tokensEqual(token, expectedToken),
+    403,
+    "invalid brand creator bearer token",
+  );
+}
+
 function requireBrand(ledger: Ledger, req: Request): BrandRow {
   const token = bearerToken(req);
   assert(token, 401, "missing bearer token");
@@ -134,6 +149,8 @@ export function createRouter(deps: ApiDeps): Router {
     market,
     windowGraceSec,
     orchestratorApiToken,
+    brandCreatorToken,
+    stripeService,
   } = deps;
   const publishLifecycleEvents = deps.publishLifecycleEvents ?? true;
   const router = Router();
@@ -200,6 +217,7 @@ export function createRouter(deps: ApiDeps): Router {
   router.post(
     "/brands",
     wrap((req, res) => {
+      requireBrandCreator(brandCreatorToken, req);
       const { brand, token } = market.createBrand(
         req.body as CreateBrandCommand,
       );
@@ -226,7 +244,7 @@ export function createRouter(deps: ApiDeps): Router {
 
   router.post(
     "/top-ups",
-    wrap((req, res) => {
+    wrap(async (req, res) => {
       const brand = requireBrand(ledger, req);
       const cmd = req.body as TopUpCommand;
       assert(
@@ -234,7 +252,15 @@ export function createRouter(deps: ApiDeps): Router {
         403,
         "top-up brandId must match the bearer brand",
       );
-      res.status(201).json(market.topUp(cmd));
+      if (stripeService) {
+        const session = await stripeService.createCheckoutSession(
+          brand.id,
+          cmd.amountUsd,
+        );
+        res.status(201).json(session);
+      } else {
+        res.status(201).json(market.topUp(cmd));
+      }
     }),
   );
 

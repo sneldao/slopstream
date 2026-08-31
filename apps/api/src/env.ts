@@ -16,6 +16,14 @@ export interface ApiEnv {
   demoAcmeBrandToken: string;
   /** Shared bearer credential accepted only from the stream orchestrator. */
   orchestratorApiToken: string;
+  /** Bearer token required to create a brand via POST /brands. */
+  brandCreatorToken: string;
+  /** Stripe secret key; demo fallback keeps mock mode in dev. */
+  stripeSecretKey: string;
+  /** Stripe webhook signing secret. */
+  stripeWebhookSecret: string;
+  /** Redirect URL after successful Stripe Checkout. */
+  stripeSuccessBaseUrl: string;
   /** Auction window length; the demo script drives this with short windows. */
   auctionDurationSec: number;
   /** Platform-set attention threshold fraction (demo default 0.6). */
@@ -105,6 +113,26 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       "slopstream-demo-orchestrator-token",
       env,
     ),
+    brandCreatorToken: serviceCredential(
+      "BRAND_CREATOR_TOKEN",
+      env.BRAND_CREATOR_TOKEN,
+      "slopstream-demo-brand-creator-token",
+      env,
+    ),
+    stripeSecretKey: serviceCredential(
+      "STRIPE_SECRET_KEY",
+      env.STRIPE_SECRET_KEY,
+      "sk_test_placeholder", // gitleaks:allow
+      env,
+    ),
+    stripeWebhookSecret: serviceCredential(
+      "STRIPE_WEBHOOK_SECRET",
+      env.STRIPE_WEBHOOK_SECRET,
+      "whsec_placeholder",
+      env,
+    ),
+    stripeSuccessBaseUrl:
+      env.STRIPE_SUCCESS_BASE_URL ?? "http://localhost:3000",
     auctionDurationSec: positive(
       "AUCTION_DURATION_SEC",
       num(env.AUCTION_DURATION_SEC, 60),
@@ -123,4 +151,9 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     ),
     publishLifecycleEvents: env.PUBLISH_LIFECYCLE_EVENTS !== "0",
   };
+}
+
+/** True when a real Stripe key is configured (not the dev fallback). */
+export function isStripeLive(env: ApiEnv): boolean {
+  return env.stripeSecretKey !== "sk_test_placeholder"; // gitleaks:allow
 }

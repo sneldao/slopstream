@@ -200,6 +200,8 @@ export class Ledger {
   readonly scrapedCompanies = new Map<string, ScrapedCompanyRow>();
   /** Dedupe index: sourceUrl -> scrapedCompanyId. */
   readonly scrapedByUrl = new Map<string, string>();
+  /** Stripe Checkout session IDs already credited (webhook retry guard). */
+  readonly processedStripeSessions = new Set<string>();
 
   constructor() {
     // Register the free-filler pseudo-brand so clients can resolve a palette
