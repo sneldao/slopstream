@@ -10,8 +10,10 @@ COPY apps/verifier/package.json apps/verifier/
 COPY packages/midnight/package.json packages/midnight/
 RUN pnpm install --frozen-lockfile --filter @slopstream/api...
 COPY packages/shared/ packages/shared/
+COPY packages/midnight/ packages/midnight/
+COPY apps/verifier/ apps/verifier/
 COPY apps/api/ apps/api/
-RUN pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/api build
+RUN pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/midnight build && pnpm --filter @slopstream/verifier build && pnpm --filter @slopstream/api build
 
 FROM base AS run
 WORKDIR /app
