@@ -668,6 +668,12 @@ main.has-dock {
   padding-top: calc(64px + env(safe-area-inset-top, 0px));
 }
 
+/* The market summary opens beneath the fixed role switcher rather than
+   competing for the same top-center space. */
+.screen-market-hero {
+  top: calc(76px + env(safe-area-inset-top, 0px)) !important;
+}
+
 .slop-dock__link {
   display: flex;
   flex-direction: column;
@@ -1342,6 +1348,9 @@ main.has-dock {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  transition:
+    transform 900ms var(--ease-out-expo),
+    opacity 900ms var(--ease-out-expo);
 }
 
 .continuum-world__orbs {
@@ -1505,6 +1514,43 @@ main.has-dock {
 
 .screen-continuum-shell .slop-surface-header__sub {
   color: rgba(16, 16, 20, 0.52);
+}
+
+/* The market is a camera pull-back, not a panel swap. The portal stays the
+   subject, while the archive and bid orbs gain scale and contrast around it. */
+.continuum-world--market-open .continuum-portal {
+  left: 43%;
+  width: min(50vw, 780px);
+  height: min(54vh, 580px);
+  transform: translate3d(
+      calc(-50% + var(--continuum-x)),
+      calc(-50% + var(--continuum-y)),
+      0
+    )
+    rotate(-1deg) scale(calc(var(--continuum-pulse) * 0.88));
+}
+
+.continuum-world--market-open .continuum-world__archive {
+  opacity: 0.95;
+  transform: scale(1.08);
+}
+
+.continuum-world--market-open .continuum-world__orbs {
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+@media (max-width: 800px) {
+  .continuum-world--market-open .continuum-portal {
+    left: 50%;
+    width: 72vw;
+    height: 48vh;
+    min-height: 300px;
+  }
+
+  .continuum-world--market-open .continuum-world__archive {
+    transform: scale(1.02);
+  }
 }
 
 @keyframes continuum-arrive {
@@ -1724,6 +1770,10 @@ main.has-dock {
     grid-row: 1;
   }
 
+  .screen-market-hero {
+    top: calc(122px + env(safe-area-inset-top, 0px)) !important;
+  }
+
   .brand-console-grid {
     grid-template-columns: 1fr;
   }
@@ -1762,6 +1812,10 @@ main.has-dock {
   .screen-view-toggle {
     top: calc(62px + env(safe-area-inset-top, 0px)) !important;
     left: max(12px, env(safe-area-inset-left, 0px)) !important;
+  }
+
+  .screen-market-hero {
+    top: calc(76px + env(safe-area-inset-top, 0px)) !important;
   }
 
   .screen-leaderboard {

@@ -254,7 +254,7 @@ export default function ListenPage() {
       <div className="slop-grain" />
 
       <SurfaceHeader
-        subtitle="Listener"
+        subtitle="Earn"
         trailing={
           joined ? (
             <>
@@ -605,7 +605,7 @@ function JoinSplash({ onJoin }: { onJoin: () => void }) {
         transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       />
       <div style={styles.splashTitle}>Join the stream</div>
-      <div style={styles.splashSub}>Listen. Prove. Earn.</div>
+      <div style={styles.splashSub}>Watch. Prove. Earn.</div>
       <motion.button
         type="button"
         style={styles.joinButton}

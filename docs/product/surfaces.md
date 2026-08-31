@@ -83,10 +83,12 @@ ACME AI
  with the stream audio, tinted
  to Acme's brand color)
 
-Current ad reward pool:
+Total paid to viewers:
 $8.00
+(cumulative across cleared stream ads;
+ your rewards appear in the wallet below)
 
-Live attention meter:
+Current ad attention meter:
 127 / 143 verified
 ██████████████████░░
 ```

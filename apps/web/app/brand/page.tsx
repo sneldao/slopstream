@@ -15,6 +15,7 @@ import { FirstRunCoach } from "../_components/FirstRunCoach";
 import { LoopStatus } from "../_components/LoopStatus";
 import { ScreenCrossLink } from "../_components/ScreenCrossLink";
 import { StreamOpsHud } from "../_components/StreamOpsHud";
+import { bidMinimum } from "@/lib/bidMinimum";
 import { tierForAmount, tierMin } from "@/lib/tierForAmount";
 
 /**
@@ -114,23 +115,29 @@ export default function BrandPage() {
 
   const winningBid = state.leaderboard[0];
   const winningAmount = winningBid?.amountUsd ?? 0;
-  const iAmWinning = winningBid?.brandId === brandId;
+  const {
+    minimumUsd,
+    iAmLeading: iAmWinning,
+    isBidTooLow,
+    isMarketPriceAvailable,
+  } = bidMinimum(winningBid, brandId, bidAmount, state.nextSlotPriceUsd);
   const unlockedTier = tierForAmount(bidAmount);
-  const needsHigherBid =
-    winningAmount > 0 && !iAmWinning && bidAmount <= winningAmount;
-  const bidActionLabel =
-    winningAmount <= 0
-      ? `PLACE BID $${bidAmount}`
-      : iAmWinning
-        ? `RAISE TO $${bidAmount}`
-        : needsHigherBid
-          ? `BID ABOVE $${winningAmount.toFixed(0)}`
+  const bidDisabled =
+    !isMarketPriceAvailable ||
+    isBidTooLow ||
+    bidAmount > balance ||
+    bidSubmitting;
+  const bidActionLabel = !isMarketPriceAvailable
+    ? "WAITING FOR MARKET PRICE"
+    : isBidTooLow
+      ? `BID AT LEAST $${minimumUsd.toFixed(2)}`
+      : winningAmount <= 0
+        ? `PLACE BID $${bidAmount}`
+        : iAmWinning
+          ? `RAISE TO $${bidAmount}`
           : `BID $${bidAmount}`;
-  const beatAmount = Math.max(winningAmount + 1, tierMin("audio"));
-  const rebidAmount = Math.max(
-    (state.lastOutbid?.newAmountUsd ?? winningAmount) + 1,
-    tierMin("audio"),
-  );
+  const beatAmount = minimumUsd;
+  const rebidAmount = minimumUsd;
 
   const audience = Math.max(state.listeners, 1);
   const threshold =
@@ -154,6 +161,14 @@ export default function BrandPage() {
 
   const handlePlaceBid = async (amountOverride?: number) => {
     const amount = amountOverride ?? bidAmount;
+    if (!isMarketPriceAvailable) {
+      setBidError("Waiting for the live minimum bid.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount < minimumUsd) {
+      setBidError(`Bid must be at least $${minimumUsd.toFixed(2)}.`);
+      return;
+    }
     if (amount > balance || bidSubmitting) return;
     setBidError(null);
     setBidSubmitting(true);
@@ -220,20 +235,20 @@ export default function BrandPage() {
                   setBidAmount(rebidAmount);
                   void handlePlaceBid(rebidAmount);
                 }}
-                disabled={bidSubmitting || rebidAmount > balance}
+                disabled={
+                  !isMarketPriceAvailable ||
+                  bidSubmitting ||
+                  rebidAmount > balance
+                }
               >
-                {rebidAmount ===
-                (state.lastOutbid?.newAmountUsd ?? winningAmount) + 1
-                  ? "REBID +$1"
-                  : "REBID TO MINIMUM"}{" "}
-                → ${rebidAmount.toFixed(0)}
+                REBID TO MINIMUM → ${rebidAmount.toFixed(2)}
               </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
 
         <SurfaceHeader
-          subtitle="Brand console"
+          subtitle="Sponsor"
           trailing={
             <span
               className="slop-hud-pill"
@@ -257,11 +272,11 @@ export default function BrandPage() {
 
         <FirstRunCoach
           storageKey="slopstream.coach.brand.v1"
-          title="How bidding works"
+          title="How sponsoring works"
           steps={[
-            "Raise your bid to own the next slot",
-            "Higher bids unlock better production",
-            "You pay when attention clears",
+            "Raise your bid to sponsor the next beat",
+            "Higher bids unlock richer production",
+            "You pay when verified attention clears",
           ]}
         />
 
@@ -385,7 +400,7 @@ export default function BrandPage() {
                     value={bidAmount}
                     onChange={(e) => setBidAmount(Number(e.target.value))}
                     style={styles.bidInput}
-                    min={1}
+                    min={isMarketPriceAvailable ? minimumUsd : undefined}
                   />
                 </div>
               </div>
@@ -437,21 +452,17 @@ export default function BrandPage() {
               <motion.button
                 style={{
                   ...styles.bidButton,
-                  background:
-                    bidAmount > balance || needsHigherBid
-                      ? "#444"
-                      : `linear-gradient(135deg, ${myBrand?.primaryColor ?? "#1e6fff"}, ${myBrand?.secondaryColor ?? "#8ab4ff"})`,
-                  boxShadow:
-                    bidAmount > balance || needsHigherBid
-                      ? "none"
-                      : `0 8px 30px ${myBrand?.primaryColor ?? "#1e6fff"}44`,
+                  background: bidDisabled
+                    ? "#444"
+                    : `linear-gradient(135deg, ${myBrand?.primaryColor ?? "#1e6fff"}, ${myBrand?.secondaryColor ?? "#8ab4ff"})`,
+                  boxShadow: bidDisabled
+                    ? "none"
+                    : `0 8px 30px ${myBrand?.primaryColor ?? "#1e6fff"}44`,
                 }}
                 whileTap={{ scale: 0.97 }}
                 whileHover={{ scale: 1.02 }}
                 onClick={() => void handlePlaceBid()}
-                disabled={
-                  bidAmount > balance || bidSubmitting || needsHigherBid
-                }
+                disabled={bidDisabled}
               >
                 {bidSubmitting
                   ? "PLACING BID…"
@@ -460,23 +471,26 @@ export default function BrandPage() {
                     : bidActionLabel}
               </motion.button>
 
-              {needsHigherBid && (
+              {isBidTooLow && isMarketPriceAvailable && (
                 <div style={styles.bidError} role="status">
-                  Set your bid above ${winningAmount.toFixed(2)} to take the
-                  lead.
+                  Bid at least ${minimumUsd.toFixed(2)} for the next slot.
                 </div>
               )}
 
               <button
                 type="button"
                 style={styles.beatButton}
-                disabled={beatAmount > balance || bidSubmitting}
+                disabled={
+                  !isMarketPriceAvailable ||
+                  beatAmount > balance ||
+                  bidSubmitting
+                }
                 onClick={() => {
                   setBidAmount(beatAmount);
                   void handlePlaceBid(beatAmount);
                 }}
               >
-                Beat by $1 → ${beatAmount}
+                Bid minimum → ${beatAmount.toFixed(2)}
               </button>
 
               {bidError && (
@@ -541,7 +555,9 @@ export default function BrandPage() {
                         }}
                         whileTap={{ scale: 0.95 }}
                         whileHover={{ scale: 1.03 }}
-                        onClick={() => setBidAmount(tierMin(tier))}
+                        onClick={() =>
+                          setBidAmount(Math.max(tierMin(tier), minimumUsd))
+                        }
                       >
                         <span
                           style={{

@@ -43,6 +43,7 @@ interface SceneProps {
   lastClear: ClearBurst | undefined;
   fallbackBrandColor: string;
   fallbackSecondaryColor: string;
+  marketOpen: boolean;
 }
 
 interface ArchiveItem {
@@ -254,7 +255,7 @@ function ContinuumWorld(props: SceneProps) {
   return (
     <div
       ref={rootRef}
-      className={`continuum-world continuum-world--recipe-${recipe}${props.segment ? " continuum-world--focus" : ""}${!props.segment && !props.generation ? " continuum-world--idle" : ""}`}
+      className={`continuum-world continuum-world--recipe-${recipe}${props.segment ? " continuum-world--focus" : ""}${!props.segment && !props.generation ? " continuum-world--idle" : ""}${props.marketOpen ? " continuum-world--market-open" : ""}`}
       style={
         { "--world-a": props.colorA, "--world-b": props.colorB } as WorldStyle
       }

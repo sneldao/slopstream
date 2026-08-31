@@ -129,6 +129,7 @@ export default function HomePage() {
         // Static colour field shown if the scene fails to render.
         fallbackBrandColor={activeBrand?.primaryColor ?? "#8f5cff"}
         fallbackSecondaryColor={activeBrand?.secondaryColor ?? "#ff5c58"}
+        marketOpen={showMarket}
       />
       <div className="slop-grain" />
 
@@ -143,12 +144,12 @@ export default function HomePage() {
             unlock();
             setAudioStarted(true);
           }}
-          aria-label="Click to start the stream"
+          aria-label="Click to watch and listen to the stream"
         >
           <span style={styles.startIcon} aria-hidden>
             ▶
           </span>
-          <span style={styles.startText}>Click to listen</span>
+          <span style={styles.startText}>Click to watch + listen</span>
         </button>
       )}
 
@@ -216,6 +217,13 @@ export default function HomePage() {
         className="screen-view-toggle"
         style={styles.viewToggle}
         aria-pressed={showMarket}
+        aria-label={
+          theater
+            ? "Exit focus mode"
+            : showMarket
+              ? "Focus on the video"
+              : "Zoom out to show the market"
+        }
         onClick={() => {
           if (theater) {
             toggleTheater();
@@ -224,7 +232,11 @@ export default function HomePage() {
           }
         }}
       >
-        {theater ? "Exit focus" : showMarket ? "Focus video" : "Show market"}
+        {theater
+          ? "Exit focus"
+          : showMarket
+            ? "Focus video"
+            : "Show market · zoom out"}
       </button>
 
       {showMarket && (
@@ -234,7 +246,7 @@ export default function HomePage() {
       {/* The Market Hero — available on demand so the auction supports the
           stream rather than competing with the first impression. */}
       {showMarket && (
-        <div style={styles.marketHeroAnchor}>
+        <div className="screen-market-hero" style={styles.marketHeroAnchor}>
           <MarketHero
             leaderboard={state.leaderboard}
             brandById={state.brandById}

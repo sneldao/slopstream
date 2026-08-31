@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/", label: "Watch" },
-  { href: "/listen", label: "Listen" },
-  { href: "/brand", label: "Brand" },
+  { href: "/listen", label: "Earn" },
+  { href: "/brand", label: "Sponsor" },
 ] as const;
 
 function isNavActive(pathname: string, href: string) {
@@ -15,7 +15,7 @@ function isNavActive(pathname: string, href: string) {
 
 /**
  * Shared navigation across product surfaces.
- * - `default` — wordmark + Watch / Listen / Brand + optional mobile dock.
+ * - `default` — wordmark + Watch / Earn / Sponsor + optional mobile dock.
  * - `spectacle` — Continuum home: wordmark only in the header; dock on mobile.
  */
 export function SurfaceNav({
@@ -69,23 +69,24 @@ export function SurfaceNav({
           ) : null}
         </div>
 
-        {variant !== "spectacle" ? (
-          <nav className="slop-nav__switcher" aria-label="Navigate">
-            {NAV.map((item) => {
-              const active = isNavActive(pathname, item.href);
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`slop-nav__link${active ? " is-active" : ""}`}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {item.label}
-                </a>
-              );
-            })}
-          </nav>
-        ) : null}
+        <nav
+          className="slop-nav__switcher"
+          aria-label={variant === "spectacle" ? "Choose a role" : "Navigate"}
+        >
+          {NAV.map((item) => {
+            const active = isNavActive(pathname, item.href);
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                className={`slop-nav__link${active ? " is-active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            );
+          })}
+        </nav>
 
         {trailing ? (
           <div className="slop-nav__trail">{trailing}</div>
