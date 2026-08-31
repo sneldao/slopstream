@@ -3,7 +3,7 @@ RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 
 FROM base AS build
 WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/generator/package.json apps/generator/
 RUN pnpm install --frozen-lockfile --filter @slopstream/generator...
