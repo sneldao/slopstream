@@ -359,6 +359,8 @@ export default function HomePage() {
             listeners={state.listeners}
             attentionProofs={state.attentionProofs}
             listenerRewardsUsd={state.listenerRewardsUsd}
+            placedVolumeUsd={state.placedVolumeUsd}
+            totalClearedVolumeUsd={state.totalClearedVolumeUsd}
           />
         </motion.div>
       )}

@@ -233,6 +233,8 @@ function createFakeApi(options?: { failFirstFailedCall?: boolean }): FakeApi {
         listeners: 0,
         attentionProofs: 0,
         listenerRewardsUsd: 0,
+        placedVolumeUsd: 0,
+        totalClearedVolumeUsd: 0,
       };
       json(200, snapshot);
       return;
@@ -367,6 +369,46 @@ describe("gateway ops metrics", () => {
         segmentPlaySec: 30,
         generation: { lastSegmentId: SEGMENT_ID },
       });
+    } finally {
+      await gateway.close();
+    }
+  });
+});
+
+describe("gateway CORS and proxy headers", () => {
+  it("allows and forwards the idempotency key used by browser bid retries", async () => {
+    let forwardedHeaders = new Headers();
+    const gateway = new Gateway({
+      apiBaseUrl: "http://api.test",
+      fetcher: async (_url, init) => {
+        forwardedHeaders = new Headers(init?.headers);
+        return new Response("{}", {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    });
+    const gatewayBaseUrl = await listen(gateway.server);
+    try {
+      const preflight = await fetch(`${gatewayBaseUrl}/bids`, {
+        method: "OPTIONS",
+      });
+      expect(preflight.headers.get("access-control-allow-headers")).toBe(
+        "content-type,authorization,idempotency-key",
+      );
+
+      const response = await fetch(`${gatewayBaseUrl}/bids`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer brand-token",
+          "idempotency-key": "retry-123",
+        },
+        body: JSON.stringify({ amountUsd: 10 }),
+      });
+      expect(response.status).toBe(201);
+      expect(forwardedHeaders.get("authorization")).toBe("Bearer brand-token");
+      expect(forwardedHeaders.get("idempotency-key")).toBe("retry-123");
     } finally {
       await gateway.close();
     }
@@ -737,7 +779,7 @@ describe("orchestrator live slice", () => {
     });
     expect(preflight.status).toBe(204);
     expect(preflight.headers.get("access-control-allow-headers")).toBe(
-      "content-type,authorization",
+      "content-type,authorization,idempotency-key",
     );
 
     // POST with body + authorization forwards upstream.
@@ -952,6 +994,8 @@ function coldSnapshot(overrides: Partial<StreamSnapshot> = {}): StreamSnapshot {
     listeners: 0,
     attentionProofs: 0,
     listenerRewardsUsd: 0,
+    placedVolumeUsd: 0,
+    totalClearedVolumeUsd: 0,
     ...overrides,
   };
 }

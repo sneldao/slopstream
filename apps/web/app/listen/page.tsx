@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type {
-  AttentionProofReceipt,
-  BrandSummary,
-  ListenerSession,
-  PayoutReceipt,
+import {
+  LISTENER_PAYOUT_MINIMUM_USD,
+  type AttentionProofReceipt,
+  type BrandSummary,
+  type ListenerSession,
+  type PayoutHistoryResponse,
+  type PayoutReceipt,
 } from "@slopstream/shared";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
@@ -47,7 +49,11 @@ export default function ListenPage() {
   const { availableUsd, pendingUsd } = balances;
   const [todayVerified, setTodayVerified] = useState(0);
   const [earnMode, setEarnMode] = useState(false);
+  const [dismissedChallengeId, setDismissedChallengeId] = useState<
+    string | null
+  >(null);
   const [payoutOpen, setPayoutOpen] = useState(false);
+  const [payoutHistory, setPayoutHistory] = useState<PayoutReceipt[]>([]);
   const [listenerIdentity, setListenerIdentity] =
     useState<ListenerIdentity | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -121,6 +127,19 @@ export default function ListenPage() {
     };
   }, [listenerIdentity]);
 
+  useEffect(() => {
+    if (!payoutOpen || !listenerIdentity) return;
+    void requestJson<PayoutHistoryResponse>(
+      "/listener-sessions/me/payouts",
+      { method: "GET" },
+      listenerIdentity.token,
+    )
+      .then(({ payouts }) => setPayoutHistory(payouts))
+      .catch(() => {
+        // History is supplementary; the balance and payout action remain usable.
+      });
+  }, [payoutOpen, listenerIdentity]);
+
   const activeBrandId =
     state.nowPlaying?.brandId ?? state.generation?.brandId ?? null;
   const activeBrand: BrandSummary | undefined = activeBrandId
@@ -142,6 +161,12 @@ export default function ListenPage() {
 
   const challenge = state.activeChallenge;
   const attention = state.attention;
+
+  useEffect(() => {
+    setDismissedChallengeId((current) =>
+      current && current !== challenge?.id ? null : current,
+    );
+  }, [challenge?.id]);
 
   // Refresh balances when a segment clears on the API.
   useEffect(() => {
@@ -185,27 +210,32 @@ export default function ListenPage() {
     }
   }, [challenge, earnMode, play]);
 
-  const handleAnswer = (answer: string) => {
+  const handleAnswer = async (answer: string) => {
     if (!challenge) return;
     if (!listenerIdentity) {
+      const error = new Error("Listener session is still connecting.");
       setSubmissionError("Connecting your listener session. Please try again.");
-      return;
+      throw error;
     }
     setSubmissionError(null);
-    void submitProofLive(
-      listenerIdentity,
-      challenge.id,
-      challenge.segmentId,
-      answer,
-    )
-      .then(({ receipt: nextReceipt, session }) => {
-        setReceipt(nextReceipt);
-        applySession(session);
-        if (nextReceipt.verified) play("proof");
-      })
-      .catch((error: unknown) =>
-        setSubmissionError(errorMessage(error, "Unable to submit proof.")),
+    try {
+      const { receipt: nextReceipt, session } = await submitProofLive(
+        listenerIdentity,
+        challenge.id,
+        challenge.segmentId,
+        answer,
       );
+      setReceipt(nextReceipt);
+      applySession(session);
+      if (nextReceipt.verified) play("proof");
+    } catch (error: unknown) {
+      setSubmissionError(errorMessage(error, "Unable to submit proof."));
+      throw error;
+    }
+  };
+
+  const handleChallengeExpired = () => {
+    if (challenge) setDismissedChallengeId(challenge.id);
   };
 
   return (
@@ -429,15 +459,20 @@ export default function ListenPage() {
           transform on an ancestor can silently reparent its containing
           block. */}
       <AnimatePresence>
-        {joined && earnMode && challenge && !receipt && (
-          <AttentionCheck
-            key={challenge.id}
-            challenge={challenge}
-            brandColor={brandColor}
-            onAnswer={handleAnswer}
-            nowPlayingStartedAt={state.nowPlayingStartedAt}
-          />
-        )}
+        {joined &&
+          earnMode &&
+          challenge &&
+          challenge.id !== dismissedChallengeId &&
+          !receipt && (
+            <AttentionCheck
+              key={challenge.id}
+              challenge={challenge}
+              brandColor={brandColor}
+              onAnswer={handleAnswer}
+              onExpired={handleChallengeExpired}
+              nowPlayingStartedAt={state.nowPlayingStartedAt}
+            />
+          )}
       </AnimatePresence>
 
       {receipt && (
@@ -452,6 +487,8 @@ export default function ListenPage() {
         open={payoutOpen}
         availableUsd={availableUsd}
         pendingUsd={pendingUsd}
+        payoutHistory={payoutHistory}
+        minimumUsd={LISTENER_PAYOUT_MINIMUM_USD}
         onClose={() => setPayoutOpen(false)}
         onRequest={async () => {
           if (!listenerIdentity) {
@@ -466,6 +503,12 @@ export default function ListenPage() {
             listenerIdentity.token,
           );
           applySession(session);
+          const { payouts } = await requestJson<PayoutHistoryResponse>(
+            "/listener-sessions/me/payouts",
+            { method: "GET" },
+            listenerIdentity.token,
+          );
+          setPayoutHistory(payouts);
         }}
       />
     </main>

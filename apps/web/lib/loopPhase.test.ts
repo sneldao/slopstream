@@ -15,6 +15,8 @@ function base(overrides: Partial<StreamState> = {}): StreamState {
     listeners: 0,
     attentionProofs: 0,
     listenerRewardsUsd: 0,
+    placedVolumeUsd: 0,
+    totalClearedVolumeUsd: 0,
     ...overrides,
   };
 }

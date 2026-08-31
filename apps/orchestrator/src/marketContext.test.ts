@@ -19,6 +19,8 @@ describe("marketContextFromSnapshot", () => {
       attentionProofs: 3,
       listenerRewardsUsd: 0,
       nowPlayingAttentionThreshold: 6,
+      placedVolumeUsd: 0,
+      totalClearedVolumeUsd: 0,
     });
 
     expect(ctx).toMatchObject({

@@ -33,7 +33,7 @@ import type {
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET,POST,OPTIONS",
-  "access-control-allow-headers": "content-type,authorization",
+  "access-control-allow-headers": "content-type,authorization,idempotency-key",
 } as const;
 const MAX_PROXY_BODY_BYTES = 1024 * 1024;
 
@@ -288,6 +288,10 @@ export class Gateway {
     }
     if (req.headers.authorization) {
       headers.authorization = req.headers.authorization;
+    }
+    const idempotencyKey = req.headers["idempotency-key"];
+    if (typeof idempotencyKey === "string") {
+      headers["idempotency-key"] = idempotencyKey;
     }
 
     try {

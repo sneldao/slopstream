@@ -12,7 +12,9 @@ ssh -o BatchMode=yes -o ConnectTimeout=15 "$host" 'bash -s' <<'REMOTE_SCRIPT'
 set -euo pipefail
 
 base_url="http://127.0.0.1:8000/api/v1"
-token_name="slopstream-provisioner"
+# Unique per run so concurrent provisioning cannot revoke another run's
+# temporary credential during its API calls.
+token_name="slopstream-provisioner-$(date +%s)-$$-$(openssl rand -hex 4)"
 
 cleanup() {
   docker exec coolify php artisan tinker --execute="\App\Models\PersonalAccessToken::query()->where(\"name\", \"${token_name}\")->delete();" >/dev/null 2>&1 || true
@@ -139,10 +141,63 @@ create_app() {
   api_post "${base_url}/applications/public" "${payload}" | jq -r '.uuid'
 }
 
+# Coolify returns an existing UUID from create_app() without applying the
+# creation payload. Reconcile mutable deployment settings on every run so a
+# script upgrade cannot leave an old Dockerfile, health check, or limit live.
+reconcile_app() {
+  local uuid="$1"
+  local dockerfile="$2"
+  local port="$3"
+  local alias="$4"
+  local port_mapping="$5"
+  local memory_limit="$6"
+  local payload
+
+  payload="$(jq -nc \
+    --arg dockerfile "${dockerfile}" \
+    --arg port "${port}" \
+    --arg alias "${alias}" \
+    --arg port_mapping "${port_mapping}" \
+    --arg memory_limit "${memory_limit}" '
+      {
+        git_repository: "https://github.com/sneldao/slopstream.git",
+        git_branch: "main",
+        build_pack: "dockerfile",
+        dockerfile_location: $dockerfile,
+        ports_exposes: $port,
+        custom_network_aliases: $alias,
+        health_check_enabled: true,
+        health_check_path: "/health",
+        health_check_port: $port,
+        health_check_method: "GET",
+        health_check_return_code: 200,
+        health_check_scheme: "http",
+        health_check_interval: 15,
+        health_check_timeout: 10,
+        health_check_retries: 5,
+        health_check_start_period: 30,
+        limits_memory: $memory_limit,
+        limits_cpus: "0.75",
+        is_force_https_enabled: false,
+        autogenerate_domain: false,
+        is_auto_deploy_enabled: false,
+        instant_deploy: false,
+        is_git_shallow_clone_enabled: true
+      }
+      + if $port_mapping == "" then {} else {ports_mappings: $port_mapping} end
+    ')"
+  api_patch "${base_url}/applications/${uuid}" "${payload}" >/dev/null
+}
+
 api_uuid="$(create_app "slopstream-api" "/Dockerfile.api" "4000" "api" "" "384m")"
 verifier_uuid="$(create_app "slopstream-verifier" "/Dockerfile.verifier" "4100" "verifier" "" "384m")"
 generator_uuid="$(create_app "slopstream-generator" "/Dockerfile.generator" "4300" "generator" "4304:4300" "384m")"
 orchestrator_uuid="$(create_app "slopstream-orchestrator" "/Dockerfile.orchestrator" "4200" "orchestrator" "4204:4200" "256m")"
+
+reconcile_app "${api_uuid}" "/Dockerfile.api" "4000" "api" "" "384m"
+reconcile_app "${verifier_uuid}" "/Dockerfile.verifier" "4100" "verifier" "" "384m"
+reconcile_app "${generator_uuid}" "/Dockerfile.generator" "4300" "generator" "4304:4300" "384m"
+reconcile_app "${orchestrator_uuid}" "/Dockerfile.orchestrator" "4200" "orchestrator" "4204:4200" "256m"
 
 verifier_token="$(openssl rand -hex 32)"
 orchestrator_token="$(openssl rand -hex 32)"

@@ -34,6 +34,10 @@ export default function BrandPage() {
   const [balance, setBalance] = useState(500);
   const [bidAmount, setBidAmount] = useState(27);
   const [outbidAlert, setOutbidAlert] = useState(false);
+  const pendingBidRef = useRef<{
+    amount: number;
+    idempotencyKey: string;
+  } | null>(null);
   // The last flash id lives in a ref: putting it in state (and deps) made the
   // effect re-run, clearing the dismiss timeout before it could ever fire.
   const lastOutbidFlashIdRef = useRef<number | undefined>(undefined);
@@ -103,7 +107,7 @@ export default function BrandPage() {
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         navigator.vibrate?.(200);
       }
-      const t = setTimeout(() => setOutbidAlert(false), 3000);
+      const t = setTimeout(() => setOutbidAlert(false), 8000);
       return () => clearTimeout(t);
     }
   }, [state.lastOutbid, brandId, play]);
@@ -113,6 +117,10 @@ export default function BrandPage() {
   const iAmWinning = winningBid?.brandId === brandId;
   const unlockedTier = tierForAmount(bidAmount);
   const beatAmount = Math.max(winningAmount + 1, tierMin("audio"));
+  const rebidAmount = Math.max(
+    (state.lastOutbid?.newAmountUsd ?? winningAmount) + 1,
+    tierMin("audio"),
+  );
 
   const audience = Math.max(state.listeners, 1);
   const threshold =
@@ -143,7 +151,14 @@ export default function BrandPage() {
       if (!demoBrandToken) {
         throw new Error("Missing local brand token.");
       }
-      const result = await placeBidLive(amount, demoBrandToken);
+      const pending = pendingBidRef.current;
+      const idempotencyKey =
+        pending?.amount === amount
+          ? pending.idempotencyKey
+          : `brand-bid-${brandId}-${crypto.randomUUID()}`;
+      pendingBidRef.current = { amount, idempotencyKey };
+      const result = await placeBidLive(amount, demoBrandToken, idempotencyKey);
+      pendingBidRef.current = null;
       setBalance(result.balance.availableUsd);
       play("bid");
       setBidPlaced(true);
@@ -183,7 +198,26 @@ export default function BrandPage() {
               exit={{ y: -60, opacity: 0, scale: 0.9 }}
               transition={{ type: "spring", stiffness: 300, damping: 18 }}
             >
-              <span style={styles.outbidBolt}>⚡</span> OUTBID — raise your bid.
+              <span style={styles.outbidBolt}>⚡</span>
+              <span style={styles.outbidCopy}>
+                OUTBID — now ${state.lastOutbid?.newAmountUsd.toFixed(2) ?? "—"}
+              </span>
+              <motion.button
+                type="button"
+                style={styles.rebidButton}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  setBidAmount(rebidAmount);
+                  void handlePlaceBid(rebidAmount);
+                }}
+                disabled={bidSubmitting || rebidAmount > balance}
+              >
+                {rebidAmount ===
+                (state.lastOutbid?.newAmountUsd ?? winningAmount) + 1
+                  ? "REBID +$1"
+                  : "REBID TO MINIMUM"}{" "}
+                → ${rebidAmount.toFixed(0)}
+              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -238,11 +272,25 @@ export default function BrandPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              {state.lastSettlement.kind === "cleared"
-                ? `Cleared — $${state.lastSettlement.amountUsd.toFixed(2)} paid. Listeners share $${(state.lastSettlement.listenerPoolUsd ?? 0).toFixed(2)}.`
-                : state.lastSettlement.kind === "uncleared"
-                  ? `Threshold missed — $${state.lastSettlement.amountUsd.toFixed(2)} returned.`
-                  : `Generation failed — $${state.lastSettlement.amountUsd.toFixed(2)} returned.`}
+              <strong style={styles.receiptTitle}>
+                {state.lastSettlement.kind === "cleared"
+                  ? "SLOT CLEARED"
+                  : state.lastSettlement.kind === "uncleared"
+                    ? "ATTENTION MISSED"
+                    : "GENERATION FAILED"}
+              </strong>
+              <span style={styles.receiptLine}>
+                {state.lastSettlement.kind === "cleared"
+                  ? `Your $${state.lastSettlement.amountUsd.toFixed(2)} bought a verified slot.`
+                  : `Your $${state.lastSettlement.amountUsd.toFixed(2)} was returned.`}
+              </span>
+              {state.lastSettlement.kind === "cleared" && (
+                <span style={styles.receiptMeta}>
+                  Viewer pool: $
+                  {(state.lastSettlement.listenerPoolUsd ?? 0).toFixed(2)} ·
+                  attention cleared
+                </span>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -822,11 +870,13 @@ interface PlaceBidResponse {
 async function placeBidLive(
   amountUsd: number,
   token: string,
+  idempotencyKey: string,
 ): Promise<PlaceBidResponse> {
   return requestJson<PlaceBidResponse>(
     "/bids",
     {
       method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({ amountUsd }),
     },
     token,
@@ -878,6 +928,19 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
   },
   outbidBolt: { fontSize: 20 },
+  outbidCopy: { flex: 1, textAlign: "left" },
+  rebidButton: {
+    border: "1px solid rgba(255,255,255,0.5)",
+    borderRadius: 999,
+    padding: "8px 12px",
+    background: "rgba(0,0,0,0.18)",
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: 0.4,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
   header: {
     display: "flex",
     justifyContent: "space-between",
@@ -1104,6 +1167,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 700,
     lineHeight: 1.35,
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+  },
+  receiptTitle: {
+    fontSize: 11,
+    letterSpacing: 1.4,
+    fontWeight: 900,
+  },
+  receiptLine: {
+    color: "rgba(255,255,255,0.9)",
+  },
+  receiptMeta: {
+    color: "var(--platform-text-dim)",
+    fontSize: 11,
+    fontWeight: 700,
   },
   bidConfirmed: {
     fontSize: 14,

@@ -113,8 +113,10 @@ describe("attention window and clearing", () => {
     expect(verified).toHaveLength(2);
     expect(verified[1]).toMatchObject({ verifiedCount: 2, threshold: 2 });
 
-    const result = clearing.closeWindow(segment.id);
+    const clearedAtMs = 2_000_000_000;
+    const result = clearing.closeWindow(segment.id, clearedAtMs);
     expect(result.cleared).toBe(true);
+    expect(segment.clearedAtMs).toBe(clearedAtMs);
 
     // First-price: the full bid settles as spend.
     expect(h.ledger.balances.get(brand.id)).toMatchObject({

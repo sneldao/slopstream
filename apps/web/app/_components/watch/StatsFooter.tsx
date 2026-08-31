@@ -12,10 +12,14 @@ export function StatsFooter({
   listeners,
   attentionProofs,
   listenerRewardsUsd,
+  placedVolumeUsd,
+  totalClearedVolumeUsd,
 }: {
   listeners: number;
   attentionProofs: number;
   listenerRewardsUsd: number;
+  placedVolumeUsd: number;
+  totalClearedVolumeUsd: number;
 }) {
   return (
     <div style={styles.row}>
@@ -23,6 +27,18 @@ export function StatsFooter({
         <AnimatedNumber
           value={listenerRewardsUsd}
           format={(n) => `$${n.toFixed(2)}`}
+        />
+      </Stat>
+      <Stat icon="📈" label="market volume">
+        <AnimatedNumber
+          value={placedVolumeUsd}
+          format={(n) => `$${n.toFixed(0)}`}
+        />
+      </Stat>
+      <Stat icon="✓" label="cleared volume">
+        <AnimatedNumber
+          value={totalClearedVolumeUsd}
+          format={(n) => `$${n.toFixed(0)}`}
         />
       </Stat>
       <Stat icon="👀" label="listeners">

@@ -85,7 +85,9 @@ export interface StreamState {
   /** True while nowPlaying is an orchestrator encore replay. Never set by
    *  snapshotToState, so any snapshot refetch resets it automatically. */
   nowPlayingEncore?: boolean;
-  /** Durable and event-projected Continuum history, newest first. */
+  /** Durable and event-projected Continuum history, newest first.
+   *  Age-capped by Snapshot.recentSegments.asOfMs — segments whose
+   *  windowOpenedAtMs predates the cap are pruned on snapshot refetch only. */
   recentSegments: Segment[];
   /** Segments that are ready/generating but not yet playing — the queue. */
   upcomingSegments: Segment[];
@@ -100,6 +102,10 @@ export interface StreamState {
   listeners: number;
   attentionProofs: number;
   listenerRewardsUsd: number;
+  /** Gross bid volume placed across all slots, backfilled by snapshots. */
+  placedVolumeUsd: number;
+  /** Gross volume successfully settled after attention cleared. */
+  totalClearedVolumeUsd: number;
   activeChallenge?: PublicChallenge;
   attention?: AttentionState;
   generation?: GenerationState;
@@ -132,6 +138,8 @@ export function snapshotToState(snapshot: StreamSnapshot): StreamState {
     listeners: snapshot.listeners,
     attentionProofs: snapshot.attentionProofs,
     listenerRewardsUsd: snapshot.listenerRewardsUsd,
+    placedVolumeUsd: snapshot.placedVolumeUsd ?? 0,
+    totalClearedVolumeUsd: snapshot.totalClearedVolumeUsd ?? 0,
     activeChallenge: snapshot.activeChallenge,
     attention: snapshot.nowPlayingAttentionThreshold
       ? {
@@ -164,9 +172,13 @@ export function reduceStreamEvent(
       };
 
     case "bid.placed":
-      // Leaderboard is updated separately via `leaderboard.updated`; nothing
-      // to project here.
-      return next;
+      // Leaderboard is updated separately via `leaderboard.updated`; the
+      // aggregate still advances immediately so a healthy WS session does not
+      // display stale market volume until its next snapshot.
+      return {
+        ...next,
+        placedVolumeUsd: prev.placedVolumeUsd + event.amountUsd,
+      };
 
     case "bid.outbid":
       return {
@@ -247,6 +259,9 @@ export function reduceStreamEvent(
               summary: "",
               status: "playing",
               ...(gen?.assetUrl ? { assetUrl: gen.assetUrl } : {}),
+              ...(event.windowOpenedAtMs
+                ? { windowOpenedAtMs: Date.parse(event.windowOpenedAtMs) }
+                : {}),
             };
       return {
         ...next,
@@ -290,6 +305,9 @@ export function reduceStreamEvent(
           durationSeconds: event.durationSec,
           summary: event.summary,
           status: "playing",
+          ...(event.windowOpenedAtMs
+            ? { windowOpenedAtMs: Date.parse(event.windowOpenedAtMs) }
+            : {}),
         },
         nowPlayingEncore: true,
         nowPlayingStartedAt: event.startedAt,
@@ -324,6 +342,10 @@ export function reduceStreamEvent(
           prev.nowPlaying?.id === event.segmentId
             ? { ...prev.nowPlaying, status: "done" }
             : undefined,
+        ).map((s) =>
+          s.id === event.segmentId && s.clearedAmountUsd === undefined
+            ? { ...s, clearedAmountUsd: event.grossAmountUsd }
+            : s,
         ),
         lastClear: {
           bidId: event.bidId,
@@ -349,6 +371,8 @@ export function reduceStreamEvent(
         playingTier: undefined,
         activeChallenge: undefined,
         attention: undefined,
+        totalClearedVolumeUsd:
+          prev.totalClearedVolumeUsd + event.grossAmountUsd,
       };
 
     case "bid.uncleared":
@@ -360,6 +384,10 @@ export function reduceStreamEvent(
           prev.nowPlaying?.id === event.segmentId
             ? { ...prev.nowPlaying, status: "done" }
             : undefined,
+        ).map((s) =>
+          s.id === event.segmentId && s.clearedAmountUsd === undefined
+            ? { ...s, clearedAmountUsd: undefined }
+            : s,
         ),
         lastSettlement: {
           kind: "uncleared",

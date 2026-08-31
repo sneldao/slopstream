@@ -37,11 +37,14 @@ export function AttentionCheck({
   challenge,
   brandColor,
   onAnswer,
+  onExpired,
   nowPlayingStartedAt,
 }: {
   challenge: PublicChallenge;
   brandColor: string;
-  onAnswer: (answer: string) => void;
+  onAnswer: (answer: string) => void | Promise<void>;
+  /** Called when the listener dismisses an expired challenge. */
+  onExpired?: () => void;
   /**
    * ISO timestamp the current segment started playing. `validFrom`/`validUntil`
    * are seconds-from-segment-start, so a late joiner must subtract the elapsed
@@ -67,7 +70,13 @@ export function AttentionCheck({
     hasClock ? remainingFromClock() : windowSec,
   );
   const [picked, setPicked] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const onExpiredRef = useRef(onExpired);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    onExpiredRef.current = onExpired;
+  }, [onExpired]);
 
   // Move focus to the check when it interrupts, so a keyboard or screen
   // reader user is told what happened instead of being left further up the
@@ -104,10 +113,16 @@ export function AttentionCheck({
   const handlePick = (option: string) => {
     if (picked || expired) return;
     setPicked(option);
+    setSubmitError(null);
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       navigator.vibrate?.(50);
     }
-    onAnswer(option);
+    void Promise.resolve(onAnswer(option)).catch(() => {
+      // A transport/session failure is retryable. An invalid answer resolves
+      // normally and is intentionally handled by the proof receipt instead.
+      setPicked(null);
+      setSubmitError("Couldn’t submit that check. Try again.");
+    });
   };
 
   return (
@@ -201,10 +216,25 @@ export function AttentionCheck({
           </ul>
         )}
 
-        {expired && !picked && (
-          <p className="attn__expired" role="status">
-            Time&apos;s up — better luck on the next one.
+        {submitError && (
+          <p className="attn__submit-error" role="alert">
+            {submitError}
           </p>
+        )}
+
+        {expired && !picked && (
+          <div className="attn__expired" role="status">
+            <p>Time&apos;s up — better luck on the next one.</p>
+            {onExpired && (
+              <button
+                type="button"
+                className="attn__continue"
+                onClick={() => onExpiredRef.current?.()}
+              >
+                Continue
+              </button>
+            )}
+          </div>
         )}
       </motion.div>
     </motion.div>

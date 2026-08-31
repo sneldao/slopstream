@@ -3,12 +3,13 @@
 // architecture); for the hackathon the charge is mocked and credits the
 // brand balance immediately.
 
-import type {
-  BrandSummary,
-  CreateBrandCommand,
-  ListenerSession,
-  PayoutReceipt,
-  TopUpCommand,
+import {
+  LISTENER_PAYOUT_MINIMUM_USD,
+  type BrandSummary,
+  type CreateBrandCommand,
+  type ListenerSession,
+  type PayoutReceipt,
+  type TopUpCommand,
 } from "@slopstream/shared";
 import { isoNow, newId, newToken } from "./ids.js";
 import type {
@@ -228,6 +229,11 @@ export class MarketService {
       amountUsd === undefined ? session.balanceCents : usdToCents(amountUsd);
     assert(amountCents > 0, 400, "amountUsd must be positive");
     assert(
+      amountCents >= usdToCents(LISTENER_PAYOUT_MINIMUM_USD),
+      400,
+      `minimum payout is $${LISTENER_PAYOUT_MINIMUM_USD.toFixed(2)}`,
+    );
+    assert(
       amountCents <= session.balanceCents,
       400,
       "amount exceeds available balance",
@@ -241,11 +247,38 @@ export class MarketService {
       createdAt: isoNow(),
     };
     this.ledger.listenerPayouts.set(payout.id, payout);
+    // Non-blocking notification for optional webhook / Stripe Connect payout
+    // integration (Phase 3). Ignored failures must not block the payout.
+    this.notifyPayoutOutbox(payout, session.id).catch(() => {});
     return {
       payoutId: payout.id,
       amountUsd: centsToUsd(amountCents),
       status: "completed",
       createdAt: payout.createdAt,
     };
+  }
+
+  listPayouts(sessionId: string): PayoutReceipt[] {
+    return [...this.ledger.listenerPayouts.values()]
+      .filter((payout) => payout.listenerSessionId === sessionId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((payout) => ({
+        payoutId: payout.id,
+        amountUsd: centsToUsd(payout.amountCents),
+        status: payout.status,
+        createdAt: payout.createdAt,
+      }));
+  }
+
+  /**
+   * Minimal webhook outbox so a future Stripe Connect payout adapter can
+   * dequeue and dispatch. Right now this is a no-op on success; it exists
+   * so the dispatch path is a first-class concern rather than bolted on.
+   */
+  async notifyPayoutOutbox(
+    payout: ListenerPayoutRow,
+    sessionId: string,
+  ): Promise<void> {
+    // Reserved for Stripe Connect payout dispatch / webhook ack.
   }
 }

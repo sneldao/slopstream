@@ -31,6 +31,8 @@ import { toBalanceView, toBrandSummary, toListenerSession } from "./market.js";
 import { ApiError, assert, centsToUsd } from "./money.js";
 import { composeSnapshot } from "./snapshot.js";
 import type { StripeService } from "./stripe.js";
+import { BidProtection } from "./bidProtection.js";
+import { priceHistoryCsv, priceHistoryFromSegments } from "./priceHistory.js";
 
 export interface ApiDeps {
   ledger: Ledger;
@@ -154,6 +156,7 @@ export function createRouter(deps: ApiDeps): Router {
   } = deps;
   const publishLifecycleEvents = deps.publishLifecycleEvents ?? true;
   const router = Router();
+  const bidProtection = new BidProtection();
   // Deferred grace-period closes, keyed by segmentId, so /failed can cancel.
   const pendingCloses = new Map<string, NodeJS.Timeout>();
 
@@ -280,7 +283,34 @@ export function createRouter(deps: ApiDeps): Router {
         403,
         "brandId must match the bearer brand",
       );
+      const idempotencyKey =
+        req.header("idempotency-key")?.trim() || cmd.idempotencyKey?.trim();
+      const amountCents = Math.round(cmd.amountUsd * 100);
+      assert(
+        Number.isFinite(amountCents) && amountCents > 0,
+        400,
+        "amountUsd must be positive",
+      );
+      if (idempotencyKey) {
+        const replay = bidProtection.replay(
+          brand.id,
+          idempotencyKey,
+          amountCents,
+        );
+        if (replay) {
+          res.status(200).json({
+            bid: toSharedBid(replay),
+            balance: toBalanceView(ledger.balances.get(brand.id)!),
+            idempotentReplay: true,
+          });
+          return;
+        }
+      }
+      bidProtection.checkRate(brand.id);
       const { bid, outbid } = auction.placeBid(brand, cmd.amountUsd);
+      if (idempotencyKey) {
+        bidProtection.record(brand.id, idempotencyKey, amountCents, bid);
+      }
       res.status(201).json({
         bid: toSharedBid(bid),
         outbid: outbid
@@ -323,6 +353,14 @@ export function createRouter(deps: ApiDeps): Router {
     wrap((req, res) => {
       const session = requireListener(ledger, req);
       res.json({ session: toListenerSession(session, ledger) });
+    }),
+  );
+
+  router.get(
+    "/listener-sessions/me/payouts",
+    wrap((req, res) => {
+      const session = requireListener(ledger, req);
+      res.json({ payouts: market.listPayouts(session.id) });
     }),
   );
 
@@ -677,6 +715,65 @@ export function createRouter(deps: ApiDeps): Router {
     "/stream/snapshot",
     wrap((_req, res) => {
       res.json(composeSnapshot(ledger, bus, auction, clearing));
+    }),
+  );
+
+  // Public, identity-free price-of-attention history. JSON is canonical;
+  // CSV is provided for simple exports and early market analysis.
+  router.get(
+    "/stream/price-history",
+    wrap((req, res) => {
+      const limit =
+        req.query.limit === undefined ? undefined : Number(req.query.limit);
+      const since =
+        req.query.since === undefined
+          ? undefined
+          : Date.parse(String(req.query.since));
+      assert(
+        limit === undefined || (Number.isInteger(limit) && limit > 0),
+        400,
+        "limit must be a positive integer",
+      );
+      assert(
+        since === undefined || Number.isFinite(since),
+        400,
+        "since must be an ISO timestamp",
+      );
+      const points = priceHistoryFromSegments(
+        [...ledger.segments.values()]
+          .filter((segment) => segment.status === "done")
+          .sort(
+            (a, b) =>
+              (b.clearedAtMs ?? 0) - (a.clearedAtMs ?? 0) || b.slot - a.slot,
+          )
+          .map((segment) => ({
+            id: segment.id,
+            slot: segment.slot,
+            brandId: segment.brandId,
+            durationSeconds: segment.durationSec,
+            summary: segment.summary,
+            status: segment.status,
+            ...(segment.clearedAmountCents !== undefined
+              ? {
+                  clearedAmountUsd: centsToUsd(segment.clearedAmountCents),
+                }
+              : {}),
+            ...(segment.clearedAtMs !== undefined
+              ? { clearedAtMs: segment.clearedAtMs }
+              : {}),
+          })),
+        { limit, since },
+      );
+      if (String(req.query.format ?? "json").toLowerCase() === "csv") {
+        res.type("text/csv").send(priceHistoryCsv(points));
+        return;
+      }
+      assert(
+        String(req.query.format ?? "json").toLowerCase() === "json",
+        400,
+        "format must be json or csv",
+      );
+      res.json({ points });
     }),
   );
 

@@ -27,6 +27,12 @@ function toSharedSegment(segment: SegmentRow): SharedSegment {
     ...(segment.clearedAmountCents !== undefined
       ? { clearedAmountUsd: centsToUsd(segment.clearedAmountCents) }
       : {}),
+    ...(segment.clearedAtMs !== undefined
+      ? { clearedAtMs: segment.clearedAtMs }
+      : {}),
+    ...(segment.windowOpenedAtMs !== undefined
+      ? { windowOpenedAtMs: segment.windowOpenedAtMs }
+      : {}),
   };
 }
 
@@ -48,7 +54,10 @@ export function composeSnapshot(
   const recentSegments = [...ledger.segments.values()]
     .filter(
       (segment) =>
-        segment.status === "done" && segment.id !== nowPlayingRow?.id,
+        segment.status === "done" &&
+        segment.id !== nowPlayingRow?.id &&
+        segment.windowOpenedAtMs !== undefined &&
+        segment.windowOpenedAtMs >= nowMs - 30 * 60_000,
     )
     .sort(
       (a, b) =>
@@ -92,5 +101,13 @@ export function composeSnapshot(
     attentionProofs: clearing.totalAttentionProofs(),
     listenerRewardsUsd: centsToUsd(clearing.totalListenerRewardsCents()),
     activeChallenge: activeChallenge(ledger, nowMs),
+    placedVolumeUsd: centsToUsd(
+      [...ledger.bids.values()].reduce((sum, b) => sum + b.amountCents, 0),
+    ),
+    totalClearedVolumeUsd: centsToUsd(
+      [...ledger.bids.values()]
+        .filter((b) => b.status === "cleared")
+        .reduce((sum, b) => sum + b.amountCents, 0),
+    ),
   };
 }

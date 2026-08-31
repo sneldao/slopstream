@@ -49,6 +49,8 @@ const EMPTY_STATE: StreamState = snapshotToState({
   listeners: 0,
   attentionProofs: 0,
   listenerRewardsUsd: 0,
+  totalClearedVolumeUsd: 0,
+  placedVolumeUsd: 0,
 });
 
 export type LiveConnectionStatus =

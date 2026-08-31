@@ -38,6 +38,10 @@ export interface ApiEnv {
    * events itself — exactly one emitter per WsEvent.
    */
   publishLifecycleEvents: boolean;
+  /** Optional webhook URL for operational alerts (atRisk, dead-air).
+   * When absent the alert path is a no-op — alerts still log but aren't
+   * dispatched externally. */
+  alertWebhookUrl?: string;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -150,6 +154,7 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       num(env.ACTIVE_LISTENER_WINDOW_SEC, 120),
     ),
     publishLifecycleEvents: env.PUBLISH_LIFECYCLE_EVENTS !== "0",
+    alertWebhookUrl: env.ALERT_WEBHOOK_URL?.trim() || undefined,
   };
 }
 

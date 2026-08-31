@@ -75,6 +75,9 @@ export interface SegmentRow {
    *  The durable price-of-attention history — served on the segment and the
    *  price-history API. */
   clearedAmountCents?: number;
+  /** Time the clearing evaluation settled successfully, distinct from playback
+   *  start and used as the canonical price-history timestamp. */
+  clearedAtMs?: number;
   /** Generation brief for free (scraped-company) segments; paid segments
    *  resolve the brief from their brand at read time. */
   brief?: string;

@@ -22,9 +22,34 @@ const snapshot: StreamSnapshot = {
   listeners: 3,
   attentionProofs: 1,
   listenerRewardsUsd: 0,
+  totalClearedVolumeUsd: 0,
+  placedVolumeUsd: 0,
 };
 
 describe("streamReducer live lifecycle", () => {
+  it("hydrates cumulative market totals from a reconnect snapshot", () => {
+    const state = snapshotToState({
+      ...snapshot,
+      placedVolumeUsd: 125,
+      totalClearedVolumeUsd: 80,
+    });
+
+    expect(state.placedVolumeUsd).toBe(125);
+    expect(state.totalClearedVolumeUsd).toBe(80);
+  });
+
+  it("updates placed volume from a live bid event", () => {
+    const state = reduceStreamEvent(snapshotToState(snapshot), {
+      type: "bid.placed",
+      bidId: "bid_2",
+      brandId: "brand_2",
+      amountUsd: 12.5,
+      slot: 2,
+    });
+
+    expect(state.placedVolumeUsd).toBe(12.5);
+  });
+
   it("projects a newly opened auction and clears the old leaderboard", () => {
     const state = reduceStreamEvent(snapshotToState(snapshot), {
       type: "auction.opened",
@@ -58,6 +83,8 @@ describe("streamReducer live lifecycle", () => {
     });
     expect(state.attention).toBeUndefined();
     expect(state.lastClear?.grossAmountUsd).toBe(10);
+    expect(state.totalClearedVolumeUsd).toBe(10);
+    expect(state.recentSegments[0]?.clearedAmountUsd).toBe(10);
     expect(state.lastSettlement).toMatchObject({
       kind: "cleared",
       amountUsd: 10,

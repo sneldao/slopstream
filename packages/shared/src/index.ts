@@ -269,6 +269,12 @@ export interface Segment {
    *  successfully. Absent for free segments and uncleared/failed bids. This
    *  is the durable price-of-attention history the big screen charts. */
   clearedAmountUsd?: number;
+  /** Timestamp of the successful clearing evaluation. This is the canonical
+   *  price-history timestamp; it is distinct from playback start. */
+  clearedAtMs?: number;
+  /** Timestamp of when the segment's attention window opened (playback
+   *  start). Used to enforce the recent-segment age cap. */
+  windowOpenedAtMs?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +368,10 @@ export type WsEvent =
       segmentId: string;
       brandId: string;
       startedAt: string;
+      /** ISO timestamp of when the attention window opened (playback start).
+       *  Not sent in the public event payload; used here so the client can
+       *  stamp the segment it builds from a playing event. */
+      windowOpenedAtMs?: string;
     }
   | {
       /** Orchestrator-only replay of a previously aired segment to cover dead
@@ -376,6 +386,10 @@ export type WsEvent =
       assetUrl: string;
       durationSec: number;
       summary: string;
+      /** ISO timestamp of when the attention window opened (playback start).
+       *  Not sent in the public event payload; used here so the client can
+       *  stamp the segment it builds from an encore event. */
+      windowOpenedAtMs?: string;
     }
   | { type: "challenge.fired"; challenge: PublicChallenge }
   | {
@@ -445,7 +459,9 @@ export interface StreamSnapshot {
   asOfSequence: number;
   nowPlaying: Segment | null;
   /** Most recently completed segments, newest first. This is the durable
-   *  visual history used by the big-screen Continuum after refresh/reconnect. */
+   *  visual history used by the big-screen Continuum after refresh/reconnect.
+   *  Age-capped at most 30 minutes old (by segment.windowOpenedAtMs); older
+   *  segments roll off so the UI only keeps the window that still matters. */
   recentSegments: Segment[];
   /** Segments that are generated/ready but not yet playing — the upcoming
    *  queue. Surfaces what's about to air so the screen can show "next up". */
@@ -470,6 +486,10 @@ export interface StreamSnapshot {
   listenerRewardsUsd: number;
   /** The challenge currently answerable, if any. Never includes the answer. */
   activeChallenge?: PublicChallenge;
+  /** Cumulative gross bid amount submitted across all slots. */
+  placedVolumeUsd?: number;
+  /** Cumulative gross amount whose attention windows cleared successfully. */
+  totalClearedVolumeUsd?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -623,6 +643,9 @@ export const FREE_BRAND_SUMMARY: BrandSummary = {
 // Listener sessions
 // ---------------------------------------------------------------------------
 
+/** Minimum internal balance required before a listener can request a payout. */
+export const LISTENER_PAYOUT_MINIMUM_USD = 1;
+
 export interface ListenerSession {
   id: string;
   joinedAt: string;
@@ -645,6 +668,11 @@ export interface PayoutReceipt {
   amountUsd: number;
   status: "completed";
   createdAt: string;
+}
+
+/** GET /listener-sessions/me/payouts — newest completed payouts first. */
+export interface PayoutHistoryResponse {
+  payouts: PayoutReceipt[];
 }
 
 // ---------------------------------------------------------------------------
@@ -789,6 +817,10 @@ export interface TopUpCommand {
 export interface PlaceBidCommand {
   brandId: string;
   amountUsd: number;
+  /** Idempotency key: repeated POSTs with the same key for the same brand +
+   *  amount are no-ops (return the existing bid). Protects against double-
+   *  charges on retry / network flakiness. */
+  idempotencyKey?: string;
 }
 
 /** POST /segments/:segmentId/challenge-source — feeds the challenge engine. */

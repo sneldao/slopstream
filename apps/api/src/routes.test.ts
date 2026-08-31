@@ -76,6 +76,114 @@ describe("HTTP authorization boundaries", () => {
     expect(harness.ledger.bids.size).toBe(0);
   });
 
+  it("replays an idempotent bid without reserving funds twice", async () => {
+    const brand = fundedBrand(harness, "Acme", 100);
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${brand.token}`,
+      "Idempotency-Key": "bid-retry-1",
+    };
+    const first = await fetch(`${baseUrl}/bids`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ brandId: brand.id, amountUsd: 10 }),
+    });
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as {
+      bid: { id: string };
+      balance: { availableUsd: number };
+    };
+
+    const second = await fetch(`${baseUrl}/bids`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ brandId: brand.id, amountUsd: 10 }),
+    });
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as {
+      bid: { id: string };
+      balance: { availableUsd: number };
+      idempotentReplay: boolean;
+    };
+    expect(secondBody.bid.id).toBe(firstBody.bid.id);
+    expect(secondBody.idempotentReplay).toBe(true);
+    expect(secondBody.balance.availableUsd).toBe(
+      firstBody.balance.availableUsd,
+    );
+    expect(harness.ledger.bids.size).toBe(1);
+  });
+
+  it("rejects reusing an idempotency key with a different amount", async () => {
+    const brand = fundedBrand(harness, "Acme", 100);
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${brand.token}`,
+      "Idempotency-Key": "bid-retry-conflict",
+    };
+    const first = await fetch(`${baseUrl}/bids`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ amountUsd: 10 }),
+    });
+    expect(first.status).toBe(201);
+    const conflict = await fetch(`${baseUrl}/bids`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ amountUsd: 11 }),
+    });
+    expect(conflict.status).toBe(409);
+  });
+
+  it("serves public price history using the settlement timestamp", async () => {
+    harness.ledger.segments.set("seg_price", {
+      id: "seg_price",
+      slot: 7,
+      brandId: "brand_price",
+      bidId: "bid_price",
+      status: "done",
+      durationSec: 30,
+      summary: "settled segment",
+      thresholdFraction: 0.6,
+      windowOpenedAtMs: Date.parse("2026-08-31T11:00:00.000Z"),
+      windowClosed: true,
+      clearedAmountCents: 1_250,
+      clearedAtMs: Date.parse("2026-08-31T11:45:00.000Z"),
+    });
+
+    const response = await fetch(
+      `${baseUrl}/stream/price-history?since=2026-08-31T11:30:00.000Z`,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      points: [
+        {
+          segmentId: "seg_price",
+          slot: 7,
+          amountUsd: 12.5,
+          clearedAt: "2026-08-31T11:45:00.000Z",
+        },
+      ],
+    });
+  });
+
+  it("rate limits excessive bid attempts for one brand", async () => {
+    const brand = fundedBrand(harness, "Acme", 1000);
+    const results: Response[] = [];
+    for (let i = 0; i < 13; i++) {
+      results.push(
+        await fetch(`${baseUrl}/bids`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${brand.token}`,
+          },
+          body: JSON.stringify({ amountUsd: 10 + i }),
+        }),
+      );
+    }
+    expect(results.at(-1)?.status).toBe(429);
+  });
+
   it("scraped-company ingestion requires the orchestrator token", async () => {
     const response = await fetch(`${baseUrl}/companies/scraped`, {
       method: "POST",
@@ -293,6 +401,48 @@ describe("HTTP authorization boundaries", () => {
     );
 
     expect(response.status).toBe(401);
+  });
+
+  it("scopes payout history to the listener and exposes an empty history", async () => {
+    const created = await fetch(`${baseUrl}/listener-sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listenerCommitment: "listener:history" }),
+    });
+    const { token } = (await created.json()) as { token: string };
+
+    const response = await fetch(`${baseUrl}/listener-sessions/me/payouts`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ payouts: [] });
+  });
+
+  it("rejects a payout below the minimum withdrawal amount", async () => {
+    const created = await fetch(`${baseUrl}/listener-sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listenerCommitment: "listener:minimum" }),
+    });
+    const { token } = (await created.json()) as { token: string };
+    const session = harness.ledger.listenerByToken(token)!;
+    session.balanceCents = 150;
+
+    const response = await fetch(
+      `${baseUrl}/listener-sessions/me/payout-request`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amountUsd: 0.5 }),
+      },
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()) as ErrorResponse).toEqual({
+      error: "minimum payout is $1.00",
+    });
   });
 });
 

@@ -443,6 +443,46 @@ a {
   cursor: not-allowed;
 }
 
+.slop-payout-sheet__hint {
+  margin: 8px 0 0 !important;
+  font-size: 12px !important;
+  color: rgba(16, 16, 20, 0.6) !important;
+}
+
+.slop-payout-sheet__history {
+  margin: 18px 0 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(16, 16, 20, 0.14);
+}
+
+.slop-payout-sheet__history-title {
+  margin-bottom: 8px;
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(16, 16, 20, 0.52);
+}
+
+.slop-payout-sheet__history-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(16, 16, 20, 0.1);
+  font-size: 13px;
+  color: rgba(16, 16, 20, 0.68);
+}
+
+.slop-payout-sheet__history-row:last-child {
+  border-bottom: 0;
+}
+
+.slop-payout-sheet__history-row strong {
+  color: var(--slop-ink);
+  font-variant-numeric: tabular-nums;
+}
+
 .slop-payout-sheet__close {
   margin-top: 8px;
   border: 1px solid var(--slop-ink);
@@ -2295,11 +2335,47 @@ main.has-dock {
 }
 
 .attn__expired {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
   margin: var(--s-4) 0 0;
   padding-inline: max(var(--s-5), env(safe-area-inset-left, 0px));
   color: rgba(255, 253, 246, 0.6);
   font-size: var(--t-body);
   font-weight: var(--w-body);
+}
+
+.attn__expired p {
+  margin: 0;
+}
+
+.attn__continue {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 253, 246, 0.38);
+  border-radius: var(--r-pill);
+  background: rgba(255, 253, 246, 0.1);
+  color: var(--platform-text);
+  font-size: var(--t-caption);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.attn__continue:hover,
+.attn__continue:focus-visible {
+  border-color: var(--slop-yellow);
+  background: rgba(255, 228, 94, 0.16);
+}
+
+.attn__submit-error {
+  margin: var(--s-3) 0 0;
+  padding-inline: max(var(--s-5), env(safe-area-inset-left, 0px));
+  color: #ff9b9b;
+  font-size: var(--t-caption);
+  font-weight: var(--w-strong);
 }
 
 /* Landscape phones have almost no vertical room; drop the display step so

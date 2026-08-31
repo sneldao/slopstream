@@ -4,7 +4,7 @@ The attention-proof verifier runs as a standalone service (`apps/verifier`) in
 one of two modes. The API (`apps/api`) always talks to it over HTTP with a
 shared bearer token, regardless of mode.
 
-```
+```text
                   ┌─────────────┐
    POST /verify   │  verifier   │
   ◄──────────────►│  :4100      │

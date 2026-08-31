@@ -111,7 +111,10 @@ app.use((_req, res, next) => {
   // Lane 3's dev server serves the UIs from another origin.
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
-  res.setHeader("access-control-allow-headers", "content-type,authorization");
+  res.setHeader(
+    "access-control-allow-headers",
+    "content-type,authorization,idempotency-key",
+  );
   if (_req.method === "OPTIONS") {
     res.sendStatus(204);
     return;

@@ -234,7 +234,10 @@ export class ClearingEngine {
    * a pool is created + distributed) or uncleared (reservation returned).
    * Emits bid.cleared + reward.pool.updated, or bid.uncleared.
    */
-  closeWindow(segmentId: string): { cleared: boolean; poolId?: string } {
+  closeWindow(
+    segmentId: string,
+    nowMs: number = Date.now(),
+  ): { cleared: boolean; poolId?: string } {
     const segment = this.ledger.segments.get(segmentId);
     assert(segment, 404, `unknown segment ${segmentId}`);
     if (segment.windowClosed) {
@@ -264,9 +267,10 @@ export class ClearingEngine {
       return { cleared: false };
     }
 
-    // Freeze the cleared price onto the segment — the durable price-of-
-    // attention history the big screen charts and the price API serves.
+    // Freeze both price and settlement time onto the segment. Playback start
+    // is not a proxy for when attention actually cleared.
     segment.clearedAmountCents = bid.amountCents;
+    segment.clearedAtMs = nowMs;
 
     const pool = this.clearBid(bid, segment);
     return { cleared: true, poolId: pool.id };

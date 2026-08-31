@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { PayoutReceipt } from "@slopstream/shared";
 import { errorMessage } from "@/lib/errors";
 
 /**
@@ -10,12 +11,16 @@ import { errorMessage } from "@/lib/errors";
 export function PayoutSheet({
   availableUsd,
   pendingUsd,
+  payoutHistory,
+  minimumUsd,
   open,
   onClose,
   onRequest,
 }: {
   availableUsd: number;
   pendingUsd: number;
+  payoutHistory: PayoutReceipt[];
+  minimumUsd: number;
   open: boolean;
   onClose: () => void;
   onRequest: () => void | Promise<void>;
@@ -32,7 +37,8 @@ export function PayoutSheet({
     }
   }, [open]);
 
-  const canCashOut = availableUsd > 0;
+  const canCashOut = availableUsd >= minimumUsd;
+  const shortfallUsd = Math.max(minimumUsd - availableUsd, 0);
 
   return (
     <AnimatePresence>
@@ -75,33 +81,74 @@ export function PayoutSheet({
                 Requested — payout submitted.
               </p>
             ) : (
-              <button
-                type="button"
-                className="slop-payout-sheet__cta"
-                disabled={!canCashOut || requesting}
-                onClick={() => {
-                  setError(null);
-                  setRequesting(true);
-                  void (async () => {
-                    try {
-                      await onRequest();
-                      setDone(true);
-                    } catch (err: unknown) {
-                      // Handled here so a failed payout never becomes an
-                      // unhandled promise rejection.
-                      setError(errorMessage(err, "Unable to request payout."));
-                    } finally {
-                      setRequesting(false);
-                    }
-                  })();
-                }}
+              <>
+                <button
+                  type="button"
+                  className="slop-payout-sheet__cta"
+                  disabled={!canCashOut || requesting}
+                  onClick={() => {
+                    setError(null);
+                    setRequesting(true);
+                    void (async () => {
+                      try {
+                        await onRequest();
+                        setDone(true);
+                      } catch (err: unknown) {
+                        // Handled here so a failed payout never becomes an
+                        // unhandled promise rejection.
+                        setError(
+                          errorMessage(err, "Unable to request payout."),
+                        );
+                      } finally {
+                        setRequesting(false);
+                      }
+                    })();
+                  }}
+                >
+                  {requesting
+                    ? "Requesting…"
+                    : canCashOut
+                      ? `Request $${availableUsd.toFixed(2)}`
+                      : availableUsd > 0
+                        ? `Need $${shortfallUsd.toFixed(2)} more`
+                        : "Nothing available yet"}
+                </button>
+                {!canCashOut && availableUsd > 0 && (
+                  <p className="slop-payout-sheet__hint">
+                    Payouts unlock at ${minimumUsd.toFixed(2)}. Keep listening
+                    to build your available balance.
+                  </p>
+                )}
+              </>
+            )}
+
+            {payoutHistory.length > 0 && (
+              <section
+                className="slop-payout-sheet__history"
+                aria-label="Payout history"
               >
-                {requesting
-                  ? "Requesting…"
-                  : canCashOut
-                    ? `Request $${availableUsd.toFixed(2)}`
-                    : "Nothing available yet"}
-              </button>
+                <div className="slop-payout-sheet__history-title">
+                  Recent payouts
+                </div>
+                {payoutHistory.slice(0, 5).map((payout) => (
+                  <div
+                    className="slop-payout-sheet__history-row"
+                    key={payout.payoutId}
+                  >
+                    <span>
+                      {new Date(payout.createdAt).toLocaleDateString(
+                        undefined,
+                        {
+                          month: "short",
+                          day: "numeric",
+                        },
+                      )}
+                    </span>
+                    <strong>${payout.amountUsd.toFixed(2)}</strong>
+                    <small>#{payout.payoutId}</small>
+                  </div>
+                ))}
+              </section>
             )}
 
             {error && (

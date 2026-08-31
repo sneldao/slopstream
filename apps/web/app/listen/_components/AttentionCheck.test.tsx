@@ -14,12 +14,18 @@ const challenge: PublicChallenge = {
   difficulty: 2,
 };
 
-function render(brandColor = "#45a7ff") {
+function render(
+  brandColor = "#45a7ff",
+  onExpired?: () => void,
+  nowPlayingStartedAt?: string,
+) {
   return renderToStaticMarkup(
     <AttentionCheck
       challenge={challenge}
       brandColor={brandColor}
       onAnswer={() => {}}
+      onExpired={onExpired}
+      nowPlayingStartedAt={nowPlayingStartedAt}
     />,
   );
 }
@@ -80,5 +86,16 @@ describe("AttentionCheck", () => {
     const optionMarkup = html.slice(html.indexOf('class="attn__option"'));
     expect(optionMarkup).not.toContain("#101014");
     expect(optionMarkup).toContain("--wash");
+  });
+
+  it("offers a continue action when expiry recovery is enabled", () => {
+    const html = render(
+      "#45a7ff",
+      () => {},
+      new Date(Date.now() - 9_000).toISOString(),
+    );
+    expect(html).toContain("Time");
+    expect(html).toContain("Continue");
+    expect(html).toContain('class="attn__continue"');
   });
 });
