@@ -1759,6 +1759,11 @@ main.has-dock {
     flex-wrap: wrap;
   }
 
+  .screen-view-toggle {
+    top: calc(62px + env(safe-area-inset-top, 0px)) !important;
+    left: max(12px, env(safe-area-inset-left, 0px)) !important;
+  }
+
   .screen-leaderboard {
     top: auto !important;
     bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important;
@@ -1772,6 +1777,12 @@ main.has-dock {
 
   .screen-threshold {
     bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .screen-view-toggle {
+    font-size: 9px !important;
+    min-height: 32px !important;
+    padding-inline: 10px !important;
   }
 
   .screen-join {

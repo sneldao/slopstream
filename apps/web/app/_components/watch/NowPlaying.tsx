@@ -212,7 +212,7 @@ function ChallengeBanner({ brandColor }: { brandColor: string | undefined }) {
     >
       <i style={{ ...styles.challengeDot, background: brandColor }} />
       <div>
-        <div style={styles.challengeHeader}>PROOF OPEN</div>
+        <div style={styles.challengeHeader}>EARN CHECK AVAILABLE</div>
       </div>
     </motion.div>
   );

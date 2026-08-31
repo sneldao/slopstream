@@ -23,15 +23,15 @@ export function EarnCta({
 }) {
   const big = idleRecruit || activeChallenge;
   const title = activeChallenge
-    ? "PROOF OPEN"
+    ? "EARN CHECK AVAILABLE"
     : idleRecruit
       ? "SCAN TO EARN"
-      : "LISTEN";
+      : "WATCH + EARN";
   const copy = activeChallenge
-    ? "Prove you watched to claim your reward."
+    ? "Scan now to answer the check and qualify for a reward."
     : idleRecruit
-      ? "Verified views pay. Scan, watch, get paid from every cleared bid."
-      : "Watch & prove to earn from cleared bids.";
+      ? "Scan, watch, and answer optional checks to earn from cleared bids."
+      : "Scan to join. Turn on Earn Mode when you want to prove attention.";
   const size = big ? 108 : 82;
 
   return (

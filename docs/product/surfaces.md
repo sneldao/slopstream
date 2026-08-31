@@ -14,7 +14,7 @@ The centerpiece of the demo. Not a dashboard — a **living Continuum**: a colou
 
 **Marketplace story (phase 3 demo):** same Continuum, plus leaderboard, outbid animations, and clearing — see the ASCII layout below.
 
-The screen shows (full marketplace layout — use theater mode or a trimmed HUD when leading with Continuum):
+The screen shows a content-first Continuum by default. The full marketplace layout is available through **Show market** (or theater mode for a completely clean presentation) when the audience wants to inspect the auction:
 
 ```text
 LIVE SLOPSTREAM
@@ -65,9 +65,7 @@ NOW MOVING TO NEXT SLOT
 ```
 
 See the [Continuum design language](design-language.md#the-big-screen) for the
-full event-to-screen behavior spec. A viewer can also enter theater mode with
-the `T` key or `?theater=1`; it removes navigation and market chrome while
-keeping the QR code available for joining.
+full event-to-screen behavior spec. A viewer can also use **Show market** to reveal the auction HUD, **Focus video** to collapse it again, or enter theater mode with the `T` key / `?theater=1`; theater removes navigation and market chrome while keeping the QR code available for joining.
 
 ## B. The listener experience
 
@@ -85,7 +83,7 @@ ACME AI
  with the stream audio, tinted
  to Acme's brand color)
 
-Attention reward pool:
+Current ad reward pool:
 $8.00
 
 Live attention meter:

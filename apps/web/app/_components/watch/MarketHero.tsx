@@ -47,9 +47,9 @@ export function MarketHero({
       initial={{ opacity: 0, y: -24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.25, type: "spring", stiffness: 200, damping: 22 }}
-      aria-label="Live auction — current price of the next ad slot"
+      aria-label="Live auction — starting price for the next sponsored beat"
     >
-      <div style={styles.kicker}>LIVE PRICE OF ATTENTION</div>
+      <div style={styles.kicker}>NEXT SPONSORED BEAT</div>
       <div style={styles.row}>
         <div style={styles.priceBlock}>
           <span style={styles.price}>
@@ -58,7 +58,7 @@ export function MarketHero({
               format={(n) => `$${n.toFixed(0)}`}
             />
           </span>
-          <span style={styles.priceLabel}>next slot</span>
+          <span style={styles.priceLabel}>starts at</span>
         </div>
         {leader && leaderBrand && (
           <div style={styles.leaderBlock}>

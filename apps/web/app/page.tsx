@@ -28,7 +28,9 @@ const Scene = dynamic(
 /** The Continuum — live stream home at `/`. */
 export default function HomePage() {
   const { state, connectionStatus } = useStream();
-  const { theater } = useTheaterMode(true);
+  const { theater, toggle: toggleTheater } = useTheaterMode(true);
+  const [marketOpen, setMarketOpen] = useState(false);
+  const showMarket = !theater && marketOpen;
   // Audio-tier segments have .mp3 as the asset; image/video tiers store the
   // visual as assetUrl but the .mp3 TTS file exists alongside on the generator.
   const audioUrl = state.nowPlaying?.assetUrl
@@ -187,7 +189,8 @@ export default function HomePage() {
         brandColor={activeBrand?.primaryColor}
       />
 
-      {/* Minimal spectacle chrome — no dock; theater hides entirely. */}
+      {/* Content-first chrome: the stream is the default; market detail is
+          opt-in so the video can carry the first impression. */}
       <SurfaceHeader
         variant="spectacle"
         tone="light"
@@ -208,13 +211,29 @@ export default function HomePage() {
         }
       />
 
-      {!theater && (
+      <button
+        type="button"
+        className="screen-view-toggle"
+        style={styles.viewToggle}
+        aria-pressed={showMarket}
+        onClick={() => {
+          if (theater) {
+            toggleTheater();
+          } else {
+            setMarketOpen((open) => !open);
+          }
+        }}
+      >
+        {theater ? "Exit focus" : showMarket ? "Focus video" : "Show market"}
+      </button>
+
+      {showMarket && (
         <LoopStatus state={state} tone="light" className="screen-loop-status" />
       )}
 
-      {/* The Market Hero — the auction is the product, so it gets center
-          stage: live price of the next slot, standing top bid, deadline. */}
-      {!theater && (
+      {/* The Market Hero — available on demand so the auction supports the
+          stream rather than competing with the first impression. */}
+      {showMarket && (
         <div style={styles.marketHeroAnchor}>
           <MarketHero
             leaderboard={state.leaderboard}
@@ -227,7 +246,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {!theater && (
+      {showMarket && (
         <motion.div
           className="screen-leaderboard"
           style={styles.leaderboardFloat}
@@ -275,7 +294,7 @@ export default function HomePage() {
       )}
 
       {/* Coming Up — the next 1-2 segments in the queue. */}
-      {!theater && state.upcomingSegments.length > 0 && (
+      {showMarket && state.upcomingSegments.length > 0 && (
         <motion.div
           className="screen-coming-up"
           style={styles.comingUp}
@@ -328,7 +347,7 @@ export default function HomePage() {
         theater={theater}
       />
 
-      {!theater && state.attention && (
+      {showMarket && state.attention && (
         <motion.div
           className="screen-threshold"
           style={styles.thresholdLabel}
@@ -348,7 +367,7 @@ export default function HomePage() {
         </motion.div>
       )}
 
-      {!theater && (
+      {showMarket && (
         <motion.div
           className="screen-stats"
           style={styles.statsFloat}
@@ -638,6 +657,25 @@ const styles: Record<string, React.CSSProperties> = {
     bottom: "clamp(16px, 3vw, 32px)",
     left: "clamp(16px, 3vw, 32px)",
     zIndex: 10,
+  },
+  viewToggle: {
+    position: "fixed",
+    top: "clamp(60px, 9vh, 92px)",
+    left: "clamp(16px, 3vw, 40px)",
+    zIndex: 16,
+    minHeight: 34,
+    padding: "8px 12px",
+    border: "1px solid rgba(16,16,20,0.24)",
+    borderRadius: 999,
+    background: "rgba(244,241,232,0.86)",
+    backdropFilter: "blur(12px)",
+    color: "var(--slop-ink)",
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    cursor: "pointer",
+    boxShadow: "3px 3px 0 rgba(16,16,20,0.14)",
   },
   comingUpFree: {
     fontSize: 9,

@@ -63,7 +63,12 @@ export function PayoutSheet({
           >
             <div className="slop-payout-sheet__kicker">Payout</div>
             <h2>Cash out</h2>
-            <p>Pending until clear. Then available.</p>
+            <p>
+              Rewards move from pending to available when an ad&apos;s attention
+              window closes. Cash out once available reaches $
+              {minimumUsd.toFixed(2)}. This demo records the payout from your
+              internal balance; it does not send a bank payment.
+            </p>
 
             <div className="slop-payout-sheet__rows">
               <div>
@@ -71,7 +76,7 @@ export function PayoutSheet({
                 <strong>${pendingUsd.toFixed(2)}</strong>
               </div>
               <div>
-                <span>Available</span>
+                <span>Available to cash out</span>
                 <strong>${availableUsd.toFixed(2)}</strong>
               </div>
             </div>
@@ -145,7 +150,7 @@ export function PayoutSheet({
                       )}
                     </span>
                     <strong>${payout.amountUsd.toFixed(2)}</strong>
-                    <small>#{payout.payoutId}</small>
+                    <small>{payout.status}</small>
                   </div>
                 ))}
               </section>

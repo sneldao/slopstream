@@ -5,7 +5,7 @@ import { AnimatedNumber } from "./AnimatedNumber";
 /**
  * The stats footer — the growth ticker first (review: "show the compounding"):
  * cumulative dollars paid to viewers leads the row in hero treatment, then
- * live listeners and attention proofs. Numbers count up smoothly, never snap
+ * bid and cleared-volume context, live listeners and attention proofs. Numbers count up smoothly, never snap
  * (design-language.md "The stats footer").
  */
 export function StatsFooter({
@@ -23,19 +23,19 @@ export function StatsFooter({
 }) {
   return (
     <div style={styles.row}>
-      <Stat icon="💸" label="paid to viewers" hero>
+      <Stat icon="💸" label="total paid" hero>
         <AnimatedNumber
           value={listenerRewardsUsd}
           format={(n) => `$${n.toFixed(2)}`}
         />
       </Stat>
-      <Stat icon="📈" label="market volume">
+      <Stat icon="📈" label="bids placed">
         <AnimatedNumber
           value={placedVolumeUsd}
           format={(n) => `$${n.toFixed(0)}`}
         />
       </Stat>
-      <Stat icon="✓" label="cleared volume">
+      <Stat icon="✓" label="spent after proof">
         <AnimatedNumber
           value={totalClearedVolumeUsd}
           format={(n) => `$${n.toFixed(0)}`}

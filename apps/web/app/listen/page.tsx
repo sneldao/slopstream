@@ -291,11 +291,9 @@ export default function ListenPage() {
                 onClick={() => setPayoutOpen(true)}
                 title="View pending and available rewards"
               >
-                <span style={styles.balanceLabel}>
-                  {pendingUsd > 0 ? "Pending" : "Available"}
-                </span>
+                <span style={styles.balanceLabel}>Available</span>
                 <span style={styles.balanceAmount}>
-                  ${(pendingUsd > 0 ? pendingUsd : availableUsd).toFixed(2)}
+                  ${availableUsd.toFixed(2)}
                 </span>
               </motion.button>
             </>
@@ -364,7 +362,7 @@ export default function ListenPage() {
                   it matters. */}
               <section className="listen-readout">
                 <span className="listen-readout__label">
-                  Listener reward pool
+                  Total paid to viewers
                 </span>
                 <span className="listen-readout__amount" aria-live="polite">
                   ${state.listenerRewardsUsd.toFixed(2)}
@@ -402,6 +400,9 @@ export default function ListenPage() {
                 )}
 
                 <p className="listen-readout__note">
+                  <span>
+                    Total across the stream; your rewards are shown below.
+                  </span>
                   {attention && (
                     <span>
                       <b className="slop-figures">{attention.verifiedCount}</b>
@@ -445,7 +446,9 @@ export default function ListenPage() {
                   className="listen-ledger__cta"
                   onClick={() => setPayoutOpen(true)}
                 >
-                  {availableUsd > 0 ? "Request payout" : "How payouts work"}
+                  {availableUsd >= LISTENER_PAYOUT_MINIMUM_USD
+                    ? "Request payout"
+                    : "How payouts work"}
                 </button>
               </section>
             </motion.div>

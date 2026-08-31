@@ -116,6 +116,16 @@ export default function BrandPage() {
   const winningAmount = winningBid?.amountUsd ?? 0;
   const iAmWinning = winningBid?.brandId === brandId;
   const unlockedTier = tierForAmount(bidAmount);
+  const needsHigherBid =
+    winningAmount > 0 && !iAmWinning && bidAmount <= winningAmount;
+  const bidActionLabel =
+    winningAmount <= 0
+      ? `PLACE BID $${bidAmount}`
+      : iAmWinning
+        ? `RAISE TO $${bidAmount}`
+        : needsHigherBid
+          ? `BID ABOVE $${winningAmount.toFixed(0)}`
+          : `BID $${bidAmount}`;
   const beatAmount = Math.max(winningAmount + 1, tierMin("audio"));
   const rebidAmount = Math.max(
     (state.lastOutbid?.newAmountUsd ?? winningAmount) + 1,
@@ -381,7 +391,7 @@ export default function BrandPage() {
               </div>
 
               <div style={styles.winningRow}>
-                <span style={styles.bidLabel}>CURRENT WINNING BID</span>
+                <span style={styles.bidLabel}>CURRENT HIGHEST BID</span>
                 <motion.span
                   key={winningAmount}
                   style={{
@@ -399,11 +409,12 @@ export default function BrandPage() {
 
               <div style={styles.cpvaRow}>
                 <span style={styles.cpvaText}>
-                  ~${cpva.toFixed(3)} / verified attention
+                  You pay only if the attention threshold is met.
                 </span>
                 <span style={styles.cpvaSub}>
-                  (at {state.listeners.toLocaleString()} listeners,{" "}
-                  {Math.round((threshold / audience) * 100)}% threshold)
+                  Estimated ${cpva.toFixed(3)} / verified attention · at{" "}
+                  {state.listeners.toLocaleString()} listeners ·{" "}
+                  {Math.round((threshold / audience) * 100)}% threshold
                 </span>
               </div>
 
@@ -427,25 +438,34 @@ export default function BrandPage() {
                 style={{
                   ...styles.bidButton,
                   background:
-                    bidAmount > balance
+                    bidAmount > balance || needsHigherBid
                       ? "#444"
                       : `linear-gradient(135deg, ${myBrand?.primaryColor ?? "#1e6fff"}, ${myBrand?.secondaryColor ?? "#8ab4ff"})`,
                   boxShadow:
-                    bidAmount > balance
+                    bidAmount > balance || needsHigherBid
                       ? "none"
                       : `0 8px 30px ${myBrand?.primaryColor ?? "#1e6fff"}44`,
                 }}
                 whileTap={{ scale: 0.97 }}
                 whileHover={{ scale: 1.02 }}
                 onClick={() => void handlePlaceBid()}
-                disabled={bidAmount > balance || bidSubmitting}
+                disabled={
+                  bidAmount > balance || bidSubmitting || needsHigherBid
+                }
               >
                 {bidSubmitting
                   ? "PLACING BID…"
                   : bidAmount > balance
                     ? "INSUFFICIENT BALANCE"
-                    : `INCREASE TO $${bidAmount}`}
+                    : bidActionLabel}
               </motion.button>
+
+              {needsHigherBid && (
+                <div style={styles.bidError} role="status">
+                  Set your bid above ${winningAmount.toFixed(2)} to take the
+                  lead.
+                </div>
+              )}
 
               <button
                 type="button"
@@ -487,11 +507,11 @@ export default function BrandPage() {
             <div style={styles.tierSection}>
               <div style={styles.tierLabel}>PRODUCTION TIER</div>
               <p style={styles.tierHint}>
-                Unlocks{" "}
+                Your bid unlocks{" "}
                 <strong style={{ color: TIER_COLORS[unlockedTier] }}>
                   {TIER_LABELS[unlockedTier]}
                 </strong>
-                . Tap a tier for min bid.
+                . Choose a tier to set its minimum bid.
               </p>
               <div style={styles.tierGrid}>
                 {(Object.keys(TIER_BID_THRESHOLDS_USD) as ProductionTier[]).map(
