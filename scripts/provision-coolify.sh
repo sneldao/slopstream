@@ -111,7 +111,7 @@ create_app() {
         environment_name: "production",
         destination_uuid: $destination_uuid,
         name: $name,
-        git_repository: "https://github.com/sneldao/slopstream.git",
+        git_repository: "sneldao/slopstream",
         git_branch: "main",
         build_pack: "dockerfile",
         dockerfile_location: $dockerfile,
@@ -159,7 +159,7 @@ reconcile_app() {
     --arg port_mapping "${port_mapping}" \
     --arg memory_limit "${memory_limit}" '
       {
-        git_repository: "https://github.com/sneldao/slopstream.git",
+        git_repository: "sneldao/slopstream",
         git_branch: "main",
         build_pack: "dockerfile",
         dockerfile_location: $dockerfile,
