@@ -160,3 +160,30 @@ function startsWith(bytes: Uint8Array, prefix: number[]): boolean {
   if (bytes.length < prefix.length) return false;
   return prefix.every((byte, index) => bytes[index] === byte);
 }
+
+/**
+ * Fetch a continuity image directly by URL (no HTML parsing). Used to grab
+ * the previous segment's hero frame so it can be passed as a reference image
+ * instead of embedding an unreachable localhost URL in the text prompt.
+ */
+export async function fetchContinuityImage(
+  imageUrl: string,
+  options: { imageTimeoutMs?: number; fetcher?: typeof fetch } = {},
+): Promise<OgImage | null> {
+  const fetcher = options.fetcher ?? fetch;
+  try {
+    const res = await fetcher(imageUrl, {
+      headers: { "user-agent": USER_AGENT },
+      redirect: "follow",
+      signal: AbortSignal.timeout(options.imageTimeoutMs ?? IMAGE_TIMEOUT_MS),
+    });
+    if (!res.ok || !res.body) return null;
+    const bytes = await readCappedBytes(res.body, MAX_IMAGE_BYTES);
+    if (!bytes) return null;
+    const mimeType = sniffMime(res.headers.get("content-type"), bytes);
+    if (!mimeType) return null;
+    return { base64: Buffer.from(bytes).toString("base64"), mimeType };
+  } catch {
+    return null;
+  }
+}

@@ -25,7 +25,7 @@ import {
   parseLlmEndpoints,
   type LlmEndpoint,
 } from "./llm.js";
-import { fetchOgImage, type OgImage } from "./ogImage.js";
+import { fetchOgImage, fetchContinuityImage, type OgImage } from "./ogImage.js";
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -306,6 +306,19 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       console.log(`[generator] ${request.segmentId} grounded on OG image`);
     }
 
+    // Continuity image — the previous segment's hero frame, fetched internally
+    // so it can be passed as a reference image instead of a text-prompt URL.
+    const continuityImage = request.continuityImageUrl
+      ? await fetchContinuityImage(request.continuityImageUrl)
+      : null;
+    if (continuityImage) {
+      console.log(
+        `[generator] ${request.segmentId} continuity from previous hero frame`,
+      );
+    }
+    // OG image takes priority (it's the real product photo); fall back to continuity.
+    const effectiveReference = referenceImage ?? continuityImage;
+
     if (tier === "audio_image") {
       const imagePrompt = imagePromptFor(
         subject,
@@ -313,9 +326,15 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         transcript,
         format,
         request,
-        referenceImage !== null,
+        {
+          grounded: referenceImage !== null,
+          hasContinuityImage: continuityImage !== null,
+        },
       );
-      const imageBytes = await this.generateImage(imagePrompt, referenceImage);
+      const imageBytes = await this.generateImage(
+        imagePrompt,
+        effectiveReference,
+      );
       const imageKey = `${request.segmentId}.png`;
       await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
 
@@ -351,9 +370,15 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       transcript,
       format,
       request,
-      referenceImage !== null,
+      {
+        grounded: referenceImage !== null,
+        hasContinuityImage: continuityImage !== null,
+      },
     );
-    const imageBytes = await this.generateImage(imagePrompt, referenceImage);
+    const imageBytes = await this.generateImage(
+      imagePrompt,
+      effectiveReference,
+    );
     const imageKey = `${request.segmentId}.png`;
     await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
     const heroImageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
@@ -375,7 +400,10 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       transcript,
       format,
       request,
-      startFrame !== undefined,
+      {
+        hasStartFrame: startFrame !== undefined,
+        hasContinuityImage: continuityImage !== null,
+      },
     );
     const videoBytes = await this.generateVideo(
       videoPrompt,
@@ -565,11 +593,13 @@ export function imagePromptFor(
   transcript: string,
   format: CreativeFormat,
   request: GenerationRequest,
-  grounded: boolean,
+  options: { grounded?: boolean; hasContinuityImage?: boolean } = {},
 ): string {
-  const continuity = continuityClause(request.continuityImageUrl);
+  const continuity = options.hasContinuityImage
+    ? "Echo the previous segment's palette and composition from the attached reference frame. "
+    : "";
   const market = marketPromptClause(request.marketContext);
-  const grounding = grounded
+  const grounding = options.grounded
     ? "Use the attached reference image of the real product as your visual anchor — keep the product instantly recognizable, then restyle it into the scene. "
     : "";
   return (
@@ -589,11 +619,13 @@ export function videoPromptFor(
   transcript: string,
   format: CreativeFormat,
   request: GenerationRequest,
-  hasStartFrame: boolean,
+  options: { hasStartFrame?: boolean; hasContinuityImage?: boolean } = {},
 ): string {
-  const continuity = continuityClause(request.continuityImageUrl);
+  const continuity = options.hasContinuityImage
+    ? "Echo the previous segment's palette and composition from the attached reference frame. "
+    : "";
   const market = marketPromptClause(request.marketContext);
-  const heroClause = hasStartFrame
+  const heroClause = options.hasStartFrame
     ? "Animate forward from the provided hero frame; the first frame must match it. "
     : "";
   return (
@@ -608,9 +640,8 @@ export function videoPromptFor(
   );
 }
 
-function continuityClause(continuityImageUrl?: string): string {
-  if (!continuityImageUrl) return "";
-  return `Visually echo the previous segment's palette and composition from ${continuityImageUrl}. `;
+function continuityClause(_continuityImageUrl?: string): string {
+  return "";
 }
 
 function marketPromptClause(

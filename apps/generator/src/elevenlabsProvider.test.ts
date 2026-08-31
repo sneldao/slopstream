@@ -12,6 +12,10 @@ const REQUEST: GenerationRequest = {
   tier: "video",
   previousSummaries: [],
 };
+const REQUEST_WITH_CONTINUITY: GenerationRequest = {
+  ...REQUEST,
+  continuityImageUrl: "http://localhost:4300/assets/prev.png",
+};
 const FORMAT = FORMATS[0];
 
 describe("imagePromptFor", () => {
@@ -22,7 +26,7 @@ describe("imagePromptFor", () => {
       "Acme. Invoicing.",
       FORMAT,
       REQUEST,
-      true,
+      { grounded: true },
     );
     const plain = imagePromptFor(
       "Acme",
@@ -30,10 +34,32 @@ describe("imagePromptFor", () => {
       "Acme. Invoicing.",
       FORMAT,
       REQUEST,
-      false,
     );
     expect(grounded).toContain("attached reference image");
     expect(plain).not.toContain("attached reference image");
+  });
+
+  it("adds continuity clause when hasContinuityImage is true", () => {
+    const withContinuity = imagePromptFor(
+      "Acme",
+      "Invoicing.",
+      "Acme.",
+      FORMAT,
+      REQUEST_WITH_CONTINUITY,
+      { hasContinuityImage: true },
+    );
+    const without = imagePromptFor(
+      "Acme",
+      "Invoicing.",
+      "Acme.",
+      FORMAT,
+      REQUEST_WITH_CONTINUITY,
+    );
+    expect(withContinuity).toContain("previous segment's palette");
+    expect(without).not.toContain("previous segment's palette");
+    // The localhost URL must NEVER appear in the prompt text.
+    expect(withContinuity).not.toContain("localhost");
+    expect(without).not.toContain("localhost");
   });
 });
 
@@ -45,7 +71,7 @@ describe("videoPromptFor", () => {
       "Acme. Invoicing.",
       FORMAT,
       REQUEST,
-      true,
+      { hasStartFrame: true },
     );
     expect(withFrame).toContain("Animate forward from the provided hero frame");
     expect(withFrame).not.toContain("localhost");
@@ -55,8 +81,29 @@ describe("videoPromptFor", () => {
       "Acme. Invoicing.",
       FORMAT,
       REQUEST,
-      false,
     );
     expect(withoutFrame).not.toContain("Animate forward");
+  });
+
+  it("adds continuity clause when hasContinuityImage and never leaks URL", () => {
+    const withContinuity = videoPromptFor(
+      "Acme",
+      "Invoicing.",
+      "Acme.",
+      FORMAT,
+      REQUEST_WITH_CONTINUITY,
+      { hasContinuityImage: true },
+    );
+    const without = videoPromptFor(
+      "Acme",
+      "Invoicing.",
+      "Acme.",
+      FORMAT,
+      REQUEST_WITH_CONTINUITY,
+    );
+    expect(withContinuity).toContain("previous segment's palette");
+    expect(withContinuity).not.toContain("localhost");
+    expect(without).not.toContain("previous segment's palette");
+    expect(without).not.toContain("localhost");
   });
 });

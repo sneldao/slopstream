@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { extractOgImageUrl, fetchOgImage } from "./ogImage.js";
+import {
+  extractOgImageUrl,
+  fetchOgImage,
+  fetchContinuityImage,
+} from "./ogImage.js";
 
 const PAGE = "https://acme.example/launch";
 const PNG_MAGIC = new Uint8Array([
@@ -137,5 +141,56 @@ describe("fetchOgImage", () => {
   it("returns null when the network throws", async () => {
     const fetcher = vi.fn().mockRejectedValue(new Error("offline"));
     await expect(fetchOgImage(PAGE, { fetcher })).resolves.toBeNull();
+  });
+});
+
+describe("fetchContinuityImage", () => {
+  const URL = "http://localhost:4300/assets/prev.png";
+
+  it("fetches an image directly and returns base64", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(PNG_MAGIC, {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      }),
+    );
+    const result = await fetchContinuityImage(URL, { fetcher });
+    expect(result?.mimeType).toBe("image/png");
+    expect(Buffer.from(result!.base64, "base64")).toEqual(
+      Buffer.from(PNG_MAGIC),
+    );
+  });
+
+  it("returns null for non-image content types", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response("<html>oops</html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    );
+    await expect(fetchContinuityImage(URL, { fetcher })).resolves.toBeNull();
+  });
+
+  it("returns null when the URL 404s", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response("not found", { status: 404 }));
+    await expect(fetchContinuityImage(URL, { fetcher })).resolves.toBeNull();
+  });
+
+  it("returns null when the fetch throws", async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error("timeout"));
+    await expect(fetchContinuityImage(URL, { fetcher })).resolves.toBeNull();
+  });
+
+  it("sniffs magic bytes when content-type is generic", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(PNG_MAGIC, {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      }),
+    );
+    const result = await fetchContinuityImage(URL, { fetcher });
+    expect(result?.mimeType).toBe("image/png");
   });
 });
