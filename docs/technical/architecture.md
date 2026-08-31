@@ -136,12 +136,22 @@ Each generation receives:
 - campaign constraints
 - optional `continuityImageUrl` — the prior segment's hero frame, for image-first video continuity
 - optional `marketContext` — phase 2+: auction pressure for market-aware scripts (not required for phase 1 Continuum quality)
+- optional `sourceUrl` — free segments only: the scraped company's page URL, fetched for its OG image so image/video generation is grounded on the real product
 
 The generator deterministically selects a **creative format** per segment
 (FNV-1a hash of the segment ID — see [content.md](../product/content.md#creative-format-rotation)).
 Image and video prompts enforce **product placement**: cinematic visuals with
 **no readable generated text**; voiceover carries the script. The big screen
 never duplicates the transcript as typography.
+
+**LLM creative chain.** The ElevenLabs provider optionally runs an ordered
+fallback chain of free OpenAI-compatible endpoints (`LLM_ENDPOINTS`, e.g.
+Featherless) that summarizes messy scraped excerpts into a clean product
+description and writes the voiceover script. Any failure — timeout, bad JSON,
+dead endpoint — degrades to the deterministic format templates, so generation
+never stalls on an LLM error. Free segments additionally pass the company's OG
+image as a reference into image generation, and the generated hero frame is
+fed to video generation as the actual first frame.
 
 When Daytona is used, the sandbox is destroyed after its validated output is
 published. This retains the isolation rationale for generated or

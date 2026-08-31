@@ -45,6 +45,8 @@ interface DriveTarget {
   brandId: string;
   brief: string;
   tier: ProductionTier;
+  /** Free segments only — scraped company page for visual grounding. */
+  sourceUrl?: string;
 }
 
 const GENERATION_STAGES: GenerationStage[] = [
@@ -342,6 +344,7 @@ export class SegmentScheduler {
               brandId: FREE_BRAND_ID,
               brief: free.brief,
               tier: free.tier,
+              ...(free.sourceUrl ? { sourceUrl: free.sourceUrl } : {}),
             },
             slot,
           );
@@ -376,12 +379,12 @@ export class SegmentScheduler {
   // ------------------------------------------------------------ segment drive
 
   private async driveSegment(target: DriveTarget, slot: number): Promise<void> {
-    const { segmentId, brandId, brief, tier } = target;
+    const { segmentId, brandId } = target;
     const label = brandId === FREE_BRAND_ID ? "free (scraped)" : brandId;
     console.log(`[scheduler] slot ${slot} -> segment ${segmentId} (${label})`);
 
     try {
-      await this.runGeneration({ segmentId, brandId, brief, tier }, slot);
+      await this.runGeneration(target, slot);
       await this.startPlayback(segmentId, brandId, slot);
     } catch (error) {
       console.error(`[scheduler] drive failed for ${segmentId}:`, error);
@@ -406,7 +409,7 @@ export class SegmentScheduler {
     target: DriveTarget,
     slot: number,
   ): Promise<void> {
-    const { segmentId, brandId, brief, tier } = target;
+    const { segmentId, brandId, brief, tier, sourceUrl } = target;
     this.driving = true;
     this.generationInFlight = true;
     const genStartedAt = Date.now();
@@ -439,6 +442,7 @@ export class SegmentScheduler {
         previousSummaries: this.previousSummaries,
         continuityImageUrl: this.continuityImageUrl,
         marketContext,
+        ...(sourceUrl ? { sourceUrl } : {}),
       });
       // Attach a handler now: if the generator is down the promise rejects
       // while the beats still run, and an unattached rejection crashes the

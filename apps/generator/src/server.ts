@@ -150,6 +150,7 @@ export function parseGenerationRequest(
     constraints,
     continuityImageUrl,
     marketContext,
+    sourceUrl,
   } = value;
   if (
     !isNonEmptyString(segmentId) ||
@@ -171,6 +172,12 @@ export function parseGenerationRequest(
     parsedMarket = parsed;
   }
 
+  // Grounding-only field: a bad URL is silently dropped, never fatal.
+  const validSourceUrl =
+    isNonEmptyString(sourceUrl) &&
+    sourceUrl.length <= 2048 &&
+    /^https?:\/\//.test(sourceUrl);
+
   return {
     segmentId,
     brandId,
@@ -180,6 +187,7 @@ export function parseGenerationRequest(
     ...(constraints === undefined ? {} : { constraints }),
     ...(continuityImageUrl === undefined ? {} : { continuityImageUrl }),
     ...(parsedMarket === undefined ? {} : { marketContext: parsedMarket }),
+    ...(validSourceUrl ? { sourceUrl } : {}),
   };
 }
 

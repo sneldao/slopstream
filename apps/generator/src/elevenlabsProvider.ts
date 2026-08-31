@@ -2,20 +2,30 @@ import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type {
-  GenerationRequest,
-  GenerationResult,
-  ProductionTier,
+import {
+  FREE_BRAND_ID,
+  type GenerationRequest,
+  type GenerationResult,
+  type ProductionTier,
 } from "@slopstream/shared";
 
 import type { GenerationProvider } from "./generator.js";
 import {
+  marketSting,
+  MAX_SCRIPT_WORDS,
   normalizeAdBrief,
   pickFormat,
   truncateWords,
   voiceForFormat,
   type CreativeFormat,
 } from "./creativeFormats.js";
+import {
+  DEFAULT_LLM_TIMEOUT_MS,
+  generateCreative,
+  parseLlmEndpoints,
+  type LlmEndpoint,
+} from "./llm.js";
+import { fetchOgImage, type OgImage } from "./ogImage.js";
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -30,6 +40,8 @@ const MAX_POLL_ATTEMPTS_VIDEO = 72; // 6 minutes
 
 const IMAGE_MODEL = "gemini-3-pro-image";
 const VIDEO_MODEL = "veo-3.1-fast-generate-001";
+/** Inline image references cap at 25 MB decoded; keep a safety margin. */
+const MAX_START_FRAME_BYTES = 18_000_000;
 
 /**
  * TTS model options. `eleven_flash_v2_5` is 50% cheaper per character than
@@ -77,6 +89,10 @@ export interface ElevenLabsProviderConfig {
   ttsModel: TtsModel;
   /** Maximum tier to generate. Requests above this are downgraded. */
   maxTier: ProductionTier;
+  /** Free-LLM creative chain; undefined = template scripts only. */
+  llmEndpoints?: LlmEndpoint[];
+  /** Per-endpoint timeout for the LLM chain. */
+  llmTimeoutMs: number;
 }
 
 function requiredEnvironmentValue(
@@ -117,6 +133,15 @@ function parseMaxTier(value: string | undefined): ProductionTier {
   );
 }
 
+function parseLlmTimeoutMs(value: string | undefined): number {
+  if (value === undefined || value === "") return DEFAULT_LLM_TIMEOUT_MS;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`LLM_TIMEOUT_MS=${value} must be a positive number`);
+  }
+  return parsed;
+}
+
 export function createElevenLabsProviderFromEnv(
   environment: Environment,
 ): ElevenLabsGenerationProvider {
@@ -134,6 +159,12 @@ export function createElevenLabsProviderFromEnv(
     ),
     maxTier: parseMaxTier(
       optionalEnvironmentValue(environment, "ELEVENLABS_MAX_TIER"),
+    ),
+    llmEndpoints: parseLlmEndpoints(
+      optionalEnvironmentValue(environment, "LLM_ENDPOINTS"),
+    ),
+    llmTimeoutMs: parseLlmTimeoutMs(
+      optionalEnvironmentValue(environment, "LLM_TIMEOUT_MS"),
     ),
   };
   return new ElevenLabsGenerationProvider(config);
@@ -182,18 +213,60 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     // ("Write a short ad for {company}..."), not spoken copy. Extract the
     // clean subject and description so the VO and image prompt reference the
     // actual product, not the instruction text.
-    const { subject, description } = normalizeAdBrief(
+    const { subject, description: briefDescription } = normalizeAdBrief(
       request.brief,
       request.brandId,
     );
 
-    // Stage 1: Script — format-specific transcript from the brand brief.
-    const transcript = format.script({
-      brand: subject,
-      brief: description,
-      context: request.previousSummaries.at(-1),
-      market: request.marketContext,
-    });
+    // Stage 1: Script — the LLM creative chain (when configured) summarizes
+    // messy scraped copy and writes the voiceover; any failure degrades to
+    // the format template so generation never stalls on an LLM error.
+    const isFree =
+      request.brandId === null || request.brandId === FREE_BRAND_ID;
+    let description = briefDescription;
+    let transcript: string | undefined;
+    let scriptSource: "llm" | "template" = "template";
+    let llmModel: string | undefined;
+    if (this.config.llmEndpoints) {
+      const sting = marketSting(request.marketContext);
+      const creative = await generateCreative(
+        this.config.llmEndpoints,
+        {
+          subject,
+          description: briefDescription,
+          formatName: format.name,
+          tone: format.tone,
+          ...(sting ? { marketSting: sting } : {}),
+          needsDescription: isFree,
+        },
+        { timeoutMs: this.config.llmTimeoutMs },
+      );
+      const cleaned = creative ? sanitizeScript(creative.script) : "";
+      if (creative && cleaned) {
+        transcript = cleaned;
+        scriptSource = "llm";
+        llmModel = creative.model;
+        if (isFree && creative.productDescription) {
+          description = creative.productDescription;
+        }
+      }
+    }
+    if (!transcript) {
+      transcript = format.script({
+        brand: subject,
+        brief: description,
+        context: request.previousSummaries.at(-1),
+        market: request.marketContext,
+      });
+    }
+    const scriptTelemetry = {
+      scriptSource,
+      ...(llmModel ? { llmModel } : {}),
+    };
+    console.log(
+      `[generator] ${request.segmentId} script via ${scriptSource}` +
+        (llmModel ? ` (${llmModel})` : ""),
+    );
 
     // Stage 2: Voice — TTS via ElevenLabs with the format's voice.
     const audioBytes = await this.synthesizeVoice(transcript, voiceId);
@@ -218,11 +291,21 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
           format: "mp3_44100_128",
           creativeFormat: format.name,
           tone: format.tone,
+          ...scriptTelemetry,
         },
       };
     }
 
-    // Stage 3: Image — generate a visual for audio_image and above.
+    // Stage 3: Image — generate a visual for audio_image and above. Ground
+    // it on the scraped company's real OG image when one can be fetched;
+    // any fetch failure silently skips grounding.
+    const referenceImage = request.sourceUrl
+      ? await fetchOgImage(request.sourceUrl)
+      : null;
+    if (referenceImage) {
+      console.log(`[generator] ${request.segmentId} grounded on OG image`);
+    }
+
     if (tier === "audio_image") {
       const imagePrompt = imagePromptFor(
         subject,
@@ -230,8 +313,9 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         transcript,
         format,
         request,
+        referenceImage !== null,
       );
-      const imageBytes = await this.generateImage(imagePrompt);
+      const imageBytes = await this.generateImage(imagePrompt, referenceImage);
       const imageKey = `${request.segmentId}.png`;
       await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
 
@@ -255,6 +339,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
           file: audioKey,
           creativeFormat: format.name,
           tone: format.tone,
+          ...scriptTelemetry,
         },
       };
     }
@@ -266,21 +351,37 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       transcript,
       format,
       request,
+      referenceImage !== null,
     );
-    const imageBytes = await this.generateImage(imagePrompt);
+    const imageBytes = await this.generateImage(imagePrompt, referenceImage);
     const imageKey = `${request.segmentId}.png`;
     await writeFile(join(this.config.assetsDir, imageKey), imageBytes);
     const heroImageUrl = assetUrl(this.config.assetBaseUrl, imageKey);
+
+    // Feed the hero frame to Veo as an actual start frame — the old prompt
+    // referenced a localhost URL the model could never fetch.
+    const startFrame =
+      imageBytes.byteLength <= MAX_START_FRAME_BYTES
+        ? {
+            type: "inline_base64" as const,
+            contentBase64: Buffer.from(imageBytes).toString("base64"),
+            mimeType: "image/png" as const,
+          }
+        : undefined;
 
     const videoPrompt = videoPromptFor(
       subject,
       description,
       transcript,
       format,
-      heroImageUrl,
       request,
+      startFrame !== undefined,
     );
-    const videoBytes = await this.generateVideo(videoPrompt, durationSec);
+    const videoBytes = await this.generateVideo(
+      videoPrompt,
+      durationSec,
+      startFrame,
+    );
     const videoKey = `${request.segmentId}.mp4`;
     await writeFile(join(this.config.assetsDir, videoKey), videoBytes);
 
@@ -305,6 +406,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
         file: audioKey,
         creativeFormat: format.name,
         tone: format.tone,
+        ...scriptTelemetry,
       },
     };
   }
@@ -324,12 +426,26 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
     return new Uint8Array(await response.arrayBuffer());
   }
 
-  private async generateImage(prompt: string): Promise<Uint8Array> {
+  private async generateImage(
+    prompt: string,
+    referenceImage: OgImage | null,
+  ): Promise<Uint8Array> {
     const generation = await this.client.flows.image.create({
       modelId: IMAGE_MODEL,
       prompt,
       aspectRatio: "16:9",
       resolution: "2K",
+      ...(referenceImage
+        ? {
+            images: [
+              {
+                type: "inline_base64" as const,
+                contentBase64: referenceImage.base64,
+                mimeType: referenceImage.mimeType,
+              },
+            ],
+          }
+        : {}),
     });
 
     // Poll until complete.
@@ -356,6 +472,11 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
   private async generateVideo(
     prompt: string,
     durationSec: number,
+    startFrame?: {
+      type: "inline_base64";
+      contentBase64: string;
+      mimeType: "image/png";
+    },
   ): Promise<Uint8Array> {
     // Veo supports 4s, 6s, 8s durations. Pick the closest.
     const allowedDurations = [4, 6, 8];
@@ -370,6 +491,7 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
       aspectRatio: "16:9",
       resolution: "1080p",
       generateAudio: true,
+      ...(startFrame ? { startFrame } : {}),
     });
 
     // Poll until complete.
@@ -410,6 +532,18 @@ function estimateDurationSec(transcript: string): number {
   return Math.max(4, Math.ceil(wordCount / WORDS_PER_SECOND));
 }
 
+/** Strip stage directions from an LLM script and enforce the word budget. */
+function sanitizeScript(script: string): string {
+  return truncateWords(
+    script
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+    MAX_SCRIPT_WORDS,
+  );
+}
+
 /**
  * Summary for the Continuum continuity input. Includes the creative format
  * tone so the next segment's context reflects the style that was used.
@@ -425,17 +559,21 @@ function summaryFor(
   return `${core} — ${format.tone}`;
 }
 
-function imagePromptFor(
+export function imagePromptFor(
   subject: string,
   description: string,
   transcript: string,
   format: CreativeFormat,
   request: GenerationRequest,
+  grounded: boolean,
 ): string {
   const continuity = continuityClause(request.continuityImageUrl);
   const market = marketPromptClause(request.marketContext);
+  const grounding = grounded
+    ? "Use the attached reference image of the real product as your visual anchor — keep the product instantly recognizable, then restyle it into the scene. "
+    : "";
   return (
-    `Cinematic product-placement still for ${subject}. ${description}. ` +
+    `${grounding}Cinematic product-placement still for ${subject}. ${description}. ` +
     `Visual style: ${format.imageStyle}. ` +
     `Mood: ${format.tone}, matching this voiceover (do not render as text): "${transcript.slice(0, 100)}...". ` +
     `${continuity}${market}` +
@@ -445,20 +583,23 @@ function imagePromptFor(
   );
 }
 
-function videoPromptFor(
+export function videoPromptFor(
   subject: string,
   description: string,
   transcript: string,
   format: CreativeFormat,
-  heroImageUrl: string,
   request: GenerationRequest,
+  hasStartFrame: boolean,
 ): string {
   const continuity = continuityClause(request.continuityImageUrl);
   const market = marketPromptClause(request.marketContext);
+  const heroClause = hasStartFrame
+    ? "Animate forward from the provided hero frame; the first frame must match it. "
+    : "";
   return (
     `A dynamic 4-to-8-second product-placement motion ad for ${subject}. ${description}. ` +
     `Visual style: ${format.imageStyle}. Tone: ${format.tone}. ` +
-    `Evolve from this hero frame: ${heroImageUrl}. ` +
+    `${heroClause}` +
     `${continuity}${market}` +
     `Camera: slow push or orbit, fluid transitions, cinematic lighting. ` +
     `The story is told by picture and motion — voiceover carries the words (do not show them). ` +

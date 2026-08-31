@@ -62,6 +62,7 @@ function requestFingerprint(request: GenerationRequest): string {
     constraints: request.constraints ?? null,
     continuityImageUrl: request.continuityImageUrl ?? null,
     marketContext: request.marketContext ?? null,
+    sourceUrl: request.sourceUrl ?? null,
   });
 }
 

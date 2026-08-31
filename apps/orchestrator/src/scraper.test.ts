@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   cleanCompanyName,
+  pickTagline,
+  preferBestSubmissions,
   sourceForUrl,
   toSubmission,
   CompanyScraper,
@@ -105,5 +107,64 @@ describe("CompanyScraper.runOnce", () => {
       })) as unknown as typeof fetch,
     });
     await expect(scraper.runOnce()).resolves.toBeUndefined();
+  });
+});
+
+describe("pickTagline", () => {
+  it("uses the first sentence when it reads as product copy", () => {
+    expect(
+      pickTagline("Acme AI reviews pull requests automatically. It is fast."),
+    ).toBe("Acme AI reviews pull requests automatically.");
+  });
+
+  it("skips a founder-narrative first sentence", () => {
+    expect(
+      pickTagline(
+        "Hi HN, I've been working on this for two years. Acme AI automates invoicing for freelancers.",
+      ),
+    ).toBe("Acme AI automates invoicing for freelancers.");
+  });
+
+  it("returns undefined when both opening sentences are narrative", () => {
+    expect(
+      pickTagline(
+        "So we built this because we were frustrated. I built it after years of pain.",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined for empty excerpts", () => {
+    expect(pickTagline("")).toBeUndefined();
+  });
+});
+
+describe("preferBestSubmissions", () => {
+  it("keeps the product-hunt page over the HN discussion for one company", () => {
+    const hn = {
+      name: "Acme AI",
+      source: "hacker_news" as const,
+      sourceUrl: "https://news.ycombinator.com/item?id=1",
+    };
+    const ph = {
+      name: "acme-ai",
+      source: "product_hunt" as const,
+      sourceUrl: "https://www.producthunt.com/posts/acme-ai",
+    };
+    expect(preferBestSubmissions([hn, ph])).toEqual([ph]);
+    expect(preferBestSubmissions([ph, hn])).toEqual([ph]);
+  });
+
+  it("keeps distinct companies untouched", () => {
+    const a = {
+      name: "Acme AI",
+      source: "hacker_news" as const,
+      sourceUrl: "https://news.ycombinator.com/item?id=1",
+    };
+    const b = {
+      name: "Beta Labs",
+      source: "news" as const,
+      sourceUrl: "https://techcrunch.com/beta",
+    };
+    expect(preferBestSubmissions([a, b])).toEqual([a, b]);
   });
 });

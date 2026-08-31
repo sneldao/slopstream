@@ -183,6 +183,7 @@ describe("free (scraped) segments — cold-start engine", () => {
       segmentId: free!.id,
       companyName: "Acme AI",
       tier: "video",
+      sourceUrl: "https://www.producthunt.com/posts/acme",
     });
 
     // The free pseudo-brand is registered for client palette resolution.

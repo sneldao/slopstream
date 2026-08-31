@@ -123,6 +123,8 @@ Slopstream must have great ads **even when nobody is paying**. This is not a "co
 2. Generate free Continuum segments continuously — always keep the generation queue ahead of playback.
 3. Play them in an evolving story with archive memory on the big screen.
 
+Free ads are grounded on the real product: an LLM fallback chain rewrites the scraped excerpt into a clean description and voiceover, and the company's own OG image is used as the visual reference for image and video generation.
+
 The outbound sales motion comes **after** quality:
 
 ```text

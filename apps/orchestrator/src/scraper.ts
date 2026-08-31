@@ -61,6 +61,67 @@ export function cleanCompanyName(title: string): string {
 }
 
 /**
+ * Source ranking for deduping the same company found on multiple pages —
+ * the company's own launch/news pages carry real product copy, while HN
+ * discussion pages carry founder narrative. Lower rank wins.
+ */
+export const SOURCE_PREFERENCE: Record<ScrapedCompanySource, number> = {
+  product_hunt: 0,
+  yc_launch: 1,
+  news: 2,
+  hacker_news: 3,
+};
+
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Keep only the best-ranked source per company name. */
+export function preferBestSubmissions(
+  submissions: ScrapedCompanySubmission[],
+): ScrapedCompanySubmission[] {
+  const best = new Map<string, ScrapedCompanySubmission>();
+  for (const submission of submissions) {
+    const key = normalizeName(submission.name);
+    if (!key) continue;
+    const current = best.get(key);
+    if (
+      !current ||
+      SOURCE_PREFERENCE[submission.source] < SOURCE_PREFERENCE[current.source]
+    ) {
+      best.set(key, submission);
+    }
+  }
+  return [...best.values()];
+}
+
+/** First-person launch narrative — not a product description. */
+const narrativePattern =
+  /^(hi|hey|hello|so)\b.*\b(i|we)\b|show hn|been working|(i|we) built|(i|we) launched|just launched/i;
+
+/**
+ * Pick a tagline from a cleaned excerpt. If the first sentence is founder
+ * narrative ("Hi HN, I've been working on…"), prefer the second; if that is
+ * also narrative or missing, return undefined so the auction falls back to
+ * the full description.
+ */
+export function pickTagline(excerpt: string): string | undefined {
+  const sentences = excerpt
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  for (const sentence of sentences.slice(0, 2)) {
+    if (!narrativePattern.test(sentence)) {
+      return sentence.slice(0, 200);
+    }
+  }
+  return undefined;
+}
+
+/**
  * Strip markdown, URLs, table pipes, and HN page chrome from scraped excerpts
  * so the resulting description reads as clean copy for both TTS and image
  * prompts. Without this, raw HN page content (markdown tables, user links,
@@ -92,7 +153,7 @@ export function toSubmission(
   const excerpt = cleanExcerpt(rawExcerpt);
   // Skip obvious non-company pages (aggregators, login walls).
   if (/sign in|log in|comments|discussion/i.test(result.title)) return null;
-  const tagline = excerpt.split(/(?<=[.!?])\s/)[0]?.slice(0, 200) || undefined;
+  const tagline = pickTagline(excerpt);
   return {
     name: cleanCompanyName(result.title).slice(0, 120),
     source: sourceForUrl(result.url),
@@ -148,9 +209,11 @@ export class CompanyScraper {
     this.running = true;
     try {
       const results = await this.search();
-      const submissions = results
-        .map(toSubmission)
-        .filter((s): s is ScrapedCompanySubmission => s !== null);
+      const submissions = preferBestSubmissions(
+        results
+          .map(toSubmission)
+          .filter((s): s is ScrapedCompanySubmission => s !== null),
+      );
       if (submissions.length === 0) return;
       await this.deps.ingest(submissions);
     } catch (error) {

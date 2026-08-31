@@ -502,6 +502,11 @@ export interface GenerationRequest {
   continuityImageUrl?: string;
   /** Optional auction/attention context for market-aware scripts. */
   marketContext?: GenerationMarketContext;
+  /**
+   * Scraped company's page URL for free segments. The generator fetches its
+   * OG image for visual grounding; never present for paid-brand segments.
+   */
+  sourceUrl?: string;
 }
 
 /** Orchestrator ops snapshot for the stream HUD (GET /ops/metrics). */
@@ -740,6 +745,8 @@ export interface AuctionState {
     brief: string;
     tier: ProductionTier;
     segmentStatus?: SegmentStatus;
+    /** The scraped company's page URL — visual-grounding input for Lane 1. */
+    sourceUrl?: string;
   };
 }
 

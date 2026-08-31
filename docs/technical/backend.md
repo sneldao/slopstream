@@ -136,12 +136,17 @@ disabled when unset, cadence via `SCRAPER_POLL_MS`). Each discovery pass posts
 `ScrapedCompanySubmission`s to **`POST /companies/scraped`** (orchestrator
 bearer), which dedupes by `sourceUrl` and `(source, name)` into the
 `scraped_companies` queue; `GET /companies/scraped` lists the unused backlog.
+The scraper prefers the company's own launch/news pages over discussion pages
+(`preferBestSubmissions` dedupes same-company results by source rank: Product
+Hunt > YC > news > Hacker News) and guards the tagline against founder
+narrative ("Hi HN, I've been working on…") so the brief carries product copy.
 When an auction closes with **no bids**, the auction engine consumes the oldest
 unused company, realizes a free segment (`brandId = null`, brief built from the
-scraped data, tier `audio`), and exposes it as `AuctionState.freeSegment` — the
-orchestrator then drives its full lifecycle exactly like a won slot, using the
-`FREE_BRAND_ID` pseudo-brand for public events. No money moves and no reward
-pool ever exists for a free segment.
+scraped data, tier `video`), and exposes it as `AuctionState.freeSegment` —
+including the company's `sourceUrl` — and the orchestrator then drives its full
+lifecycle exactly like a won slot, using the `FREE_BRAND_ID` pseudo-brand for
+public events. No money moves and no reward pool ever exists for a free
+segment.
 
 The three tables the demo actually touches, beyond `reward_pools` below:
 

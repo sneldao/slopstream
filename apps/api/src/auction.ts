@@ -418,6 +418,7 @@ export class AuctionEngine {
               brief: freeSegment.brief,
               tier: "video" as ProductionTier,
               segmentStatus: freeSegment.status,
+              ...(company?.sourceUrl ? { sourceUrl: company.sourceUrl } : {}),
             };
           })(),
     };
