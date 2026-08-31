@@ -264,6 +264,10 @@ export class ClearingEngine {
       return { cleared: false };
     }
 
+    // Freeze the cleared price onto the segment — the durable price-of-
+    // attention history the big screen charts and the price API serves.
+    segment.clearedAmountCents = bid.amountCents;
+
     const pool = this.clearBid(bid, segment);
     return { cleared: true, poolId: pool.id };
   }

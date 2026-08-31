@@ -221,6 +221,7 @@ export default function HomePage() {
             brandById={state.brandById}
             nextSlotPriceUsd={state.nextSlotPriceUsd}
             currentAuction={state.currentAuction}
+            recentSegments={state.recentSegments}
           />
         </div>
       )}

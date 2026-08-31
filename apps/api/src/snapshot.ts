@@ -24,6 +24,9 @@ function toSharedSegment(segment: SegmentRow): SharedSegment {
     durationSeconds: segment.durationSec,
     summary: segment.summary,
     status: segment.status,
+    ...(segment.clearedAmountCents !== undefined
+      ? { clearedAmountUsd: centsToUsd(segment.clearedAmountCents) }
+      : {}),
   };
 }
 

@@ -3,27 +3,41 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { AnimatedNumber } from "./AnimatedNumber";
-import type { BrandSummary, LeaderboardEntry } from "@slopstream/shared";
+import type {
+  BrandSummary,
+  LeaderboardEntry,
+  Segment,
+} from "@slopstream/shared";
 
 /**
  * The Market Hero — the auction IS the product, so it gets the center stage.
  * Keeps the live price of attention (next-slot price), the standing top bid,
  * and the auction deadline visible at all times. The ads are the content;
  * this panel is the story (review: Thiel/PG — "make the market the hero").
+ * A mini sparkline of recent cleared slot prices shows the compounding
+ * price-of-attention history (review: Thiel "durability > flash").
  */
 export function MarketHero({
   leaderboard,
   brandById,
   nextSlotPriceUsd,
   currentAuction,
+  recentSegments,
 }: {
   leaderboard: LeaderboardEntry[];
   brandById: Record<string, BrandSummary>;
   nextSlotPriceUsd: number;
   currentAuction?: { slot: number; closesAt: string };
+  recentSegments: Segment[];
 }) {
   const leader = leaderboard[0];
   const leaderBrand = leader ? brandById[leader.brandId] : undefined;
+  // Cleared price history, oldest first (recentSegments is newest first).
+  const priceHistory = recentSegments
+    .filter((s) => s.clearedAmountUsd !== undefined)
+    .map((s) => s.clearedAmountUsd!)
+    .reverse()
+    .slice(-10);
 
   return (
     <motion.section
@@ -60,7 +74,29 @@ export function MarketHero({
         )}
         <AuctionCountdown closesAt={currentAuction?.closesAt} />
       </div>
+      {priceHistory.length > 0 && <PriceSparkline values={priceHistory} />}
     </motion.section>
+  );
+}
+
+/** Mini bar chart of the last cleared slot prices, oldest left. */
+function PriceSparkline({ values }: { values: number[] }) {
+  const max = Math.max(...values, 1);
+  return (
+    <div style={styles.sparkline} aria-label="Recent cleared slot prices">
+      {values.map((v, i) => (
+        <div key={i} style={styles.sparklineCol} title={`$${v.toFixed(0)}`}>
+          <div
+            style={{
+              ...styles.sparklineBar,
+              height: `${Math.max(8, (v / max) * 100)}%`,
+              opacity: i === values.length - 1 ? 1 : 0.45,
+            }}
+          />
+        </div>
+      ))}
+      <span style={styles.sparklineLabel}>last {values.length} cleared</span>
+    </div>
   );
 }
 
@@ -164,5 +200,36 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#ff3b3b",
     boxShadow: "0 0 10px #ff3b3b",
     animation: "slop-breathe 1.4s ease-in-out infinite",
+  },
+  sparkline: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: 3,
+    height: 34,
+    marginTop: 6,
+    padding: "0 2px",
+  },
+  sparklineCol: {
+    width: 14,
+    height: "100%",
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  sparklineBar: {
+    width: 10,
+    minHeight: 4,
+    borderRadius: "3px 3px 0 0",
+    background: "var(--slop-yellow)",
+  },
+  sparklineLabel: {
+    marginLeft: 8,
+    fontSize: 9,
+    fontWeight: 800,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: "rgba(16,16,20,0.45)",
+    alignSelf: "flex-end",
+    whiteSpace: "nowrap",
   },
 };
