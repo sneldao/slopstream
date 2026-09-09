@@ -48,3 +48,4 @@ semantic-review/
 
 # Midnight deployer wallet seed (written by packages/midnight deploy)
 packages/midnight/.wallet-seed
+.pnpm-store/
