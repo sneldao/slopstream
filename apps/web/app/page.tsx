@@ -19,6 +19,8 @@ import { MarketHero } from "./_components/watch/MarketHero";
 import { EarnCta } from "./_components/watch/EarnCta";
 import { SurfaceHeader } from "./_components/SurfaceHeader";
 import { LoopStatus } from "./_components/LoopStatus";
+import { WelcomeOverlay } from "./_components/WelcomeOverlay";
+import { useKeyboardShortcuts, KeyboardHint } from "./_components/KeyboardShortcuts";
 import { listenerJoinUrl } from "@/lib/listenerJoinUrl";
 
 // The Continuum reads browser-only animation and pointer state.
@@ -34,6 +36,7 @@ export default function HomePage() {
   const { theater, toggle: toggleTheater } = useTheaterMode(true);
   const [marketOpen, setMarketOpen] = useState(false);
   const showMarket = !theater && marketOpen;
+
   // Explicit manifests are authoritative. Direct legacy MP3s remain playable
   // during migration; visual URLs are never rewritten into guessed narration.
   const audioUrl = playbackAudioUrl(state.nowPlaying);
@@ -43,6 +46,15 @@ export default function HomePage() {
     state.nowPlayingStartedAt,
   );
   const { play } = useSoundDesign();
+
+  // Keyboard shortcuts: M toggles mute, Escape exits theater. T is already
+  // handled by useTheaterMode's own keydown listener.
+  useKeyboardShortcuts({
+    onToggleMute: toggleMute,
+    onExitTheater: toggleTheater,
+    theater,
+  });
+
   // Resolved client-side only: a prerendered/projector frame has no
   // window.location.origin, and initializing with the localhost fallback
   // would paint a broken QR before the hydration effect runs.
@@ -136,22 +148,16 @@ export default function HomePage() {
       {/* Click-to-start overlay — browsers block autoplay until a user
           gesture. This full-screen prompt unlocks the AudioContext on the
           first click, then disappears for the rest of the session. */}
-      {!audioStarted && (
-        <button
-          className="screen-start-overlay"
-          style={styles.startOverlay}
-          onClick={() => {
-            unlock();
-            setAudioStarted(true);
-          }}
-          aria-label="Click to watch and listen to the stream"
-        >
-          <span style={styles.startIcon} aria-hidden>
-            ▶
-          </span>
-          <span style={styles.startText}>Click to watch + listen</span>
-        </button>
-      )}
+      {/* Welcome overlay — browsers block autoplay until a user gesture.
+          This branded cream veil sets the tone and unlocks the AudioContext
+          on the first click, then lifts away to reveal the living world. */}
+      <WelcomeOverlay
+        visible={!audioStarted}
+        onEnter={() => {
+          unlock();
+          setAudioStarted(true);
+        }}
+      />
 
       {/* Mute toggle — visible after audio is unlocked. */}
       {audioStarted && !theater && (
@@ -200,13 +206,17 @@ export default function HomePage() {
         trailing={
           !theater ? (
             <span
-              className="slop-hud-pill"
+              className="slop-hud-pill slop-hud-pill--connection"
               style={{
                 color: connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
               }}
             >
               <span style={styles.connectionDot} />
-              {connectionStatus === "connected" ? "Live" : "Offline"}
+              {connectionStatus === "connected"
+                ? "Live"
+                : connectionStatus === "offline"
+                  ? "Reconnecting"
+                  : "Connecting"}
             </span>
           ) : null
         }
@@ -358,6 +368,10 @@ export default function HomePage() {
         activeChallenge={!!state.activeChallenge}
         theater={theater}
       />
+
+      {/* Keyboard shortcut hint — surfaces T (theater) and M (mute) after a
+          short delay. One-shot via localStorage; hidden in theater mode. */}
+      <KeyboardHint theater={theater} />
 
       {showMarket && state.attention && (
         <motion.div
