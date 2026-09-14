@@ -246,7 +246,7 @@ export default function HomePage() {
           ? "Exit focus"
           : showMarket
             ? "Focus video"
-            : "Show market · zoom out"}
+            : "Show market"}
       </button>
 
       {showMarket && (
