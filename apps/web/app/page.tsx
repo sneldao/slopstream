@@ -145,9 +145,6 @@ export default function HomePage() {
       />
       <div className="slop-grain" />
 
-      {/* Click-to-start overlay — browsers block autoplay until a user
-          gesture. This full-screen prompt unlocks the AudioContext on the
-          first click, then disappears for the rest of the session. */}
       {/* Welcome overlay — browsers block autoplay until a user gesture.
           This branded cream veil sets the tone and unlocks the AudioContext
           on the first click, then lifts away to reveal the living world. */}
@@ -415,34 +412,6 @@ export default function HomePage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  startOverlay: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 100,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    background: "rgba(11,11,26,0.72)",
-    backdropFilter: "blur(8px)",
-    border: "none",
-    cursor: "pointer",
-    color: "var(--slop-cream, #f4f1e8)",
-    fontSize: 18,
-    fontWeight: 800,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  startIcon: {
-    fontSize: 48,
-    lineHeight: 1,
-  },
-  startText: {
-    fontSize: 14,
-    letterSpacing: 3,
-    opacity: 0.8,
-  },
   muteToggle: {
     position: "fixed",
     top: "clamp(16px, 3vw, 32px)",
