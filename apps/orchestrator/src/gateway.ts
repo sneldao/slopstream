@@ -38,8 +38,15 @@ const CORS_HEADERS = {
 } as const;
 const MAX_PROXY_BODY_BYTES = 1024 * 1024;
 
+export interface StreamController {
+  pause: () => void;
+  resume: () => void | Promise<void>;
+  isPaused: () => boolean;
+}
+
 export interface GatewayOptions {
   apiBaseUrl: string;
+  orchestratorApiToken?: string;
   fetcher?: typeof fetch;
   getMetrics?: () => Promise<StreamOpsMetrics> | StreamOpsMetrics;
 }
@@ -52,14 +59,17 @@ export class Gateway {
   private readonly recent: WsDelivery[] = [];
   private static readonly RECENT_LIMIT = 256;
   private readonly apiBaseUrl: string;
+  private readonly orchestratorApiToken?: string;
   private readonly fetcher: typeof fetch;
   private getMetrics?: () => Promise<StreamOpsMetrics> | StreamOpsMetrics;
+  private streamController?: StreamController;
   readonly server: Server;
   private readonly wss: WebSocketServer;
   private readonly heartbeat: NodeJS.Timeout;
 
   constructor(options: GatewayOptions) {
     this.apiBaseUrl = options.apiBaseUrl.replace(/\/$/, "");
+    this.orchestratorApiToken = options.orchestratorApiToken;
     this.fetcher = options.fetcher ?? fetch;
     this.getMetrics = options.getMetrics;
 
@@ -118,6 +128,11 @@ export class Gateway {
     this.getMetrics = provider;
   }
 
+  /** Wire the stream controller for /ops/pause and /ops/resume. */
+  setStreamController(controller: StreamController): void {
+    this.streamController = controller;
+  }
+
   /** The gateway's current sequence — stamped into snapshot responses. */
   get currentSequence(): number {
     return this.sequence;
@@ -169,7 +184,25 @@ export class Gateway {
         ...CORS_HEADERS,
         "content-type": "application/json",
       });
-      res.end(JSON.stringify({ ok: true, service: "slopstream-orchestrator" }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          service: "slopstream-orchestrator",
+          stream: {
+            paused: this.streamController?.isPaused() ?? true,
+          },
+        }),
+      );
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/ops/pause") {
+      await this.handlePause(req, res);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/ops/resume") {
+      await this.handleResume(req, res);
       return;
     }
 
@@ -241,6 +274,53 @@ export class Gateway {
       });
       res.end("metrics unavailable\n");
     }
+  }
+
+  private isAuthorized(req: IncomingMessage): boolean {
+    if (!this.orchestratorApiToken) return true;
+    const auth = req.headers.authorization ?? "";
+    const expected = `Bearer ${this.orchestratorApiToken}`;
+    return auth === expected;
+  }
+
+  private handleAuthFailure(res: ServerResponse): void {
+    res.writeHead(401, {
+      ...CORS_HEADERS,
+      "content-type": "application/json",
+    });
+    res.end(JSON.stringify({ error: "unauthorized" }));
+  }
+
+  private async handlePause(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<void> {
+    if (!this.isAuthorized(req)) {
+      this.handleAuthFailure(res);
+      return;
+    }
+    this.streamController?.pause();
+    res.writeHead(200, {
+      ...CORS_HEADERS,
+      "content-type": "application/json",
+    });
+    res.end(JSON.stringify({ ok: true, stream: "paused" }));
+  }
+
+  private async handleResume(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<void> {
+    if (!this.isAuthorized(req)) {
+      this.handleAuthFailure(res);
+      return;
+    }
+    await this.streamController?.resume();
+    res.writeHead(200, {
+      ...CORS_HEADERS,
+      "content-type": "application/json",
+    });
+    res.end(JSON.stringify({ ok: true, stream: "resumed" }));
   }
 
   private async handleSnapshot(res: ServerResponse): Promise<void> {

@@ -42,6 +42,12 @@ export interface OrchestratorEnv {
   alertWebhookTimeoutMs: number;
   /** How long the stream may stay idle before a dead-air alert (ms). */
   alertIdleThresholdMs: number;
+  /** Start with the stream active (true) or paused (false). */
+  streamEnabled: boolean;
+  /** Max interval between auction polls when the stream is idle (ms). */
+  maxIdlePollMs: number;
+  /** Minimum wall time between encore replays (ms). */
+  minEncoreIntervalMs: number;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -116,6 +122,15 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): OrchestratorEnv {
     alertIdleThresholdMs: positive(
       "ALERT_IDLE_THRESHOLD_MS",
       num(env.ALERT_IDLE_THRESHOLD_MS, 10_000),
+    ),
+    streamEnabled: env.STREAM_ENABLED !== "false",
+    maxIdlePollMs: positive(
+      "MAX_IDLE_POLL_MS",
+      num(env.MAX_IDLE_POLL_MS, 10_000),
+    ),
+    minEncoreIntervalMs: positive(
+      "MIN_ENCORE_INTERVAL_MS",
+      num(env.MIN_ENCORE_INTERVAL_MS, 1_000),
     ),
   };
 }

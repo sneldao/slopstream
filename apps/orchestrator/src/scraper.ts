@@ -175,7 +175,9 @@ export class CompanyScraper {
   private readonly deps: ScraperDeps;
   private timer?: NodeJS.Timeout;
   private stopped = true;
+  private paused = false;
   private running = false;
+  private pollMs = 0;
 
   constructor(deps: ScraperDeps) {
     this.deps = deps;
@@ -183,20 +185,33 @@ export class CompanyScraper {
 
   start(pollMs: number): void {
     this.stopped = false;
+    this.pollMs = pollMs;
     console.log(
       `[scraper] polling Parallel Search every ${Math.round(pollMs / 1000)}s`,
     );
+    if (this.paused) return;
     void this.runOnce();
     this.schedule(pollMs);
   }
 
+  pause(): void {
+    this.paused = true;
+    if (this.timer) clearTimeout(this.timer);
+  }
+
+  resume(): void {
+    this.paused = false;
+    this.schedule(this.pollMs);
+  }
+
   stop(): void {
     this.stopped = true;
+    this.paused = true;
     if (this.timer) clearTimeout(this.timer);
   }
 
   private schedule(pollMs: number): void {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     this.timer = setTimeout(() => {
       void this.runOnce().finally(() => this.schedule(pollMs));
     }, pollMs);
@@ -205,7 +220,7 @@ export class CompanyScraper {
 
   /** One discovery pass: search → map → ingest. Errors never crash the loop. */
   async runOnce(): Promise<void> {
-    if (this.running) return;
+    if (this.running || this.paused) return;
     this.running = true;
     try {
       const results = await this.search();

@@ -26,7 +26,10 @@ import { SegmentScheduler } from "./scheduler.js";
 
 const env = loadEnv();
 
-const gateway = new Gateway({ apiBaseUrl: env.apiBaseUrl });
+const gateway = new Gateway({
+  apiBaseUrl: env.apiBaseUrl,
+  orchestratorApiToken: env.orchestratorApiToken,
+});
 const api = new ApiClient(
   env.apiBaseUrl,
   env.generatorBaseUrl,
@@ -41,32 +44,9 @@ const api = new ApiClient(
 const feed = new MarketplaceFeed(api, env.eventsPollMs, (event, eventId) => {
   gateway.emit(event, eventId);
 });
-feed.start();
 
 const scheduler = new SegmentScheduler({ env, gateway, api });
 gateway.setMetricsProvider(() => scheduler.getMetrics());
-await scheduler.start();
-
-const alerts = new AlertDispatcher({
-  webhookUrl: env.alertWebhookUrl,
-  idleThresholdMs: env.alertIdleThresholdMs,
-  webhookTimeoutMs: env.alertWebhookTimeoutMs,
-});
-let alertTimer: NodeJS.Timeout | undefined;
-const pollAlerts = async () => {
-  try {
-    await alerts.observe(await scheduler.getMetrics());
-  } catch (error) {
-    // Alerting must never interrupt the stream scheduler.
-    console.warn("[alerts] metrics observation failed:", error);
-  }
-  if (!schedulerStopped) {
-    alertTimer = setTimeout(() => void pollAlerts(), env.alertPollMs);
-    alertTimer.unref();
-  }
-};
-let schedulerStopped = false;
-void pollAlerts();
 
 // Cold-start scraper: when PARALLEL_API_KEY is configured, continuously
 // discover newly launched companies and ingest them into the API's free-ad
@@ -83,10 +63,68 @@ if (env.parallelApiKey) {
       );
     },
   });
-  scraper.start(env.scraperPollMs);
 } else {
   console.log("[scraper] PARALLEL_API_KEY not set — scraper disabled");
 }
+
+let streamPaused = !env.streamEnabled;
+
+const pauseAll = () => {
+  if (streamPaused) return;
+  streamPaused = true;
+  scheduler.pause();
+  feed.pause();
+  scraper?.pause();
+  console.log("[orchestrator] stream paused");
+};
+
+const resumeAll = () => {
+  if (!streamPaused) return;
+  streamPaused = false;
+  void (async () => {
+    await scheduler.resume();
+    feed.resume();
+    scraper?.resume();
+    console.log("[orchestrator] stream resumed");
+  })();
+};
+
+gateway.setStreamController({
+  pause: pauseAll,
+  resume: resumeAll,
+  isPaused: () => streamPaused,
+});
+
+// Start the subsystems. If the stream is disabled at boot, pause them first.
+if (!env.streamEnabled) {
+  console.log("[orchestrator] STREAM_ENABLED=false — starting paused");
+  pauseAll();
+}
+feed.start();
+await scheduler.start();
+scraper?.start(env.scraperPollMs);
+
+const alerts = new AlertDispatcher({
+  webhookUrl: env.alertWebhookUrl,
+  idleThresholdMs: env.alertIdleThresholdMs,
+  webhookTimeoutMs: env.alertWebhookTimeoutMs,
+});
+let alertTimer: NodeJS.Timeout | undefined;
+const pollAlerts = async () => {
+  if (streamPaused) return;
+  try {
+    await alerts.observe(await scheduler.getMetrics());
+  } catch (error) {
+    // Alerting must never interrupt the stream scheduler.
+    console.warn("[alerts] metrics observation failed:", error);
+  }
+  if (!schedulerStopped) {
+    alertTimer = setTimeout(() => void pollAlerts(), env.alertPollMs);
+    alertTimer.unref();
+  }
+};
+let schedulerStopped = false;
+void pollAlerts();
 
 gateway.server.listen(env.port, () => {
   console.log(

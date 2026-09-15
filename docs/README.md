@@ -16,6 +16,7 @@ Product design and technical architecture for **The Continuum** — a live, infi
 - [contracts.md](technical/contracts.md) — the Midnight contracts: `ProofOfAttention`, `BidClearing`, `RewardClearing`, `PreviewRightsThreshold`.
 - [backend.md](technical/backend.md) — money architecture (Stripe as the only fiat rail), the Postgres ledger schema, the attention threshold and window mechanics, listener session identity, the attention challenge engine, and public event/ops contracts.
 - [deployment.md](technical/deployment.md) — Coolify demo provisioning, topology, R2/SQLite durability env, optional operational alerts, verification, and production deployment gates.
+- [roadmap.md](technical/roadmap.md) — long-term plan: operational safety, product foundation, ClickHouse + Gemini partner track, and scale/compliance.
 - [interactive-creative.md](technical/interactive-creative.md) — post-hackathon plan for Daytona-backed premium interactive creatives, including contract, safety, fallback, and rollout requirements.
 
 ## Hackathon
@@ -25,4 +26,6 @@ Product design and technical architecture for **The Continuum** — a live, infi
 - [build-order.md](hackathon/build-order.md) — P0 must-work, P1 makes-the-demo-excellent, P2 stretch goals.
 - [team-split.md](hackathon/team-split.md) — splitting the work across three parallel development lanes.
 - [progress.md](hackathon/progress.md) — per-lane status: what's implemented, what's stubbed, known inconsistencies, and cross-lane integration status.
+- [parallel-track-plan.md](hackathon/parallel-track-plan.md) — why Slopstream fits the Agentic Cinema Parallel track and the build plan for a valid submission.
+- [clickhouse-track-plan.md](hackathon/clickhouse-track-plan.md) — archived ClickHouse track pivot; kept for reference, but we are now submitting to Parallel.
 - [3d-overhaul-plan.md](hackathon/3d-overhaul-plan.md) — archived decision record for the earlier 3D fluid-world prototype.
