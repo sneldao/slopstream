@@ -220,7 +220,8 @@ a {
   text-decoration: none;
   text-transform: uppercase;
   box-shadow: var(--shadow-sticker-sm);
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+  transition:
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 200ms ease;
 }
 
@@ -569,7 +570,7 @@ a.slop-wordmark-chip:hover {
   cursor: pointer;
 }
 
-.slop-hud-pill--connection span:first-child {
+.slop-hud-pill--connection:not(.is-live) span:first-child {
   animation: slop-conn-pulse 1.8s ease-in-out infinite;
 }
 
@@ -705,7 +706,8 @@ main.has-dock {
    and mute toggle get a subtle scale-down on active so every tap feels
    acknowledged, matching the physical quality of the Continuum's objects. */
 .screen-view-toggle {
-  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 180ms ease;
 }
 

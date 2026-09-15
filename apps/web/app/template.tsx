@@ -9,10 +9,6 @@
  * The reduced-motion media query in globals.css already disables this
  * animation for users who prefer reduced motion.
  */
-export default function Template({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function Template({ children }: { children: React.ReactNode }) {
   return <div className="slop-page-enter">{children}</div>;
 }

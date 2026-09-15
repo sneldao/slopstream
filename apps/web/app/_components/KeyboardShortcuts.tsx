@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const HINT_STORAGE_KEY = "slop-keyhint-seen";
@@ -13,7 +13,9 @@ const HINT_STORAGE_KEY = "slop-keyhint-seen";
  *   · `M`  — toggle mute
  *   · `Escape` — exit theater mode (only when theater is on)
  *
- * Both skip when the user is typing in an input or textarea.
+ * Both skip when the user is typing in an input or textarea. Callbacks are
+ * stored in a ref so the keydown listener is attached once — even if the
+ * parent re-renders with new (non-memoized) callback identities.
  */
 export function useKeyboardShortcuts({
   onToggleMute,
@@ -24,11 +26,15 @@ export function useKeyboardShortcuts({
   onExitTheater: () => void;
   theater: boolean;
 }) {
+  const callbacks = useRef({ onToggleMute, onExitTheater, theater });
+  callbacks.current = { onToggleMute, onExitTheater, theater };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
+      const { onToggleMute, onExitTheater, theater } = callbacks.current;
       if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         onToggleMute();
@@ -39,7 +45,7 @@ export function useKeyboardShortcuts({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onToggleMute, onExitTheater, theater]);
+  }, []);
 }
 
 /**

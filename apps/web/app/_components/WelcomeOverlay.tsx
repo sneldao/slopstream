@@ -52,7 +52,9 @@ export function WelcomeOverlay({
             transition={{ delay: 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="slop-welcome__wordmark">Slopstream</div>
-            <div className="slop-welcome__tagline">The live attention market</div>
+            <div className="slop-welcome__tagline">
+              The live attention market
+            </div>
 
             <div className="slop-welcome__enter">
               <span>Enter the stream</span>

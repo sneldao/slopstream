@@ -78,12 +78,10 @@ function EmptyMarket() {
     >
       <div style={styles.emptyKicker}>The attention market is live</div>
       {/* Plain pitch — what this is, who pays, who gets paid. */}
-      <div style={styles.emptyPitch}>
-        Brands bid for your attention here.
-      </div>
+      <div style={styles.emptyPitch}>Brands bid for your attention here.</div>
       <div style={styles.emptySub}>
-        Every ad is AI-generated, every view is verified on-chain, and
-        verified viewers earn from every cleared bid.
+        Every ad is AI-generated, every view is verified on-chain, and verified
+        viewers earn from every cleared bid.
       </div>
       <div style={styles.emptyPulse}>
         <span className="empty-pulse__dots" aria-hidden>

@@ -20,7 +20,10 @@ import { EarnCta } from "./_components/watch/EarnCta";
 import { SurfaceHeader } from "./_components/SurfaceHeader";
 import { LoopStatus } from "./_components/LoopStatus";
 import { WelcomeOverlay } from "./_components/WelcomeOverlay";
-import { useKeyboardShortcuts, KeyboardHint } from "./_components/KeyboardShortcuts";
+import {
+  useKeyboardShortcuts,
+  KeyboardHint,
+} from "./_components/KeyboardShortcuts";
 import { listenerJoinUrl } from "@/lib/listenerJoinUrl";
 
 // The Continuum reads browser-only animation and pointer state.
@@ -31,7 +34,15 @@ const Scene = dynamic(
 
 /** The Continuum — live stream home at `/`. */
 export default function HomePage() {
-  const { state, connectionStatus } = useStream();
+  const { state, connectionStatus, hasEverConnected } = useStream();
+  const isLive = connectionStatus === "connected";
+  // A cold "offline" (never connected) is still trying for the first time;
+  // only label it Reconnecting after a drop.
+  const connectionLabel = isLive
+    ? "Live"
+    : connectionStatus === "offline" && hasEverConnected
+      ? "Reconnecting"
+      : "Connecting";
   useMediaPreload(state.upcomingSegments);
   const { theater, toggle: toggleTheater } = useTheaterMode(true);
   const [marketOpen, setMarketOpen] = useState(false);
@@ -203,17 +214,13 @@ export default function HomePage() {
         trailing={
           !theater ? (
             <span
-              className="slop-hud-pill slop-hud-pill--connection"
+              className={`slop-hud-pill slop-hud-pill--connection${isLive ? " is-live" : ""}`}
               style={{
-                color: connectionStatus === "connected" ? "#b8ff65" : "#ffe45e",
+                color: isLive ? "#b8ff65" : "#ffe45e",
               }}
             >
               <span style={styles.connectionDot} />
-              {connectionStatus === "connected"
-                ? "Live"
-                : connectionStatus === "offline"
-                  ? "Reconnecting"
-                  : "Connecting"}
+              {connectionLabel}
             </span>
           ) : null
         }
@@ -239,11 +246,7 @@ export default function HomePage() {
           }
         }}
       >
-        {theater
-          ? "Exit focus"
-          : showMarket
-            ? "Focus video"
-            : "Show market"}
+        {theater ? "Exit focus" : showMarket ? "Focus video" : "Show market"}
       </button>
 
       {showMarket && (
