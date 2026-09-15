@@ -26,7 +26,14 @@ const run = async (): Promise<void> => {
       "Back that file up securely now — it is the only copy of the deployer wallet.",
     );
   }
-  const { api, shutdown } = await bootstrap({ fund: true });
+  // SKIP_FUNDS_REQUEST=1 skips the SDK faucet POST (its legacy endpoint is a
+  // no-op against the current faucet) and waits for manually claimed funds
+  // instead. Use after claiming tNIGHT for the wallet address via the faucet UI.
+  const skipFaucetRequest = process.env.SKIP_FUNDS_REQUEST === "1";
+  const { api, shutdown } = await bootstrap({
+    fund: true,
+    skipFaucetRequest,
+  });
   try {
     logger.info("==============================================");
     logger.info("DEPLOYED. Save these values:");
