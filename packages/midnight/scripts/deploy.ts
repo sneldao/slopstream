@@ -29,11 +29,31 @@ const run = async (): Promise<void> => {
   // SKIP_FUNDS_REQUEST=1 skips the SDK faucet POST (its legacy endpoint is a
   // no-op against the current faucet) and waits for manually claimed funds
   // instead. Use after claiming tNIGHT for the wallet address via the faucet UI.
+  // DEPLOY_RESULT_FILE, when set, receives the deployed contract address
+  // (plus wallet seed path when freshly generated) as JSON — the durable
+  // handoff for unattended runs (tmux / nohup) where nobody watches the logs.
   const skipFaucetRequest = process.env.SKIP_FUNDS_REQUEST === "1";
   const { api, shutdown } = await bootstrap({
     fund: true,
     skipFaucetRequest,
   });
+  const resultFile = process.env.DEPLOY_RESULT_FILE;
+  if (resultFile) {
+    const { writeFile: writeResult } = await import("node:fs/promises");
+    await writeResult(
+      resultFile,
+      JSON.stringify(
+        {
+          contractAddress: api.deployedContractAddress,
+          walletSeedFile: hasSeed ? undefined : walletSeedFile,
+          deployedAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+    );
+    logger.info(`Deploy result written to ${resultFile}.`);
+  }
   try {
     logger.info("==============================================");
     logger.info("DEPLOYED. Save these values:");
