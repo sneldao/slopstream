@@ -54,6 +54,7 @@ export type FeedIngest = (event: WsEvent, eventId: string) => void;
 export class MarketplaceFeed {
   private cursor = 0;
   private stopped = true;
+  private paused = false;
   private timer?: NodeJS.Timeout;
 
   constructor(
@@ -68,13 +69,24 @@ export class MarketplaceFeed {
     void this.poll();
   }
 
+  pause(): void {
+    this.paused = true;
+    if (this.timer) clearTimeout(this.timer);
+  }
+
+  resume(): void {
+    this.paused = false;
+    void this.poll();
+  }
+
   stop(): void {
     this.stopped = true;
+    this.paused = true;
     if (this.timer) clearTimeout(this.timer);
   }
 
   private async poll(): Promise<void> {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     try {
       const batch = await this.client.eventsSince(this.cursor);
       const { reset, deliveries, nextCursor } = resolveBatch(
@@ -91,7 +103,7 @@ export class MarketplaceFeed {
     } catch {
       // API not ready yet; retry on the next tick.
     }
-    if (!this.stopped) {
+    if (!this.stopped && !this.paused) {
       this.timer = setTimeout(() => void this.poll(), this.pollMs);
       this.timer.unref();
     }

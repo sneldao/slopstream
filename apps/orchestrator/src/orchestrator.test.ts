@@ -64,6 +64,31 @@ describe("orchestrator environment", () => {
       } as NodeJS.ProcessEnv),
     ).toThrow(/GENERATOR_API_TOKEN must be set/);
   });
+
+  it("parses stream-safety env with safe defaults", () => {
+    const defaults = loadEnv({} as NodeJS.ProcessEnv);
+    expect(defaults.streamEnabled).toBe(true);
+    expect(defaults.maxIdlePollMs).toBe(10_000);
+    expect(defaults.minEncoreIntervalMs).toBe(1_000);
+
+    const disabled = loadEnv({
+      STREAM_ENABLED: "false",
+      MAX_IDLE_POLL_MS: "30000",
+      MIN_ENCORE_INTERVAL_MS: "5000",
+    } as NodeJS.ProcessEnv);
+    expect(disabled.streamEnabled).toBe(false);
+    expect(disabled.maxIdlePollMs).toBe(30_000);
+    expect(disabled.minEncoreIntervalMs).toBe(5_000);
+  });
+
+  it("rejects non-positive idle/encore bounds", () => {
+    expect(() =>
+      loadEnv({ MAX_IDLE_POLL_MS: "0" } as NodeJS.ProcessEnv),
+    ).toThrow(/MAX_IDLE_POLL_MS must be greater than zero/);
+    expect(() =>
+      loadEnv({ MIN_ENCORE_INTERVAL_MS: "-5" } as NodeJS.ProcessEnv),
+    ).toThrow(/MIN_ENCORE_INTERVAL_MS must be greater than zero/);
+  });
 });
 
 describe("resolveBatch cursor logic", () => {
@@ -428,6 +453,85 @@ describe("gateway ops metrics", () => {
   });
 });
 
+describe("gateway stream pause/resume", () => {
+  async function post(
+    baseUrl: string,
+    path: string,
+    token?: string,
+  ): Promise<Response> {
+    return fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+  }
+
+  it("pauses and resumes through the stream controller", async () => {
+    let paused = false;
+    const gateway = new Gateway({ apiBaseUrl: "http://unused.test" });
+    gateway.setStreamController({
+      pause: () => {
+        paused = true;
+      },
+      resume: () => {
+        paused = false;
+      },
+      isPaused: () => paused,
+    });
+    const gatewayBaseUrl = await listen(gateway.server);
+    try {
+      // No controller state yet — reports the live value once wired.
+      const healthBefore = await fetch(`${gatewayBaseUrl}/health`);
+      await expect(healthBefore.json()).resolves.toMatchObject({
+        ok: true,
+        stream: { paused: false },
+      });
+
+      const pauseRes = await post(gatewayBaseUrl, "/ops/pause");
+      expect(pauseRes.status).toBe(200);
+      await expect(pauseRes.json()).resolves.toMatchObject({
+        ok: true,
+        stream: "paused",
+      });
+
+      const healthPaused = await fetch(`${gatewayBaseUrl}/health`);
+      await expect(healthPaused.json()).resolves.toMatchObject({
+        stream: { paused: true },
+      });
+
+      const resumeRes = await post(gatewayBaseUrl, "/ops/resume");
+      expect(resumeRes.status).toBe(200);
+      await expect(resumeRes.json()).resolves.toMatchObject({
+        ok: true,
+        stream: "resumed",
+      });
+    } finally {
+      await gateway.close();
+    }
+  });
+
+  it("rejects pause/resume without the orchestrator token", async () => {
+    const gateway = new Gateway({
+      apiBaseUrl: "http://unused.test",
+      orchestratorApiToken: "ops-secret",
+    });
+    gateway.setStreamController({
+      pause: () => {},
+      resume: () => {},
+      isPaused: () => false,
+    });
+    const gatewayBaseUrl = await listen(gateway.server);
+    try {
+      expect((await post(gatewayBaseUrl, "/ops/pause")).status).toBe(401);
+      expect((await post(gatewayBaseUrl, "/ops/resume")).status).toBe(401);
+
+      const authed = await post(gatewayBaseUrl, "/ops/pause", "ops-secret");
+      expect(authed.status).toBe(200);
+    } finally {
+      await gateway.close();
+    }
+  });
+});
+
 describe("gateway CORS and proxy headers", () => {
   it("allows and forwards the idempotency key used by browser bid retries", async () => {
     let forwardedHeaders = new Headers();
@@ -634,6 +738,9 @@ describe("orchestrator live slice", () => {
       alertPollMs: 5_000,
       alertWebhookTimeoutMs: 5_000,
       alertIdleThresholdMs: 10_000,
+      streamEnabled: true,
+      maxIdlePollMs: 10_000,
+      minEncoreIntervalMs: 1_000,
     };
 
     gateway = new Gateway({ apiBaseUrl });
@@ -771,6 +878,9 @@ describe("orchestrator live slice", () => {
       alertPollMs: 5_000,
       alertWebhookTimeoutMs: 5_000,
       alertIdleThresholdMs: 10_000,
+      streamEnabled: true,
+      maxIdlePollMs: 10_000,
+      minEncoreIntervalMs: 1_000,
     };
 
     gateway = new Gateway({ apiBaseUrl });
@@ -817,6 +927,9 @@ describe("orchestrator live slice", () => {
         alertPollMs: 5_000,
         alertWebhookTimeoutMs: 5_000,
         alertIdleThresholdMs: 10_000,
+        streamEnabled: true,
+        maxIdlePollMs: 10_000,
+        minEncoreIntervalMs: 1_000,
       },
       gateway,
       api,
@@ -928,6 +1041,9 @@ describe("scheduler challenge firing guard", () => {
       alertPollMs: 5_000,
       alertWebhookTimeoutMs: 5_000,
       alertIdleThresholdMs: 10_000,
+      streamEnabled: true,
+      maxIdlePollMs: 10_000,
+      minEncoreIntervalMs: 1_000,
     };
     const scheduler = new SegmentScheduler({
       env,
@@ -997,6 +1113,9 @@ describe("failed-segment retry", () => {
       alertPollMs: 5_000,
       alertWebhookTimeoutMs: 5_000,
       alertIdleThresholdMs: 10_000,
+      streamEnabled: true,
+      maxIdlePollMs: 10_000,
+      minEncoreIntervalMs: 1_000,
     };
 
     const gateway = new Gateway({ apiBaseUrl });
@@ -1086,6 +1205,9 @@ function encoreEnv(segmentPlaySec: number): OrchestratorEnv {
     alertPollMs: 5_000,
     alertWebhookTimeoutMs: 5_000,
     alertIdleThresholdMs: 10_000,
+    streamEnabled: true,
+    maxIdlePollMs: 10_000,
+    minEncoreIntervalMs: 1_000,
   };
 }
 

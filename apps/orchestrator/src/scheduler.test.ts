@@ -21,6 +21,9 @@ const env: OrchestratorEnv = {
   alertPollMs: 5_000,
   alertWebhookTimeoutMs: 5_000,
   alertIdleThresholdMs: 10_000,
+  streamEnabled: true,
+  maxIdlePollMs: 10_000,
+  minEncoreIntervalMs: 1_000,
 };
 
 describe("SegmentScheduler metrics", () => {

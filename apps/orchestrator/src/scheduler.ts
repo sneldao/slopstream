@@ -107,14 +107,24 @@ export class SegmentScheduler {
   private liveIncoming = false;
   private pollTimer?: NodeJS.Timeout;
   private stopped = false;
+  private paused = false;
+  private idleCount = 0;
+  private currentPollMs = 0;
+  private activitySinceLastPoll = false;
+  private lastEncoreAtMs = 0;
 
   constructor(deps: SchedulerDeps) {
     this.env = deps.env;
     this.gateway = deps.gateway;
     this.api = deps.api;
+    this.currentPollMs = this.env.auctionPollMs;
   }
 
   async start(): Promise<void> {
+    if (this.paused) {
+      console.log(`[scheduler] started paused`);
+      return;
+    }
     await this.adoptFromSnapshot();
     console.log(
       `[scheduler] polling ${this.env.apiBaseUrl}/auctions/current every ${this.env.auctionPollMs}ms`,
@@ -122,8 +132,22 @@ export class SegmentScheduler {
     void this.poll();
   }
 
+  pause(): void {
+    this.paused = true;
+    if (this.pollTimer) clearTimeout(this.pollTimer);
+  }
+
+  async resume(): Promise<void> {
+    this.paused = false;
+    this.idleCount = 0;
+    this.currentPollMs = this.env.auctionPollMs;
+    await this.adoptFromSnapshot();
+    void this.poll();
+  }
+
   stop(): void {
     this.stopped = true;
+    this.paused = true;
     if (this.pollTimer) clearTimeout(this.pollTimer);
     if (this.playback?.timer) clearTimeout(this.playback.timer);
   }
@@ -234,6 +258,7 @@ export class SegmentScheduler {
         const startedAtMs = snapshot.nowPlayingStartedAt
           ? Date.parse(snapshot.nowPlayingStartedAt)
           : Date.now();
+        this.activitySinceLastPoll = true;
         console.log(`[scheduler] adopting playing segment ${nowPlaying.id}`);
         await this.beginPlayback(
           nowPlaying.id,
@@ -244,6 +269,7 @@ export class SegmentScheduler {
         return true;
       } else if (nowPlaying.status === "ready") {
         console.log(`[scheduler] resuming ready segment ${nowPlaying.id}`);
+        this.activitySinceLastPoll = true;
         await this.startPlayback(
           nowPlaying.id,
           nowPlaying.brandId ?? "",
@@ -261,7 +287,7 @@ export class SegmentScheduler {
   // ---------------------------------------------------------------- poll loop
 
   private async poll(): Promise<void> {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     try {
       const current = await this.api.currentAuction();
       this.highSlotSeen = Math.max(this.highSlotSeen, current.slot);
@@ -279,19 +305,26 @@ export class SegmentScheduler {
         }
       }
 
+      this.activitySinceLastPoll = false;
       await this.processClosedSlots();
       await this.prefetchUpcoming();
       void this.maybeStartEncore();
     } catch {
       // API not ready yet; retry on the next tick.
     }
-    if (!this.stopped) {
-      this.pollTimer = setTimeout(
-        () => void this.poll(),
-        this.env.auctionPollMs,
+    if (this.stopped || this.paused) return;
+    if (this.activitySinceLastPoll) {
+      this.idleCount = 0;
+      this.currentPollMs = this.env.auctionPollMs;
+    } else {
+      this.idleCount = Math.min(this.idleCount + 1, 10);
+      this.currentPollMs = Math.min(
+        this.env.auctionPollMs * Math.pow(2, this.idleCount),
+        this.env.maxIdlePollMs,
       );
-      this.pollTimer.unref();
     }
+    this.pollTimer = setTimeout(() => void this.poll(), this.currentPollMs);
+    this.pollTimer.unref();
   }
 
   /** Process every incomplete closed slot in slot order. Persisted segment
@@ -395,6 +428,7 @@ export class SegmentScheduler {
   private async driveSegment(target: DriveTarget, slot: number): Promise<void> {
     const { segmentId, brandId } = target;
     const label = brandId === FREE_BRAND_ID ? "free (scraped)" : brandId;
+    this.activitySinceLastPoll = true;
     console.log(`[scheduler] slot ${slot} -> segment ${segmentId} (${label})`);
 
     try {
@@ -525,6 +559,7 @@ export class SegmentScheduler {
     _slot: number,
     durationSec = this.env.segmentPlaySec,
   ): Promise<void> {
+    this.activitySinceLastPoll = true;
     // Block chained encores from starting while a live segment is incoming.
     this.liveIncoming = true;
     try {
@@ -682,7 +717,10 @@ export class SegmentScheduler {
    * segment becomes ready (see startPlayback).
    */
   private async maybeStartEncore(): Promise<void> {
-    if (this.stopped || this.playback || this.liveIncoming) return;
+    if (this.stopped || this.paused || this.playback || this.liveIncoming)
+      return;
+    const timeSinceLastEncore = Date.now() - this.lastEncoreAtMs;
+    if (timeSinceLastEncore < this.env.minEncoreIntervalMs) return;
     let snapshot;
     try {
       snapshot = await this.api.snapshot();
@@ -690,7 +728,8 @@ export class SegmentScheduler {
       return;
     }
     // A live playback or ready segment can have started during the fetch.
-    if (this.stopped || this.playback || this.liveIncoming) return;
+    if (this.stopped || this.paused || this.playback || this.liveIncoming)
+      return;
     if (snapshot.nowPlaying) return;
     if (snapshot.upcomingSegments.some((s) => s.status === "ready")) return;
     if (marketIsHot(snapshot)) return;
@@ -699,13 +738,15 @@ export class SegmentScheduler {
       this.encoreRing,
     );
     if (!candidate) return;
-    if (this.stopped || this.playback || this.liveIncoming) return;
+    if (this.stopped || this.paused || this.playback || this.liveIncoming)
+      return;
     this.beginEncorePlayback(candidate);
   }
 
   private beginEncorePlayback(segment: Segment): void {
     const assetUrl = playableAssetUrl(segment);
     if (!assetUrl) return;
+    this.lastEncoreAtMs = Date.now();
     const durationSec = playoutDurationFor(
       segment.media?.durationSec ?? segment.durationSeconds,
       this.env.segmentPlaySec,

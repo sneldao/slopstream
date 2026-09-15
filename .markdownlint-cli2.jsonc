@@ -6,5 +6,5 @@
     "MD060": false
   },
   "globs": ["**/*.md"],
-  "ignores": ["**/node_modules/**", "semantic-review/**"]
+  "ignores": ["**/node_modules/**", "semantic-review/**", "docs/capture/**"]
 }

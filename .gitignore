@@ -49,3 +49,9 @@ semantic-review/
 
 # Midnight deployer wallet seed (written by packages/midnight deploy)
 packages/midnight/.wallet-seed
+
+# Demo capture artifacts (screen recordings, screenshots, voiceover drafts).
+# These are large, regenerable, and local-only — they stay out of git.
+# Tracked docs reference the demo; the binaries live on the demo machine.
+/continuum-clip.webm
+/docs/capture/
