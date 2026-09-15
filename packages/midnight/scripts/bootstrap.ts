@@ -37,6 +37,9 @@ export const getContractAddress = (): string => {
 
 export const bootstrap = async (opts: {
   fund?: boolean;
+  /** Skip the faucet request and go straight to balance check. Use when the
+   *  wallet was funded manually (e.g. via the faucet UI with captcha). */
+  skipFaucetRequest?: boolean;
 }): Promise<{
   stack: AttentionStack;
   api: ProofOfAttentionApi;
@@ -49,6 +52,7 @@ export const bootstrap = async (opts: {
     const unshieldedState = await fundFromFaucetAndWait(
       stack.walletProvider,
       logger,
+      { skipRequest: opts.skipFaucetRequest },
     );
     const dustTx = await generateDust(
       stack.walletProvider,

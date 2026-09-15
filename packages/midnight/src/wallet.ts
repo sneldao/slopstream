@@ -149,6 +149,7 @@ export const getUnshieldedSeed = (seed: string): Uint8Array => {
 export const fundFromFaucetAndWait = async (
   walletProvider: MidnightWalletProvider,
   logger: { info: (msg: string) => void },
+  opts: { skipRequest?: boolean } = {},
 ): Promise<UnshieldedWalletState> => {
   const wallet = walletProvider.wallet;
   const initialState = await Rx.firstValueFrom(wallet.unshielded.state);
@@ -158,12 +159,18 @@ export const fundFromFaucetAndWait = async (
 
   const balance = initialState.balances[unshieldedToken().raw];
   if (balance === undefined || balance === 0n) {
-    logger.info("Requesting tNIGHT from faucet...");
-    await new FaucetClient(
-      walletProvider.env.faucet!,
-      logger as never,
-    ).requestTokens(encoded.toString());
-    logger.info("Waiting for faucet funds to arrive (2-3 minutes)...");
+    if (opts.skipRequest) {
+      logger.info(
+        "Wallet empty; waiting for manual faucet funds to arrive (2-3 minutes)...",
+      );
+    } else {
+      logger.info("Requesting tNIGHT from faucet...");
+      await new FaucetClient(
+        walletProvider.env.faucet!,
+        logger as never,
+      ).requestTokens(encoded.toString());
+      logger.info("Waiting for faucet funds to arrive (2-3 minutes)...");
+    }
     const deadline = Date.now() + 10 * 60_000;
     while (Date.now() < deadline) {
       const state = await Rx.firstValueFrom(wallet.unshielded.state);
