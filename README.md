@@ -67,6 +67,48 @@ docs/                   Product design and technical architecture
 
 Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:verifier` / `pnpm dev:orchestrator` / `pnpm dev:generator`. See [docs/hackathon/team-split.md](docs/hackathon/team-split.md).
 
+## Midnight Buildathon — judge evaluation guide
+
+Slopstream is entered in the Midnight Buildathon (Wave 1: Aug 27 – Sep 16, 2026). This section is the fastest path for a judge to evaluate the Midnight integration.
+
+**The privacy story in one paragraph:** brands buy verified human attention, but neither the listener's identity nor their answers may ever touch a public ledger. `ProofOfAttention.compact` proves "a valid listener satisfied this segment's challenge" while keeping the listener secret, answer, and session in private state — only a replay-protecting nullifier, an aggregate count, and a threshold flag are disclosed. That is Midnight's dual-ledger model doing exactly what it is for: prove the fact, hide the person.
+
+**Verify in under 10 minutes (no wallet, no chain):**
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @slopstream/shared build
+pnpm --filter @slopstream/midnight build
+pnpm --filter @slopstream/verifier build
+pnpm -r typecheck   # all packages, incl. contract bindings
+pnpm test           # 280+ tests incl. verifier stub + remote-verifier integration
+```
+
+**Verify the contract compiles** (requires `compactc 0.31.1`, matching preprod runtime 0.16.0):
+
+```sh
+pnpm --filter @slopstream/midnight compact
+```
+
+The checked-in artifacts under `packages/midnight/contract/src/managed/proofofattention/` (bindings, prover/verifier keys, ZK IR) are the output of that exact command.
+
+**Verify against live preprod** (requires a funded wallet seed + private-state password):
+
+```sh
+cd packages/midnight
+pnpm deploy        # deploys ProofOfAttention, prints the contract address
+pnpm state         # reads verifiedCount / thresholdMet / nullifier window
+pnpm submit-proof  # submits one proof, shows tx hash + nullifier receipt
+```
+
+Then run the verifier in midnight mode (`apps/verifier/.env`: `VERIFIER_MODE=midnight` + wallet seed + contract address) and submit an attention proof through the API — the receipt returns `verifierMode: "midnight"` with a `midnight_<nullifier>` proof ID. Full steps: [docs/technical/midnight-deployment.md](docs/technical/midnight-deployment.md).
+
+**What is Midnight-related and new:** `contracts/src/ProofOfAttention.compact` (102 lines: nullifier circuit, 4-deep replay window, owner-gated threshold), `packages/midnight/src/` (wallet, ZK witnesses, deploy/state/submit scripts), `apps/verifier/src/midnightVerifier.ts` (structural checks → on-chain recording). Pre-existing product code (stream, auction, ledger, UI) is the surrounding application. See [docs/technical/contracts.md](docs/technical/contracts.md) for the contract design and [docs/hackathon/progress.md](docs/hackathon/progress.md) for per-wave status.
+
+## License
+
+The Midnight-related code submitted for the Buildathon — `contracts/`, `packages/midnight/`, and `apps/verifier/` — is licensed under the [Apache License 2.0](LICENSE), as required by the program rules. See `LICENSE` at the repo root.
+
 ## Documentation
 
 | Doc                                                                | Contents                                                                                           |
