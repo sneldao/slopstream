@@ -148,7 +148,7 @@ export const getUnshieldedSeed = (seed: string): Uint8Array => {
 
 export const fundFromFaucetAndWait = async (
   walletProvider: MidnightWalletProvider,
-  logger: { info: (msg: string) => void },
+  logger: { info: (msg: string) => void; debug?: (msg: string) => void },
   opts: { skipRequest?: boolean } = {},
 ): Promise<UnshieldedWalletState> => {
   const wallet = walletProvider.wallet;
@@ -171,11 +171,26 @@ export const fundFromFaucetAndWait = async (
       ).requestTokens(encoded.toString());
       logger.info("Waiting for faucet funds to arrive (2-3 minutes)...");
     }
-    const deadline = Date.now() + 10 * 60_000;
+    // Mirror the official bboard example: watch the FACADE state (not the
+    // unshielded sub-wallet), throttle emissions, and require full sync
+    // before trusting a zero balance. Polling unshielded.state in a tight
+    // loop re-subscribes on every tick and OOMs during initial sync.
+    const { isFacadeStateSynced } = await import("./sync.js");
+    const deadline = Date.now() + 60 * 60_000;
     while (Date.now() < deadline) {
-      const state = await Rx.firstValueFrom(wallet.unshielded.state);
-      if ((state.balances[unshieldedToken().raw] ?? 0n) > 0n) {
-        return state;
+      const state = await Rx.firstValueFrom(
+        wallet.state().pipe(
+          Rx.throttleTime(5_000),
+          Rx.filter((s) => isFacadeStateSynced(s)),
+        ),
+      );
+      const syncedBalance =
+        state.unshielded.balances[unshieldedToken().raw] ?? 0n;
+      logger.debug?.(
+        `Wallet funds check: synced=true balance=${syncedBalance.toString()}`,
+      );
+      if (syncedBalance > 0n) {
+        return state.unshielded;
       }
       logger.info("Faucet funds not visible yet; checking again in 15s...");
       await new Promise((r) => setTimeout(r, 15_000));
