@@ -86,6 +86,20 @@ plan](../technical/interactive-creative.md).
 leaderboard while retaining the QR join prompt. This is the presentation and
 projection mode: content remains primary, but joining is never blocked.
 
+Additional keyboard shortcuts on the big screen: `M` toggles mute, `Escape`
+exits theater mode. A subtle one-shot hint pill surfaces these shortcuts
+after a few seconds, then dismisses permanently via localStorage.
+
+### Welcome overlay
+
+Before audio unlocks (browsers require a user gesture), the big screen
+shows a branded cream veil — not a dark gate. The Slopstream wordmark,
+three floating spheres echoing the homepage identity, a one-line value
+prop, and a pulsing "Enter the stream" CTA. The veil lifts with a
+scale + blur + fade to reveal the living world beneath, already cream,
+already alive. This is the first touch; it sets the tone for the entire
+experience.
+
 ## Listener experience
 
 The listener page is a pocket portal into the same world: colourful, reactive

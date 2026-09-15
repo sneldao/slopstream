@@ -34,6 +34,15 @@ jobs:
       - name: Build shared contract
         run: pnpm --filter @slopstream/shared build
 
+      # The verifier resolves @slopstream/midnight via its built dist, and
+      # the api typechecks against the verifier's built server entry. Both
+      # must be built before the parallel recursive typecheck or tsc
+      # reports TS2307 (missing module) on a clean checkout.
+      - name: Build workspace dist dependencies
+        run: |
+          pnpm --filter @slopstream/midnight build
+          pnpm --filter @slopstream/verifier build
+
       - name: Typecheck all packages
         run: pnpm -r typecheck
 

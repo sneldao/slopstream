@@ -18,11 +18,18 @@ import type { LiveConnectionStatus } from "./useLiveStream";
 export interface UseStreamResult {
   state: StreamState;
   connectionStatus: LiveConnectionStatus;
+  /** Mirrors useLiveStream.hasEverConnected — lets surfaces label a cold
+   *  "offline" as Connecting and a post-drop "offline" as Reconnecting. */
+  hasEverConnected: boolean;
 }
 
 export function useStream(): UseStreamResult {
   const live = useLiveStream();
-  return { state: live.state, connectionStatus: live.status };
+  return {
+    state: live.state,
+    connectionStatus: live.status,
+    hasEverConnected: live.hasEverConnected,
+  };
 }
 
 /** Apply a single delivery to a state — exposed for tests. */

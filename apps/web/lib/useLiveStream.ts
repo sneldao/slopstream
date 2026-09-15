@@ -59,11 +59,15 @@ export type LiveConnectionStatus =
 export interface LiveStreamResult {
   state: StreamState;
   status: LiveConnectionStatus;
+  /** True once the socket has ever opened — distinguishes a first-time
+   *  "Connecting" from a post-drop "Reconnecting" on the offline path. */
+  hasEverConnected: boolean;
 }
 
 export function useLiveStream(): LiveStreamResult {
   const [state, setState] = useState<StreamState>(EMPTY_STATE);
   const [status, setStatus] = useState<LiveConnectionStatus>("connecting");
+  const [hasEverConnected, setHasEverConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const seenEventIds = useRef<Set<string>>(new Set());
   const lastSequence = useRef<number>(0);
@@ -97,7 +101,10 @@ export function useLiveStream(): LiveStreamResult {
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
-      ws.onopen = () => setStatus("connected");
+      ws.onopen = () => {
+        setStatus("connected");
+        setHasEverConnected(true);
+      };
 
       ws.onmessage = (ev) => {
         try {
@@ -163,5 +170,5 @@ export function useLiveStream(): LiveStreamResult {
     };
   }, [fetchSnapshot, connect]);
 
-  return { state, status };
+  return { state, status, hasEverConnected };
 }

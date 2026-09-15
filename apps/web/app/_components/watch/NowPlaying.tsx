@@ -71,21 +71,25 @@ function EmptyMarket() {
   return (
     <motion.div
       style={styles.empty}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div style={styles.emptyKicker}>The market is open</div>
+      <div style={styles.emptyKicker}>The attention market is live</div>
       {/* Plain pitch — what this is, who pays, who gets paid. */}
-      <div style={styles.emptyPitch}>
-        Companies bid live for ad slots on this channel.
-      </div>
+      <div style={styles.emptyPitch}>Brands bid for your attention here.</div>
       <div style={styles.emptySub}>
-        Every bid is public, every view is verified on-chain, and verified
-        viewers get paid from every cleared bid.
+        Every ad is AI-generated, every view is verified on-chain, and verified
+        viewers earn from every cleared bid.
       </div>
       <div style={styles.emptyPulse}>
-        <i className="empty-pulse__dot" /> Waiting for the first bid
+        <span className="empty-pulse__dots" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </span>
+        Waiting for the first bid
       </div>
     </motion.div>
   );
