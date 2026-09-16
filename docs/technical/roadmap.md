@@ -1,123 +1,141 @@
 # Long-Term Slopstream Roadmap
 
-> Post-demo plan. The goal is to move Slopstream from a working hackathon demo to a safe, demoable, and eventually production-grade attention marketplace — without adding features that dilute the core three-role loop.
+> Post-demo plan. The goal is to move Slopstream from a working hackathon demo
+> to a stream that is alive forever for ~$0/day, then to a real attention
+> marketplace — without adding features that dilute the core loop.
+>
+> Canonical cold-start strategy: [Evergreen Loop](../product/evergreen-loop.md).
+> That document owns the *what and why*; this one tracks *build phases*.
 
 ## Core product loop (do not dilute)
 
-1. **Brand** bids for the next slot.
-2. **AI** generates the ad.
-3. **Listener** opt-in, watches, and answers an attention check.
-4. **Market** clears the bid and pays listeners.
+1. **Stream** airs segments from the durable catalog on rotation.
+2. **Listener** opts in, watches, and answers attention checks.
+3. **Market** verifies attention and rewards listeners (testnet token first,
+   real rails later).
+4. **Advertiser** (Stage 3+) stakes for boosted rotation.
 
-Everything below serves that loop.
+The auction is hibernating until two advertisers compete for the same slot.
+Slots are rotation positions, not auction windows.
 
 ---
 
 ## Phase 0 — Operational safety (now)
 
-Make the backend safe to leave running unattended. This is the immediate follow-up from the VPS dead-air loop.
+Make the backend safe to leave running unattended. Largely superseded by the
+Evergreen Loop posture (generator/scraper off, loop from catalog), but the
+guardrails still apply.
 
-1. **Kill switch / pause mode**
-   - Add `STREAM_ENABLED` to orchestrator env.
-   - Add `/ops/pause` and `/ops/resume` endpoints (orchestrator token) that stop/resume the scheduler, marketplace feed, and scraper.
-   - Default to `STREAM_ENABLED=false` in demo deployments until a frontend connects.
-
-2. **Idle / dead-air backoff**
-   - When `nowPlaying` is null and `upcoming` is empty for > 30s, increase poll interval from 1s to 10–30s.
-   - Stop the encore replay chain from firing repeatedly; replay one encored segment and then wait for the next poll cycle.
-   - Cap encore play count per minute.
-
-3. **Cost caps**
-   - `MAX_DAILY_GENERATION_COST` and `MAX_CONCURRENT_GENERATIONS` in the generator.
+1. **Kill switch / pause mode** — DONE (`STREAM_ENABLED`, `/ops/pause`,
+   `/ops/resume`; default paused until a frontend connects).
+2. **Idle / dead-air backoff** — DONE (exponential poll backoff to
+   `MAX_IDLE_POLL_MS`; encore ring covers gaps with `MIN_ENCORE_INTERVAL_MS`).
+3. **Cost caps** — OPEN
+   - `MAX_DAILY_GENERATION_COST` and `MAX_CONCURRENT_GENERATIONS`.
    - Default to `stub` mode for unattended deployments.
-   - Require explicit `ELEVENLABS_ENABLED=true` (and a budget) before any paid provider is called.
-
-4. **Better health checks**
-   - `/health/live` on the orchestrator fails when `stream.idle` fires or CPU is spinning with no playback.
+   - Require explicit `ELEVENLABS_ENABLED=true` (and a budget) before paid calls.
+4. **Better health checks** — OPEN
+   - `/health/live` fails when `stream.idle` fires or CPU spins with no playback.
    - Coolify/Docker can restart or notify instead of silently burning cycles.
 
-**Outcome:** You can deploy the backend, show the demo, and forget about it without it eating VPS CPU or racking up API bills.
+**Outcome:** Deploy, demo, and forget — no VPS burn, no API bills.
 
 ---
 
-## Phase 1 — Product foundation
+## Phase 1 — Evergreen Loop (current build focus)
 
-Move from in-memory demo data to a real-enough architecture.
+The stream runs forever off a durable, curated segment catalog. See
+[evergreen-loop.md](../product/evergreen-loop.md) for strategy.
 
-1. **Persistent ledger**
-   - Wire `DATABASE_URL` to Postgres.
-   - Replace in-memory `Ledger` maps with the existing schema in `apps/api/src/ledger.ts` + migrations.
-   - Ledger must survive API restarts; balances, bids, and auction state must not reset.
+1. **Durable segment catalog** (the unblock)
+   - Persist finished segments (media manifest + transcript + challenges +
+     rotation weight) to SQLite/disk; reseed on boot.
+   - Segments must survive API restarts; the in-memory `Ledger` wipe is the
+     thing being fixed. Balances come later (Phase 2).
+   - Lift or rework the `recentSegments` 30-min / 8-item cap so the catalog,
+     not a rolling window, is the source of rotation candidates.
+2. **Rotation engine**
+   - Promote the encore path (`pickEncoreCandidate`) from gap-cover to primary
+     scheduler: weighted rotation, variety penalty, boost decay (`weightUntil`)
+     for new entries.
+   - Target 10–15 curated segments, 15–20s playback, shuffle/weighted order.
+3. **One-time generation session**
+   - Single ElevenLabs run (audio + image tiers first; video sparingly) to
+     mint the catalog. Curate keepers, delete duds.
+   - Content policy applies from the first minted segment (parody label, no
+     defamation, NSFW screen) — see evergreen-loop.md.
+4. **Generator-off runbook**
+   - Deployment posture: `GENERATOR_MODE=stub`, scraper off,
+     `STREAM_ENABLED=true`. Document exact Coolify env in deployment.md.
 
-2. **Durable generation queue**
-   - Use `GENERATION_JOB_DB_PATH` (SQLite) or Postgres for generation job state.
-   - The orchestrator enqueues; a worker completes; the orchestrator only plays `ready` jobs.
-   - This removes the single-in-memory-job failure mode.
-
-3. **Real verifier (Midnight)**
-   - Replace stub verifier calls with the real `apps/verifier` flow.
-   - Proof-of-attention becomes a real zero-knowledge proof, not a JSON stub.
-   - Keep verifier private behind the API.
-
-4. **Real money rails**
-   - Stripe Connect for brand top-ups and listener payouts.
-   - Keep the mock `POST /top-ups` path behind `NODE_ENV=development` only.
-   - Add brand onboarding (campaign brief, colors) and listener wallet/identity.
-
-**Outcome:** The product is no longer a demo; it is a real money/attention marketplace that can survive restarts and handle real transactions.
-
----
-
-## Phase 2 — ClickHouse + Gemini (partner-track execution)
-
-This is the hackathon-track pivot documented in `docs/hackathon/clickhouse-track-plan.md`.
-
-1. **ClickHouse Cloud event sink**
-   - Add `@clickhouse/client` to `apps/api`.
-   - Ingest every `WsEvent` into ClickHouse: `bids`, `attention_proofs`, `rewards`, `segments`.
-   - Make the web leaderboard, stats, and reward counters read from ClickHouse.
-
-2. **Gemini / Google Cloud Agent Builder**
-   - Replace the current template/script generation with Gemini for ad scripts.
-   - Optional Veo/Imagen for image/video when budget allows.
-   - Host the generator or a new `apps/agent` service on Google Cloud.
-
-3. **Real-time analytics surface**
-   - Live attention dashboards: verified view counts, cost per verified attention, brand ROI.
-   - Materialized leaderboards from ClickHouse.
-
-**Outcome:** A valid ClickHouse/Gemini hackathon submission and a real analytics/data platform as a side effect.
+**Outcome:** A public URL that never looks dead and costs $0/day. No tokens,
+no advertisers needed — but ready for both.
 
 ---
 
-## Phase 3 — Scale, trust, and operations
+## Phase 2 — Testnet $SLOPSTREAM rewards
 
-Only after Phases 0–2 are solid.
+Turn viewers into users with a real-but-worthless incentive.
 
-1. **Deployment**
-   - Cloud Run / GCE for the agentic pipeline.
-   - Coolify or managed Kubernetes for the API, orchestrator, and verifier.
-   - R2/S3-backed asset storage instead of local disk.
+1. **Token deploy** — `$SLOPSTREAM` on a testnet (Midnight preprod vs cheap
+   EVM: decide explicitly, document the tradeoff).
+2. **Custodial accrual first** — API tracks `pendingTokenRewards`, faucet
+   drips on payout request. On-chain per-proof distribution later.
+3. **Durable balances** — SQLite minimum; restarts must not zero wallets.
+4. **Anti-Sybil minimum** — per-browser session persistence, rate limits,
+   nullifier replay protection, threshold fraction. Non-trivial, not perfect.
+5. **Framing** — points-with-a-ledger (status, slots), never money. No USD
+   value promises.
 
-2. **Trust & safety**
-   - Content moderation for scraped companies and submitted brand briefs.
-   - Public opt-out/takedown endpoint (already exists; make it hardened).
-   - Rate limits, anti-gaming, and duplicate-account detection.
+**Outcome:** Watching earns something real enough to return for, cheap enough
+to leave running.
 
-3. **Observability**
-   - Prometheus metrics (already exposed at `GET /metrics`).
-   - Alerting on `stream.idle`, failed generations, and high spend.
+---
 
-4. **Legal & compliance**
-   - Public `LICENSE`.
-   - Privacy policy for listener data and attention proofs.
-   - Advertising disclosure for AI-generated ads.
+## Phase 3 — Advertiser staking (on demand, not on schedule)
+
+Only when a real advertiser knocks. Manual onboarding: docs/links → NSFW
+screen → we craft the segment → boosted rotation.
+
+1. **Rotation weight as ad product** — `weightUntil` boost, then decay to the
+   long tail unless re-staked.
+2. **Stake-to-attention flow** — advertiser buys `$SLOPSTREAM`, stakes for a
+   slot, stake streams to provers. Start with pool-address watching; on-chain
+   escrow later.
+3. **Aggregate-only analytics** — counts + ZK proofs by default; voluntarily
+   shared listener fields as opt-in upgrade. Never raw per-session linkage
+   (see evergreen-loop.md privacy boundary).
+4. **Real verifier (Midnight)** — replace stub proofs with the real
+   `apps/verifier` flow as staking value grows.
+5. **Real money rails** — Stripe Connect for top-ups/payouts when advertisers
+   pay fiat; keep mock paths behind `NODE_ENV=development` only.
+
+**Outcome:** The loop pays for itself; advertisers fund attention.
+
+---
+
+## Phase 4 — Scale, trust, and operations
+
+Only after Phases 1–3 are solid.
+
+1. **Partner tracks** — ClickHouse Cloud event sink + Gemini/Agent Builder
+   generation (see `docs/hackathon/clickhouse-track-plan.md`). Valid
+   submission paths and real analytics as a side effect.
+2. **Deployment** — R2/S3-backed asset storage instead of local disk;
+   Cloud Run / GCE for agentic pipeline if needed.
+3. **Trust & safety** — content moderation tooling, hardened takedown,
+   rate limits, duplicate-account detection.
+4. **Observability** — Prometheus metrics (already at `GET /metrics`);
+   alerting on `stream.idle`, failed generations, spend.
+5. **Legal & compliance** — `LICENSE`, privacy policy, advertising disclosure
+   for AI-generated ads.
 
 ---
 
 ## What *not* to build
 
-- **Public audience bidding / UGC ad pitch queue**: it confuses the B2B brand marketplace story. Keep the listener QR as the only audience interaction.
+- **Live auction resurrection**: hibernates until advertiser competition demands it.
+- **Self-serve advertiser UI**: manual curation is the quality filter while small.
 - **More demo pages / surfaces**: the three existing surfaces (`/`, `/listen`, `/brand`) already cover the loop. Polish them instead of adding more.
 - **3D overhaul or visual extravagance**: the current Continuum is demoable; make it reliable before making it prettier.
 
@@ -125,6 +143,7 @@ Only after Phases 0–2 are solid.
 
 ## Suggested execution order
 
-1. Start **Phase 0** immediately — it is small and stops the resource burn.
-2. Parallelize **Phase 1** (Postgres ledger) and **Phase 2** (ClickHouse/Gemini) with one person each.
-3. Only after the product is stable, move to **Phase 3**.
+1. **Phase 1 now** — durable catalog is the single unblock; everything else queues behind it.
+2. **Phase 2 next** — token turns the alive URL into a growing one.
+3. **Phase 3 on demand** — a real advertiser is the trigger, not a date.
+4. **Phase 4 when funded** — scale work follows revenue, not anticipation.
