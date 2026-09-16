@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "echo 'ERROR: deploy from apps/web as the Vercel Root Directory, not the repo root. See docs/hackathon/wave1-submission.md (frontend section).' >&2; exit 1",
+  "buildCommand": "echo 'ERROR: deploy from apps/web as the Vercel Root Directory, not the repo root. Build command: pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/web build' >&2; exit 1"
+}
