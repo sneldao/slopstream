@@ -77,8 +77,14 @@ no advertisers needed — but ready for both.
 
 Turn viewers into users with a real-but-worthless incentive.
 
-1. **Token deploy** — `$SLOPSTREAM` on a testnet (Midnight preprod vs cheap
-   EVM: decide explicitly, document the tradeoff).
+> Decision (2026-09-16): **Midnight preprod, not EVM.** Pure EVM is
+> faster tooling-wise but scores 0 on the 40% Engineering gate and
+> risks a "not Midnight-related" ruling for Wave 2. Full spec:
+> [wave2-task0004-rewards.md](../hackathon/wave2-task0004-rewards.md).
+
+1. **Token deploy** — `$SLOPSTREAM` claim accounting via a new
+   `RewardClearing.compact` on Midnight preprod (custodial points
+   first, on-chain claim receipts on drip).
 2. **Custodial accrual first** — API tracks `pendingTokenRewards`, faucet
    drips on payout request. On-chain per-proof distribution later.
 3. **Durable balances** — SQLite minimum; restarts must not zero wallets.
