@@ -8,6 +8,7 @@
 
 import type {
   AuctionState,
+  EvergreenAirNextResult,
   GenerationRequest,
   GenerationResult,
   MediaManifest,
@@ -119,6 +120,13 @@ export class ApiClient {
     );
     if (!res.ok) throw new Error(`/stream/snapshot responded ${res.status}`);
     return (await res.json()) as StreamSnapshot;
+  }
+
+  /** Mint the next evergreen airing as a live ready segment (Eternal Loop). */
+  async airNextEvergreen(): Promise<EvergreenAirNextResult> {
+    const res = await this.postApiRaw("/evergreen/air-next", {});
+    if (!res.ok) throw new Error(`/evergreen/air-next responded ${res.status}`);
+    return (await res.json()) as EvergreenAirNextResult;
   }
 
   /** Polling cursor over the API bus (GET /events?after=N is sequence-based). */

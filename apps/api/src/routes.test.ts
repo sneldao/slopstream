@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
@@ -697,5 +701,157 @@ describe("publishLifecycleEvents gate", () => {
         "segment.playing",
       ]);
     });
+  });
+});
+
+describe("evergreen catalog routes", () => {
+  async function withEvergreenServer(
+    run: (harness: Harness, baseUrl: string) => Promise<void>,
+  ): Promise<void> {
+    const harness = setupHarness();
+    const audioBytes = Buffer.from("evergreen-audio");
+    const audioSha = createHash("sha256").update(audioBytes).digest("hex");
+    const dir = mkdtempSync(join(tmpdir(), "evergreen-"));
+    mkdirSync(join(dir, "audio"), { recursive: true });
+    writeFileSync(join(dir, "audio", `${audioSha}.mp3`), audioBytes);
+    const clearing = new ClearingEngine(
+      harness.ledger,
+      harness.bus,
+      new StubProofVerifier(),
+      CLEARING_CONFIG,
+    );
+    const app = express();
+    app.use(express.json());
+    app.use(
+      createRouter({
+        ledger: harness.ledger,
+        bus: harness.bus,
+        auction: harness.auction,
+        clearing,
+        market: harness.market,
+        windowGraceSec: 0,
+        orchestratorApiToken: ORCHESTRATOR_TOKEN,
+        brandCreatorToken: BRAND_CREATOR_TOKEN,
+        evergreen: {
+          entries: [
+            {
+              id: "evergreen_demo",
+              version: 1,
+              brandId: "brand_acme",
+              tier: "audio",
+              durationSec: 18,
+              transcript: "Acme launches Rockets today.",
+              summary: "Acme launch",
+              brief: "Fun parody ad",
+              media: {
+                audio: {
+                  key: `audio/${audioSha}.mp3`,
+                  contentType: "audio/mpeg",
+                  sha256: audioSha,
+                  kind: "audio",
+                },
+              },
+            },
+          ],
+          assetBaseUrl: "https://assets.example.test/slopstream",
+          states: new Map(),
+          thresholdFraction: 0.6,
+        },
+        evergreenMediaDir: dir,
+      }),
+    );
+    app.use(apiErrorHandler);
+    const server = await new Promise<Server>((resolve) => {
+      const next = app.listen(0, () => resolve(next));
+    });
+    const { port } = server.address() as AddressInfo;
+    try {
+      await run(harness, `http://127.0.0.1:${port}`);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  }
+
+  it("airs a segment with challenges and serves verified bytes", async () => {
+    await withEvergreenServer(async (harness, baseUrl) => {
+      const auth = { Authorization: `Bearer ${ORCHESTRATOR_TOKEN}` };
+      const air = await fetch(`${baseUrl}/evergreen/air-next`, {
+        method: "POST",
+        headers: auth,
+      });
+      expect(air.status).toBe(201);
+      const aired = (await air.json()) as {
+        segmentId: string;
+        entryId: string;
+        slot: number;
+      };
+      expect(aired.entryId).toBe("evergreen_demo");
+      const row = harness.ledger.segments.get(aired.segmentId);
+      expect(row?.status).toBe("ready");
+      expect(row?.media?.audio.url).toContain("/evergreen/media/audio/");
+      expect(
+        harness.ledger.challengesForSegment(aired.segmentId).length,
+      ).toBeGreaterThan(0);
+
+      const catalog = await fetch(`${baseUrl}/evergreen/catalog`);
+      expect(catalog.status).toBe(200);
+
+      const key = row?.media?.audio.url?.split("/evergreen/media/")[1];
+      const media = await fetch(`${baseUrl}/evergreen/media/${key}`);
+      expect(media.status).toBe(200);
+      expect(media.headers.get("cache-control")).toContain("immutable");
+      expect(Buffer.from(await media.arrayBuffer()).toString()).toBe(
+        "evergreen-audio",
+      );
+    });
+  });
+
+  it("rejects air-next without the orchestrator credential", async () => {
+    await withEvergreenServer(async (_harness, baseUrl) => {
+      const res = await fetch(`${baseUrl}/evergreen/air-next`, {
+        method: "POST",
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  it("404s catalog routes when evergreen is not configured", async () => {
+    const harness = setupHarness();
+    const clearing = new ClearingEngine(
+      harness.ledger,
+      harness.bus,
+      new StubProofVerifier(),
+      CLEARING_CONFIG,
+    );
+    const app = express();
+    app.use(express.json());
+    app.use(
+      createRouter({
+        ledger: harness.ledger,
+        bus: harness.bus,
+        auction: harness.auction,
+        clearing,
+        market: harness.market,
+        windowGraceSec: 0,
+        orchestratorApiToken: ORCHESTRATOR_TOKEN,
+        brandCreatorToken: BRAND_CREATOR_TOKEN,
+      }),
+    );
+    app.use(apiErrorHandler);
+    const server = await new Promise<Server>((resolve) => {
+      const next = app.listen(0, () => resolve(next));
+    });
+    const { port } = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${port}`;
+    try {
+      const res = await fetch(`${baseUrl}/evergreen/catalog`);
+      expect(res.status).toBe(404);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
   });
 });

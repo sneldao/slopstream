@@ -70,15 +70,18 @@ describe("orchestrator environment", () => {
     expect(defaults.streamEnabled).toBe(true);
     expect(defaults.maxIdlePollMs).toBe(10_000);
     expect(defaults.minEncoreIntervalMs).toBe(1_000);
+    expect(defaults.evergreenMode).toBe(false);
 
     const disabled = loadEnv({
       STREAM_ENABLED: "false",
       MAX_IDLE_POLL_MS: "30000",
       MIN_ENCORE_INTERVAL_MS: "5000",
+      EVERGREEN_MODE: "1",
     } as NodeJS.ProcessEnv);
     expect(disabled.streamEnabled).toBe(false);
     expect(disabled.maxIdlePollMs).toBe(30_000);
     expect(disabled.minEncoreIntervalMs).toBe(5_000);
+    expect(disabled.evergreenMode).toBe(true);
   });
 
   it("rejects non-positive idle/encore bounds", () => {
@@ -1219,6 +1222,7 @@ interface EncoreSchedulerInternals {
   genDurationEwmaMs?: number;
   highSlotSeen: number;
   maybeStartEncore: () => Promise<void>;
+  airEvergreenRotation: () => Promise<void>;
   startPlayback: (
     segmentId: string,
     brandId: string,
@@ -1414,6 +1418,90 @@ describe("encore queue", () => {
       internals.genDurationEwmaMs = 45_000;
       await internals.prefetchUpcoming();
       expect(auctionSlots).toEqual([1]);
+    } finally {
+      scheduler.stop();
+    }
+  });
+
+  it("airs evergreen rotations as live segments without generation", async () => {
+    const calls = { markPlaying: [], closeWindow: [], nextChallenge: [] } as {
+      markPlaying: string[];
+      closeWindow: string[];
+      nextChallenge: string[];
+    };
+    const aired = {
+      segmentId: "seg_green_1",
+      entryId: "evergreen_demo",
+      slot: 9,
+      brandId: "brand_demo",
+    };
+    const gatewayStub = { emit: () => {} } as unknown as Gateway;
+    const apiStub = {
+      airNextEvergreen: async () => aired,
+      markPlaying: async (segmentId: string) => {
+        calls.markPlaying.push(segmentId);
+        return {
+          segmentId,
+          startedAt: new Date().toISOString(),
+          attentionThreshold: 3,
+        };
+      },
+      closeWindow: async (segmentId: string) => {
+        calls.closeWindow.push(segmentId);
+        return true;
+      },
+      nextChallenge: async (segmentId: string) => {
+        calls.nextChallenge.push(segmentId);
+        return null;
+      },
+    } as unknown as ApiClient;
+    const scheduler = new SegmentScheduler({
+      env: { ...encoreEnv(1), evergreenMode: true },
+      gateway: gatewayStub,
+      api: apiStub,
+    });
+    const internals = scheduler as unknown as EncoreSchedulerInternals;
+    try {
+      await internals.airEvergreenRotation();
+      expect(calls.markPlaying).toEqual(["seg_green_1"]);
+      await internals.playbackSettled;
+      expect(calls.closeWindow).toEqual(["seg_green_1"]);
+    } finally {
+      scheduler.stop();
+    }
+  });
+
+  it("retries evergreen air-next failures on the next tick", async () => {
+    const calls = { markPlaying: [], closeWindow: [], nextChallenge: [] } as {
+      markPlaying: string[];
+      closeWindow: string[];
+      nextChallenge: string[];
+    };
+    const gatewayStub = { emit: () => {} } as unknown as Gateway;
+    const apiStub = {
+      airNextEvergreen: async () => {
+        throw new Error("catalog empty");
+      },
+      markPlaying: async (segmentId: string) => {
+        calls.markPlaying.push(segmentId);
+        return {
+          segmentId,
+          startedAt: new Date().toISOString(),
+          attentionThreshold: 3,
+        };
+      },
+      closeWindow: async () => true,
+      nextChallenge: async () => null,
+    } as unknown as ApiClient;
+    const scheduler = new SegmentScheduler({
+      env: { ...encoreEnv(1), evergreenMode: true },
+      gateway: gatewayStub,
+      api: apiStub,
+    });
+    const internals = scheduler as unknown as EncoreSchedulerInternals;
+    try {
+      await internals.airEvergreenRotation();
+      expect(calls.markPlaying).toEqual([]);
     } finally {
       scheduler.stop();
     }

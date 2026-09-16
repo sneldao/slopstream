@@ -48,6 +48,13 @@ export interface OrchestratorEnv {
   maxIdlePollMs: number;
   /** Minimum wall time between encore replays (ms). */
   minEncoreIntervalMs: number;
+  /**
+   * Evergreen loop mode (Phase 1 Eternal Loop). When true the scheduler airs
+   * catalog rotations via POST /evergreen/air-next instead of driving the
+   * auction/generation path. Generator + scraper stay off; challenges,
+   * windows, and clearing run normally on every airing.
+   */
+  evergreenMode?: boolean;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -132,5 +139,6 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): OrchestratorEnv {
       "MIN_ENCORE_INTERVAL_MS",
       num(env.MIN_ENCORE_INTERVAL_MS, 1_000),
     ),
+    evergreenMode: env.EVERGREEN_MODE === "1" || env.EVERGREEN_MODE === "true",
   };
 }

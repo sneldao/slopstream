@@ -15,6 +15,10 @@ import { DEMO_SCRAPED_COMPANIES } from "./demoSeed.js";
 import { centsToUsd } from "./money.js";
 import { createVerifier } from "./verifier.js";
 import { StripeService } from "./stripe.js";
+import {
+  loadEvergreenCatalogDir,
+  type EvergreenBoot,
+} from "./evergreenBoot.js";
 
 const env = loadEnv();
 
@@ -52,6 +56,43 @@ const stripeService = isStripeLive(env)
     })
   : undefined;
 if (stripeService) console.log("[stripe] live mode enabled");
+
+// Evergreen boot (Phase 1 Eternal Loop): durable catalog → reseeded brands.
+// Loaded BEFORE the demo seed so catalog brandIds win over demo fixtures,
+// and so a restart restores the exact same brand rows from disk. Fail-closed:
+// a half-readable catalog refuses to boot rather than airing the wrong bytes.
+let evergreenBoot: EvergreenBoot | null = null;
+if (
+  env.evergreenCatalogDir ||
+  env.evergreenMediaDir ||
+  env.evergreenAssetBaseUrl
+) {
+  const started = loadEvergreenCatalogDir({
+    catalogDir: env.evergreenCatalogDir,
+    mediaDir: env.evergreenMediaDir,
+    assetBaseUrl: env.evergreenAssetBaseUrl,
+  });
+  if (!started.ok) {
+    console.error(`[evergreen] ${started.error}`);
+    process.exit(1);
+  }
+  evergreenBoot = started;
+  for (const brand of evergreenBoot.brands) {
+    if (!ledger.brands.has(brand.id)) {
+      ledger.brands.set(brand.id, brand.row);
+      ledger.brandTokens.set(brand.row.token, brand.id);
+      ledger.balances.set(brand.id, {
+        brandId: brand.id,
+        availableCents: 0,
+        reservedCents: 0,
+        spentCents: 0,
+      });
+    }
+  }
+  console.log(
+    `[evergreen] catalog ready: ${evergreenBoot.store.entries.length} entries from ${env.evergreenCatalogDir}`,
+  );
+}
 
 // Demo seed: funded fictional brands so the auction runs cold (SEED_DEMO=0 disables).
 if (env.seedDemo) {
@@ -153,6 +194,8 @@ app.use(
     brandCreatorToken: env.brandCreatorToken,
     stripeService,
     publishLifecycleEvents: env.publishLifecycleEvents,
+    evergreen: evergreenBoot?.store ?? null,
+    evergreenMediaDir: env.evergreenMediaDir ?? "",
   }),
 );
 app.use(apiErrorHandler);

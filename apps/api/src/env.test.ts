@@ -34,4 +34,26 @@ describe("API environment validation", () => {
       loadEnv({ NODE_ENV: "production" } as NodeJS.ProcessEnv),
     ).toThrow(/ORCHESTRATOR_API_TOKEN must be set/);
   });
+
+  it("parses evergreen catalog config when fully set", () => {
+    expect(
+      loadEnv({
+        EVERGREEN_CATALOG_DIR: "/data/evergreen/catalog",
+        EVERGREEN_MEDIA_DIR: "/data/evergreen/media",
+        EVERGREEN_ASSET_BASE_URL: "https://assets.example.test/slopstream",
+      } as NodeJS.ProcessEnv),
+    ).toMatchObject({
+      evergreenCatalogDir: "/data/evergreen/catalog",
+      evergreenMediaDir: "/data/evergreen/media",
+      evergreenAssetBaseUrl: "https://assets.example.test/slopstream",
+    });
+  });
+
+  it("leaves evergreen disabled when unset", () => {
+    expect(loadEnv({} as NodeJS.ProcessEnv)).toMatchObject({
+      evergreenCatalogDir: undefined,
+      evergreenMediaDir: undefined,
+      evergreenAssetBaseUrl: undefined,
+    });
+  });
 });

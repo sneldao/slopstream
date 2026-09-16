@@ -16,6 +16,7 @@ import {
   type Bid,
   type ChallengeSourceCommand,
   type CreateBrandCommand,
+  type EvergreenAirNextResult,
   type IngestScrapedCompaniesCommand,
   type MediaManifest,
   type PlaceBidCommand,
@@ -27,6 +28,10 @@ import type { AuctionEngine } from "./auction.js";
 import type { ClearingEngine } from "./clearing.js";
 import { generateChallenges, nextUnfired, toPublic } from "./challenges.js";
 import type { EventBus } from "./bus.js";
+import { airNextEvergreen, type EvergreenStore } from "./evergreenRotation.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { sha256Hex } from "./evergreenValidate.js";
 import type { BidRow, BrandRow, Ledger, ListenerSessionRow } from "./ledger.js";
 import type { MarketService } from "./market.js";
 import { toBalanceView, toBrandSummary, toListenerSession } from "./market.js";
@@ -56,6 +61,15 @@ export interface ApiDeps {
    * events itself — exactly one emitter per WsEvent.
    */
   publishLifecycleEvents?: boolean;
+  /**
+   * Durable evergreen catalog (Phase 1 Eternal Loop). When set, the API
+   * serves catalog media under /evergreen/* and exposes POST
+   * /evergreen/air-next for the orchestrator. Built once at boot from
+   * EVERGREEN_CATALOG_DIR; null disables evergreen mode.
+   */
+  evergreen?: EvergreenStore | null;
+  /** Directory holding catalog media files (kind/<sha>.<ext>). */
+  evergreenMediaDir?: string;
 }
 
 type Handler = (req: Request, res: Response) => void | Promise<void>;
@@ -155,6 +169,8 @@ export function createRouter(deps: ApiDeps): Router {
     orchestratorApiToken,
     brandCreatorToken,
     stripeService,
+    evergreen = null,
+    evergreenMediaDir = "",
   } = deps;
   const publishLifecycleEvents = deps.publishLifecycleEvents ?? true;
   const router = Router();
@@ -736,7 +752,16 @@ export function createRouter(deps: ApiDeps): Router {
   router.get(
     "/stream/snapshot",
     wrap((_req, res) => {
-      res.json(composeSnapshot(ledger, bus, auction, clearing));
+      // Eternal Loop: when a catalog is configured the loop — not the rolling
+      // window — drives rotation history, so widen the recent cap to cover a
+      // full 10-15 entry catalog.
+      res.json(
+        composeSnapshot(ledger, bus, auction, clearing, Date.now(), {
+          ...(evergreen
+            ? { recentLimit: Math.max(evergreen.entries.length, 8) }
+            : {}),
+        }),
+      );
     }),
   );
 
@@ -796,6 +821,97 @@ export function createRouter(deps: ApiDeps): Router {
         "format must be json or csv",
       );
       res.json({ points });
+    }),
+  );
+
+  // ---------------------------------------------------------- evergreen
+  // Eternal Loop (Phase 1): durable catalog airings + byte-served media.
+  // POST /evergreen/air-next mints a fresh ephemeral segment from the next
+  // catalog entry (orchestrator only) and feeds the challenge engine so
+  // proofs work on every rotation. GET /evergreen/media/* serves the
+  // catalog's verified bytes over the gateway origin.
+  router.get(
+    "/evergreen/catalog",
+    wrap((_req, res) => {
+      assert(evergreen, 404, "evergreen catalog is not configured");
+      res.json({
+        version: 1 as const,
+        entries: evergreen.entries.map((entry) => ({
+          id: entry.id,
+          brandId: entry.brandId,
+          tier: entry.tier,
+          durationSec: entry.durationSec,
+        })),
+      });
+    }),
+  );
+
+  router.post(
+    "/evergreen/air-next",
+    wrap((req, res) => {
+      requireOrchestrator(orchestratorApiToken, req);
+      assert(evergreen, 404, "evergreen catalog is not configured");
+      const slot = auction.nextSlotNumber();
+      const aired = airNextEvergreen(evergreen, ledger, slot);
+      assert(aired, 409, "evergreen catalog is empty");
+      const { segment, entry } = aired;
+      generateChallenges(ledger, {
+        segmentId: segment.id,
+        durationSec: segment.durationSec,
+        transcript: entry.transcript,
+      });
+      const result: EvergreenAirNextResult = {
+        segmentId: segment.id,
+        entryId: entry.id,
+        slot,
+        brandId: entry.brandId,
+      };
+      res.status(201).json(result);
+    }),
+  );
+
+  const mimeForMediaKey = (key: string): string => {
+    const ext = key.slice(key.lastIndexOf(".") + 1).toLowerCase();
+    if (ext === "mp3") return "audio/mpeg";
+    if (ext === "mp4") return "video/mp4";
+    if (ext === "png") return "image/png";
+    if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+    return "image/webp";
+  };
+
+  router.get(
+    "/evergreen/media/*key",
+    wrap((req, res) => {
+      assert(evergreen, 404, "evergreen catalog is not configured");
+      const raw = Array.isArray((req.params as Record<string, unknown>).key)
+        ? ((req.params as Record<string, unknown>).key as string[]).join("/")
+        : String((req.params as Record<string, unknown>).key ?? "");
+      const key = raw.replace(/^\/+/, "");
+      const match =
+        /^(audio|image|video)\/[a-f0-9]{64}\.(mp3|png|jpe?g|webp|mp4)$/.exec(
+          key,
+        );
+      assert(match, 400, "invalid media key");
+      const entry = evergreen.entries.find(
+        (candidate) =>
+          candidate.media.audio.key === key ||
+          candidate.media.visual?.key === key,
+      );
+      assert(entry, 404, "unknown media key");
+      const file =
+        entry.media.audio.key === key ? entry.media.audio : entry.media.visual!;
+      let bytes: Buffer;
+      try {
+        bytes = readFileSync(join(evergreenMediaDir, file.key));
+      } catch {
+        throw new ApiError(500, "media read failed");
+      }
+      if (sha256Hex(bytes) !== file.sha256)
+        throw new ApiError(500, "media integrity failure");
+      res.setHeader("content-type", mimeForMediaKey(key));
+      res.setHeader("content-length", bytes.length);
+      res.setHeader("cache-control", "public, max-age=31536000, immutable");
+      res.send(bytes);
     }),
   );
 

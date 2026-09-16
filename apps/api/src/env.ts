@@ -42,6 +42,19 @@ export interface ApiEnv {
    * When absent the alert path is a no-op — alerts still log but aren't
    * dispatched externally. */
   alertWebhookUrl?: string;
+  /**
+   * Evergreen catalog directory (Phase 1 Eternal Loop). When set, the API
+   * loads one-JSON-per-entry catalog files at boot, verifies every declared
+   * media byte under `evergreenMediaDir`, and reseeds catalog brands so airings
+   * survive restarts. Unset disables evergreen mode.
+   */
+  evergreenCatalogDir?: string;
+  /** Directory holding catalog media files (kind/<sha>.<ext>), same layout
+   * the validator checks: `<mediaDir>/<entry.media.*.key>`. */
+  evergreenMediaDir?: string;
+  /** Public origin browsers use to fetch evergreen bytes (served by this API
+   * under /evergreen/media/*). Must be queryless public HTTPS in production. */
+  evergreenAssetBaseUrl?: string;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -155,6 +168,9 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     ),
     publishLifecycleEvents: env.PUBLISH_LIFECYCLE_EVENTS !== "0",
     alertWebhookUrl: env.ALERT_WEBHOOK_URL?.trim() || undefined,
+    evergreenCatalogDir: env.EVERGREEN_CATALOG_DIR?.trim() || undefined,
+    evergreenMediaDir: env.EVERGREEN_MEDIA_DIR?.trim() || undefined,
+    evergreenAssetBaseUrl: env.EVERGREEN_ASSET_BASE_URL?.trim() || undefined,
   };
 }
 

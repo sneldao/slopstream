@@ -78,6 +78,49 @@ describe("composeSnapshot", () => {
     });
   });
 
+  it("widens the recent cap for catalog-driven loops", () => {
+    const harness = setupHarness();
+    const clearing = new ClearingEngine(
+      harness.ledger,
+      harness.bus,
+      new StubProofVerifier(),
+      { listenerPct: 0.8, platformPct: 0.2 },
+    );
+    const now = 2_000_000;
+    for (let i = 0; i < 12; i++) {
+      harness.ledger.segments.set(`seg_${i}`, {
+        id: `seg_${i}`,
+        slot: i + 1,
+        brandId: `brand_${i % 3}`,
+        bidId: null,
+        status: "done",
+        durationSec: 20,
+        summary: `seg ${i}`,
+        thresholdFraction: 0.6,
+        windowOpenedAtMs: now - i * 60_000,
+        windowClosed: true,
+      });
+    }
+    const snapDefault = composeSnapshot(
+      harness.ledger,
+      harness.bus,
+      harness.auction,
+      clearing,
+      now,
+    );
+    expect(snapDefault.recentSegments).toHaveLength(8);
+    const snapCatalog = composeSnapshot(
+      harness.ledger,
+      harness.bus,
+      harness.auction,
+      clearing,
+      now,
+      { recentLimit: 15 },
+    );
+    expect(snapCatalog.recentSegments).toHaveLength(12);
+    expect(snapCatalog.recentSegments[0]?.id).toBe("seg_0");
+  });
+
   it("keeps the latest cleared value-exchange explanation in recovery snapshots", () => {
     const harness = setupHarness();
     const clearing = new ClearingEngine(

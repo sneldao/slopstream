@@ -1067,3 +1067,72 @@ export interface ChallengeSourceCommand {
   visualMetadata?: Record<string, unknown>;
   audioMetadata?: Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------------
+// Evergreen catalog (Phase 1 — Eternal Loop)
+// ---------------------------------------------------------------------------
+// A catalog entry is a curated, durable finished segment minted once (usually
+// via the one-time ElevenLabs session) and replayed forever. The orchestrator
+// airs live copies through the normal segment lifecycle; the entry itself is
+// immutable and content-addressed by its media hashes.
+
+/** One media file inside an evergreen entry: path is relative to the catalog. */
+export interface EvergreenMediaFile {
+  /** Relative key, e.g. "media/audio/<sha>.mp3". Never absolute, never a URL. */
+  key: string;
+  contentType: PublishedMediaContentType;
+  /** Lowercase SHA-256 of the exact bytes. Object identity for the file. */
+  sha256: string;
+  /** "image" | "video" for visuals. Audio entries omit this. */
+  kind: "audio" | "image" | "video";
+}
+
+/**
+ * One curated segment in the evergreen catalog (one JSON object per entry,
+ * see docs/product/evergreen-loop.md Stage 1). `id` is stable across boots
+ * (`evergreen_<slug>`); each airing mints a fresh ephemeral segment id.
+ */
+export interface EvergreenEntry {
+  /** Stable catalog id, e.g. "evergreen_acme_launch". */
+  id: string;
+  /** Schema version of this entry shape. Current: 1. */
+  version: 1;
+  /** Display brand; resolved against snapshot brands at seed time. */
+  brandId: string;
+  tier: ProductionTier;
+  /** Playback length in seconds (target 15–20 for rotation feel). */
+  durationSec: number;
+  /** Feeds the challenge engine on every airing. */
+  transcript: string;
+  /** The Continuum continuity input carried into the next airing. */
+  summary: string;
+  brief: string;
+  media: {
+    audio: EvergreenMediaFile;
+    visual?: EvergreenMediaFile;
+  };
+  /** Base rotation weight; higher airs more often. Default 1. */
+  weight?: number;
+  /** ISO timestamp: boosted rotation until this time, then decay to base. */
+  weightUntil?: string;
+}
+
+export interface EvergreenCatalog {
+  version: 1;
+  entries: EvergreenEntry[];
+}
+
+/** Rotation state the API tracks per entry (ephemeral, rebuilt on boot). */
+export interface EvergreenRotationState {
+  entryId: string;
+  lastAiredAtMs?: number;
+  airCount: number;
+}
+
+/** POST /evergreen/air-next — air the next catalog entry (orchestrator only). */
+export interface EvergreenAirNextResult {
+  segmentId: string;
+  entryId: string;
+  slot: number;
+  brandId: string;
+}

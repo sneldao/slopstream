@@ -306,8 +306,12 @@ export class SegmentScheduler {
       }
 
       this.activitySinceLastPoll = false;
-      await this.processClosedSlots();
-      await this.prefetchUpcoming();
+      if (this.env.evergreenMode) {
+        await this.airEvergreenRotation();
+      } else {
+        await this.processClosedSlots();
+        await this.prefetchUpcoming();
+      }
       void this.maybeStartEncore();
     } catch {
       // API not ready yet; retry on the next tick.
@@ -421,6 +425,50 @@ export class SegmentScheduler {
       return;
     }
     await this.processClosedSlots();
+  }
+
+  // ------------------------------------------------------- evergreen rotation
+
+  /**
+   * Eternal Loop tick (EVERGREEN_MODE=1): mint the next catalog rotation as
+   * a live ready segment and play it through the normal attention lifecycle
+   * (playing → challenges → window-closed). The catalog entry already carries
+   * its media manifest + transcript, so no generation runs: the airing is a
+   * ready segment from birth, which is exactly what /evergreen/air-next
+   * returns. Challenges were fed at air time, so proofs work every rotation.
+   */
+  private async airEvergreenRotation(): Promise<void> {
+    if (this.driving || this.playback || this.generationInFlight) return;
+    this.activitySinceLastPoll = true;
+    let aired;
+    try {
+      aired = await this.api.airNextEvergreen();
+    } catch (error) {
+      console.error(
+        "[scheduler] evergreen air-next failed; will retry:",
+        error,
+      );
+      return;
+    }
+    try {
+      await this.startPlayback(aired.segmentId, aired.brandId, aired.slot);
+      this.processed.add(aired.segmentId);
+    } catch (error) {
+      console.error(
+        `[scheduler] evergreen playback failed for ${aired.segmentId}:`,
+        error,
+      );
+      try {
+        await this.api.failSegment(aired.segmentId);
+      } catch (failError) {
+        console.error(
+          `[scheduler] /failed for ${aired.segmentId} did not land; will retry:`,
+          failError,
+        );
+        return;
+      }
+    }
+    this.processed.add(aired.segmentId);
   }
 
   // ------------------------------------------------------------ segment drive

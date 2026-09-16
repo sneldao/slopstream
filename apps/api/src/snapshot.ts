@@ -69,6 +69,7 @@ export function composeSnapshot(
   auction: AuctionEngine,
   clearing: ClearingEngine,
   nowMs: number = Date.now(),
+  opts?: { recentLimit?: number },
 ): StreamSnapshot {
   let nowPlayingRow: SegmentRow | undefined;
   for (const segment of ledger.segments.values()) {
@@ -78,6 +79,11 @@ export function composeSnapshot(
   }
 
   const open = auction.ensureOpenAuction();
+  // Eternal Loop catalogs rotate 10-15 curated entries, so the default
+  // rolling window (30 min / 8 items) would starve the history rail and the
+  // encore picker. Callers pass a wider limit when serving a catalog-driven
+  // loop; the window filter stays so stale/failed rows never resurface.
+  const recentLimit = opts?.recentLimit ?? 8;
   const recentSegments = [...ledger.segments.values()]
     .filter(
       (segment) =>
@@ -91,7 +97,7 @@ export function composeSnapshot(
         (b.windowOpenedAtMs ?? 0) - (a.windowOpenedAtMs ?? 0) ||
         b.slot - a.slot,
     )
-    .slice(0, 8)
+    .slice(0, recentLimit)
     .map(toSharedSegment);
 
   // Upcoming queue — segments that are ready/generated but not yet playing.
