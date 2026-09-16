@@ -58,24 +58,22 @@ packages/midnight/scripts/{deploy,state,submit-proof}.ts,
 
 ---
 
-## 5. Demo video script (3 min)
+## 5. Demo video script (62s Buildathon cut — shipped)
 
-Existing 61s VO (docs/capture/voiceover-script.md) covers the product loop.
-For the Buildathon cut, prepend a 30s privacy cold-open and append a 30s
-integration close:
+Final: 61.9s, 1920x1080 h264+AAC. Same ElevenLabs voice as the product VO
+(`eleven_flash_v2_5`, voice `JBFqnCBsd6RMkjVDRZzb`), `bgm.mp3` bed at 0.16.
+Video/media binaries are git-ignored under `docs/capture/` — the mp4 ships
+via YouTube (unlisted), never in the repo.
 
-COLD OPEN (new, screen: contract source): "Every ad platform has the same
-dirty secret: to prove someone watched, it tracks who they are. Slopstream
-proves attention without ever revealing the person. A zero-knowledge contract
-on Midnight verifies the condition — and the listener stays private."
+| Time | Visual | VO (verbatim) |
+|---|---|---|
+| 0–5s | Privacy cold-open card: "Prove they watched. Never reveal who." / "Zero-knowledge proof of attention on Midnight" | "Every ad platform tracks who watched. Slopstream proves attention — without ever revealing the person." |
+| 5–56s | Product loop (existing 61s VO + footage trimmed `ss=3, t=51`): problem → solution → continuum → brand console → listener → 80/20 | Existing product VO verbatim (see `docs/capture/voiceover-script.md`): "Ads are disposable noise…" through "…they're the marketplace." |
+| 56–62s | Integration close card: `ProofOfAttention.compact` circuit excerpt (nullifier / `assert(not in replayWindow)` / threshold) + "Stripe moves the money · Midnight proves the facts" | "A Compact contract on Midnight verifies each listener. Stripe moves the money. Midnight proves the facts." |
 
-PRODUCT LOOP (reuse existing 61s VO + footage as-is).
-
-INTEGRATION CLOSE (new, screen: terminal): "Under the hood: a Compact
-contract called ProofOfAttention. Each verified listener becomes an on-chain
-nullifier — replay-proof, unlinkable, counted toward a public threshold. When
-the threshold flips, the bid clears and eighty percent flows to the audience.
-Stripe moves the money. Midnight proves the facts."
+Mix notes: VOs are sequential (<open@0.2s> / <product@5.5s> / <close@55.2s>, close
+leads the card by 0.8s), never overlapping. Fade in/out boundaries in the
+middle come from the source product footage, not the bookends.
 
 Honesty guardrail: never label a JSON-stub receipt "Verified by Midnight."
 Say "verification result" for stub footage; "on-chain proof" only for real
@@ -91,7 +89,7 @@ preprod receipts (Wave 2).
 - [x] README judge-evaluation guide
 - [x] Wave 1 progress description (section 1 above)
 - [ ] Slide deck (outline section 4 — needs design)
-- [ ] Demo/video pitch (script section 5 — needs recording)
+- [x] Demo/video pitch (script section 5 — 62s cut rendered, uploads to YouTube unlisted)
 - [ ] AKINDO form submit + team registrations + Discord
 
 apps/verifier/src/{server,midnightVerifier}.ts.
