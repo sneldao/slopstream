@@ -489,6 +489,59 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
 
 ---
 
+## 2026-10-19 — Blockfrost migration + Wave 3 deploy pipeline
+
+**Network refresh (forced by Midnight):** Midnight decommissioned its hosted
+preprod indexer/RPC on 2026-10-09 (`410 ENDPOINT_DECOMMISSIONED` since 10-13).
+Blockfrost now serves both; every request needs `?project_id=` auth.
+`packages/midnight/src/env.ts` migrated to `midnight-preprod.blockfrost.io` +
+`rpc.midnight-preprod.blockfrost.io`, gated by `MIDNIGHT_BLOCKFROST_PROJECT_ID`
+with a fail-fast check (`assertMidnightEndpointsConfigured`). The public
+`/verify` page reads `NEXT_PUBLIC_BLOCKFROST_MIDNIGHT_PROJECT_ID` (documented
+browser-token pattern) or `NEXT_PUBLIC_MIDNIGHT_INDEXER` override.
+
+**Wave 3 contracts shipped (source + compiled artifacts):**
+`ProofOfAttention` (verifier-key gate added — closes the documented
+not-caller-gated hole), `RewardClearing` (owner-gated pool + per-claim
+nullifier window), `PreviewRightsThreshold` (spend commitment + boolean-only
+qualification proof). All compiled with pinned `compactc 0.31.1` (language
+0.23) into `packages/midnight/contract/src/managed/*` — 10 exported circuits.
+`packages/midnight` gained `providersFor(contract)` (one funded wallet,
+per-contract private-state stores + zk-config paths) and `deploy:all`, which
+writes `contracts/preprod/deployment.json`. Receipts carry `txHash`
+end-to-end (verifier → api → shared → UI → `/verify?nullifier=` deep-link).
+
+**Test surface:** `contracts/test/*.test.mjs` — 18/18 zero-install
+`node --test` circuit mirrors (domain tags, revert strings, window-shift,
+threshold-flip, refusal codes). `JUDGES.md` + `PROOF.md` + `SUBMISSION.md`
+written; `midnightntwrk` topic added to the repo.
+
+**Deploy status (nuncio-vultr):** proof-server upgraded to
+`midnightntwrk/proof-server:8.1.3` (patches critical GHSA-wr7g-rr4v-jmj8 —
+canonical-transcript fix for one-time-check bypass). Wallet funded via manual
+faucet claim (5000 tNIGHT, tx `002876af…`). `deploy:all` run hit recurring
+`Wallet.Sync` stream errors in `wallet-sdk-unshielded-wallet@3.1.0` — all
+transports verified healthy by direct test (indexer HTTP + WS, node RPC WS,
+`unshieldedTransactions` subscription returns live data), so suspicion is
+payload-shape drift between `wallet-sdk-indexer-client@1.2.2` and the
+Blockfrost-hosted indexer 4.3.5. No stable fix exists (newer SDK lines are
+ledger-9/v5 RCs). Watch `~/slopstream-deploy/deploy-all3.log`; if it wedges,
+options: (a) wait — errors may be per-event while progress still advances,
+(b) test `wallet-sdk-*` 4.0.0-rc / testkit 5.0.0-rc in a branch,
+(c) narrow to the decode failure and patch the schema locally.
+
+**Research findings worth planning around:** mainnet contract deployment went
+permissionless 2026-10-02 (no review gate — roadmap claim upgraded); ledger
+v8→v9 fork in flight (v8-compiled contracts keep working post-fork);
+midnight-js 5.0.0-rc.5 is the required pre-fork line (`MidnightConfig`
+replaces `setNetworkId`, ESM-only); Compact 0.35 (lang 0.27) is ledger-9-only
+— do NOT run bare `compact update`; `kernel.caller()` there could replace the
+publicKey-hash verifier gate.
+
+**Remaining for judges:** preprod deploy completion + real addresses in
+`deployment.json`, rendered deck (`deck/slides.md` outline exists), 3-min
+video, optional `fast-check` property test.
+
 ## Cross-lane integration status
 
 | Integration point                | Status                                                                                                                                                    |
