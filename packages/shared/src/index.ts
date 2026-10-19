@@ -591,6 +591,11 @@ export type WsEvent =
        *  Not sent in the public event payload; used here so the client can
        *  stamp the segment it builds from a playing event. */
       windowOpenedAtMs?: string;
+      /** Playable manifest, sent for segments that never emitted
+       *  segment.ready (e.g. evergreen air-next rotations). */
+      media?: MediaManifest;
+      /** Legacy single-asset URL alongside the manifest. */
+      assetUrl?: string;
     }
   | {
       /** Orchestrator-only replay of a previously aired segment to cover dead

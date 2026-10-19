@@ -306,11 +306,15 @@ export function reduceStreamEvent(
           currentSegment?.durationSeconds ?? gen?.durationSeconds ?? 0,
         summary: currentSegment?.summary ?? "",
         status: "playing",
-        ...(currentSegment?.assetUrl || gen?.assetUrl
-          ? { assetUrl: currentSegment?.assetUrl ?? gen?.assetUrl }
+        ...(event.assetUrl || currentSegment?.assetUrl || gen?.assetUrl
+          ? {
+              assetUrl:
+                event.assetUrl ?? currentSegment?.assetUrl ?? gen?.assetUrl,
+            }
           : {}),
-        ...(currentSegment?.media || gen?.media
-          ? { media: currentSegment?.media ?? gen?.media }
+        // event.media covers evergreen airings that never emit segment.ready.
+        ...(event.media || currentSegment?.media || gen?.media
+          ? { media: event.media ?? currentSegment?.media ?? gen?.media }
           : {}),
         ...(event.windowOpenedAtMs
           ? { windowOpenedAtMs: Date.parse(event.windowOpenedAtMs) }

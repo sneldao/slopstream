@@ -633,6 +633,11 @@ export function createRouter(deps: ApiDeps): Router {
           segmentId: opened.id,
           brandId: segment.brandId ?? "",
           startedAt,
+          // Evergreen segments skip the /ready call (air-next creates them
+          // queued), so the playing event must carry the manifest itself —
+          // clients otherwise never learn the media URL.
+          ...(segment.media ? { media: segment.media } : {}),
+          ...(segment.mediaUrl ? { assetUrl: segment.mediaUrl } : {}),
         });
       }
       res.json({
