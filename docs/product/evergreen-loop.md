@@ -34,12 +34,18 @@ off that catalog indefinitely with the generator and scraper **off**.
   and `pickEncoreCandidate` for encores), and boost decay for new entries.
   Style is the second variety axis: a pack that alternates four treatments
   reads as a channel with range, a pack of one treatment reads as a
-  screensaver. It must never feel like a playlist on repeat.
+  screensaver. The label rides along on the aired segment and the snapshot, so
+  `/listen` can name the treatment the audience is looking at. It must never
+  feel like a playlist on repeat.
 - **Challenges work from day one.** Every catalog entry carries its transcript
   and challenge set, so Q&A, proofs, and thresholds function with zero new
   game code.
 - **Zero marginal cost.** Stub generator, no scraper key, no Stripe. VPS runs
-  four small containers on timers. $0/day in provider spend.
+  four small containers on timers. $0/day in provider spend — because evergreen
+  rotation never calls a generator at all, not because a limit happens to hold.
+  When generation does run, cost is capped per call (`ELEVENLABS_MAX_TIER`,
+  defaulting to the cheapest tier) and per process
+  (`ELEVENLABS_MAX_GENERATIONS`); see the runbook's spend controls.
 - **No dead air, ever.** The loop is the primary mode, not a fallback — the
   encore replay path becomes the rotation engine rather than a gap cover.
 

@@ -53,7 +53,8 @@ git rev-parse HEAD
 pnpm --filter @slopstream/midnight compact     # compiles all 3 (compactc 0.31.1)
 node --test contracts/test/*.test.mjs          # 18/18, zero installs
 pnpm --filter @slopstream/verifier test        # 6/6
-pnpm --filter @slopstream/api test             # 90/90
+pnpm --filter @slopstream/api test             # 95/95
+pnpm -r test                                   # 342 across the workspace
 ```
 
 Then open `/verify` on the deployed web app and paste a `midnight_<hex>`

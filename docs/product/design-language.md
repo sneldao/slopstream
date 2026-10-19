@@ -124,9 +124,10 @@ and lightweight enough for a phone.
   or challenge sounds.
 - **Earn Mode** is a persisted explicit toggle. It enables proof opportunities
   for listeners who want rewards.
-- A verified answer creates a **pending** reward. It becomes **available** only
-  after the segment clears; the payout sheet explains that real payout rails
-  are still a future capability.
+- A verified answer creates **pending** points. They become **available** only
+  after the segment clears. The listener surface counts in points and never
+  renders a currency sign: the sheet is a ledger, and real payout rails are
+  still a future capability.
 - **A stalled stream says so.** Autoplay can be blocked, and a suspended
   `AudioContext` is silent by design. When playback is degraded the surface
   shows a notice — "The stream audio stalled. Tap to restore sound" — rather

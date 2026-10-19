@@ -47,8 +47,10 @@ apps/generator/.env:
   ELEVENLABS_API_KEY=sk_...        (your key)
   ELEVENLABS_VOICE_ID=JBFqnCBsd6RMkjVDRZzb
   ELEVENLABS_TTS_MODEL=eleven_flash_v2_5
-  ELEVENLABS_MAX_TIER=video        (already raised)
-  ASSET_BASE_URL=http://localhost:4300
+  ELEVENLABS_MAX_TIER=video        (already raised; unset now means audio)
+  ELEVENLABS_MAX_GENERATIONS=200   (runaway brake; raise for a long live session)
+  ASSET_BASE_URL=https://<public-tunnel-host>   (a tunnel URL, NOT localhost —
+      elevenlabs mode rejects local/private/.local origins at boot by design)
 
 apps/orchestrator/.env:
   PARALLEL_API_KEY=uCZn...         (already set)

@@ -83,10 +83,10 @@ ACME AI
  with the stream audio, tinted
  to Acme's brand color)
 
-Total paid to viewers:
-$8.00
+Points shared with viewers:
+0.00 pts
 (cumulative across cleared stream ads;
- your rewards appear in the wallet below)
+ your points appear in the ledger below)
 
 Current ad attention meter:
 127 / 143 verified
@@ -125,12 +125,14 @@ Correct answer — the proof receipt floats in as the calm center:
 
 Proof generated privately.
 
-Estimated reward:
-~$0.37 (pending pool close)
+Estimated points:
+~0.37 pts (pending pool close)
 ```
 
-Then the ad continues. The listener wallet distinguishes a **pending** reward
+Then the ad continues. The listener ledger distinguishes **pending** points
 from an **available** balance; in the live path it refreshes after settlement.
+Points are a scoreboard entry, never a dollar amount — the listener surface
+carries no currency sign, because the demo settles nothing in cash.
 See [economics](economics.md) for how the estimated reward becomes a pool
 share, [content](content.md) for challenge design, and the [listener experience
 in the design language](design-language.md#listener-experience) for the full

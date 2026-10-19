@@ -30,7 +30,12 @@ compactc contracts/src/PreviewRightsThreshold.compact ./out/previewrightsthresho
 | ------------------------------------------------------------------------------------------------------ | ------------- | ------------ |
 | `contracts/test/*.test.mjs` (domain tags, revert strings, window-shift, threshold-flip, refusal codes) | `node --test` | 18 / 18 pass |
 | `apps/verifier` stub + midnight suites                                                                 | vitest        | 6 / 6 pass   |
-| `apps/api` money/auction/clearing/verifier suites                                                      | vitest        | 90 / 90 pass |
+| `apps/api` money/auction/clearing/verifier/evergreen suites                                            | vitest        | 95 / 95 pass |
+| `apps/generator` provider + asset + creative suites                                                     | vitest        | 100 / 100 pass |
+| `apps/orchestrator` scheduler, rotation and encore suites                                               | vitest        | 67 / 67 pass |
+| `apps/web` reducer, surfaces and copy suites                                                            | vitest        | 69 / 69 pass |
+| `apps/asset-uploader` R2 worker suites                                                                  | vitest        | 5 / 5 pass   |
+| **Workspace total** (`pnpm -r test`)                                                                    | vitest        | **342 / 342 pass** |
 
 ## Live evidence (preprod)
 

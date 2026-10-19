@@ -52,9 +52,24 @@ sync. This wave closed that gap and then went past it:
   which is ledger-9 only and cannot deploy today — documented in the runbook so
   nobody "upgrades" the submission into undeployable artifacts.
 
+- **The listener surface now says what the product means.** The demo balance
+  renders as points against a ledger — no currency sign anywhere on `/listen`,
+  and a test asserts the claim sheet never emits one — so the UI no longer
+  contradicts the "ledger points, not cash" line above. Cold-start states were
+  fixed with it: a joined listener on a dead API gets designed copy instead of
+  the browser's raw `Failed to fetch`, a first load says "Connecting" rather
+  than "Reconnecting" to a stream it never had, and an empty stream shows
+  **Standby** instead of inventing a brand name.
+- **Provider spend is bounded, and documented as bounded.** Generation cost is
+  capped per call (`ELEVENLABS_MAX_TIER`, now defaulting to the cheapest tier)
+  and per process (`ELEVENLABS_MAX_GENERATIONS`), both reported on the
+  generator's `/health`. The steady state spends nothing because evergreen
+  rotation never calls a provider at all.
+
 **Tests:** `node --test contracts/test/*.test.mjs` → 18/18 with zero installs
 (domain tags, revert strings, window shift, threshold flip, refusal codes).
-Verifier 6/6, API 90/90, orchestrator 67/67, web 61/61.
+Workspace suite: 342 tests green — API 95/95, generator 100/100, orchestrator
+67/67, web 69/69, verifier 6/6, asset-uploader 5/5.
 
 ---
 
@@ -118,7 +133,7 @@ artifacts stay valid across it and midnight-js 5.x is the scheduled bump.
 
 ## 5. Demo video
 
-`docs/capture/slopstream-wave2.mp4` — ~2:10, 1920x1080, h264+AAC. Wave 2
+`docs/capture/slopstream-wave2.mp4` — 2:11, 1920x1080, h264+AAC. Wave 2
 re-cut of the wave-1 scaffold: same footage rig, narration rewritten for the
 on-chain story and stripped of USD reward framing per §2.
 
