@@ -64,8 +64,10 @@ export const bootstrap = async (opts: {
       logger.info(
         `Dust generation registered (tx ${dustTx}). Waiting for dust balance...`,
       );
-      await waitForDust(stack);
     }
+    // Wait even when dustTx is undefined: UTXOs may already be registered
+    // from a previous run while dust is still accruing.
+    await waitForDust(stack);
   }
 
   const providers = stack.providersFor("proofofattention");
@@ -88,7 +90,10 @@ export const bootstrap = async (opts: {
 };
 
 export const waitForDust = async (stack: SlopstreamStack): Promise<void> => {
-  const deadline = Date.now() + 10 * 60_000;
+  // Dust becomes visible only once the dust sub-wallet's sync reaches the
+  // registration tx — on preprod that is a multi-hour full-history grind, so
+  // this deadline must be generous.
+  const deadline = Date.now() + 24 * 60 * 60_000;
   while (Date.now() < deadline) {
     const state = await new Promise<{ dust: bigint }>((resolve) => {
       const sub = stack.walletProvider.wallet.state().subscribe((s) => {

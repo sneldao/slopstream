@@ -171,17 +171,17 @@ export const fundFromFaucetAndWait = async (
       ).requestTokens(encoded.toString());
       logger.info("Waiting for faucet funds to arrive (2-3 minutes)...");
     }
-    // Mirror the official bboard example: watch the FACADE state (not the
-    // unshielded sub-wallet), throttle emissions, and require full sync
-    // before trusting a zero balance. Polling unshielded.state in a tight
-    // loop re-subscribes on every tick and OOMs during initial sync.
-    const { isFacadeStateSynced } = await import("./sync.js");
+    // Watch the FACADE state (not the unshielded sub-wallet — tight polling
+    // re-subscribes on every tick and OOMs during initial sync), but gate on
+    // unshielded progress only: the shielded and dust sub-wallets
+    // trial-decrypt the full chain history (~1.7M indices on preprod, hours)
+    // and the balance check only needs the unshielded tx-id sync.
     const deadline = Date.now() + 60 * 60_000;
     while (Date.now() < deadline) {
       const state = await Rx.firstValueFrom(
         wallet.state().pipe(
           Rx.throttleTime(5_000),
-          Rx.filter((s) => isFacadeStateSynced(s)),
+          Rx.filter((s) => s.unshielded.progress.isStrictlyComplete()),
         ),
       );
       const syncedBalance =
@@ -207,7 +207,6 @@ export const generateDust = async (
   logger: { info: (msg: string) => void },
 ): Promise<string | undefined> => {
   const wallet = walletProvider.wallet;
-  await wallet.dust.waitForSyncedState();
   const networkId = getNetworkId();
   const unshieldedKeystore = createKeystore(getUnshieldedSeed(seed), networkId);
   const utxos = unshieldedState.availableCoins.filter(
@@ -218,7 +217,9 @@ export const generateDust = async (
     return undefined;
   }
   logger.info(`Generating tDUST from ${utxos.length} UTXOs...`);
-  const dustState = await wallet.dust.waitForSyncedState();
+  // The dust address is key-derived and present in the first state emission;
+  // waiting for a synced dust wallet would block for hours on preprod.
+  const dustState = await Rx.firstValueFrom(wallet.dust.state);
   const recipe = await wallet.registerNightUtxosForDustGeneration(
     utxos,
     unshieldedKeystore.getPublicKey(),

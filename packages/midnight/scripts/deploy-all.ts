@@ -58,8 +58,10 @@ const run = async (): Promise<void> => {
     );
     if (dustTx) {
       logger.info(`Dust generation registered (tx ${dustTx}). Waiting...`);
-      await waitForDust(stack);
     }
+    // Also covers restarts where UTXOs are already registered but the dust
+    // balance is not yet visible to the still-syncing dust sub-wallet.
+    await waitForDust(stack);
 
     // Join when an address env var is set (idempotent re-runs), else deploy.
     const poaAddress = process.env.PROOF_OF_ATTENTION_CONTRACT_ADDRESS;
