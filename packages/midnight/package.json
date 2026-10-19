@@ -10,10 +10,11 @@
     }
   },
   "scripts": {
-    "compact": "compactc ../../contracts/src/ProofOfAttention.compact contract/src/managed/proofofattention",
+    "compact": "compactc ../../contracts/src/ProofOfAttention.compact contract/src/managed/proofofattention && compactc ../../contracts/src/RewardClearing.compact contract/src/managed/rewardclearing && compactc ../../contracts/src/PreviewRightsThreshold.compact contract/src/managed/previewrightsthreshold",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "deploy": "tsx scripts/deploy.ts",
+    "deploy:all": "tsx scripts/deploy-all.ts",
     "state": "tsx scripts/state.ts",
     "submit-proof": "tsx scripts/submit-proof.ts"
   },

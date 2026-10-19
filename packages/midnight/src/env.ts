@@ -12,7 +12,18 @@ export const preprodEnvironment: EnvironmentConfiguration = {
 };
 
 export const proofOfAttentionPrivateStateKey = "proofOfAttentionPrivateState";
-export type PrivateStateId = typeof proofOfAttentionPrivateStateKey;
+export const rewardClearingPrivateStateKey = "rewardClearingPrivateState";
+export const previewRightsPrivateStateKey = "previewRightsPrivateState";
+
+export type PrivateStateId =
+  | typeof proofOfAttentionPrivateStateKey
+  | typeof rewardClearingPrivateStateKey
+  | typeof previewRightsPrivateStateKey;
 
 export type AttentionCircuitKeys =
   "submitAttentionProof" | "setAttentionThreshold";
+
+export type RewardClearingCircuitKeys = "createRewardPool" | "claimReward";
+
+export type PreviewRightsCircuitKeys =
+  "setSpendThreshold" | "recordSpend" | "proveQualification";

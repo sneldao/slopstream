@@ -49,6 +49,7 @@ export function createMidnightAttentionProofVerifier(
         return {
           verified: true,
           proofId: `midnight_${Buffer.from(receipt.nullifier).toString("hex")}`,
+          txHash: receipt.txHash,
           verifierMode: "midnight",
           verifiedAt: new Date().toISOString(),
         };

@@ -16,6 +16,8 @@ import type { ChallengeRow } from "./ledger.js";
 export interface VerificationOutcome {
   verified: boolean;
   proofId?: string;
+  /** Midnight preprod tx hash — forwarded from Lane 1 onto the receipt. */
+  txHash?: string;
   reason?: string;
   answeredAtSec?: number;
   verifierMode?: "stub" | "midnight";
@@ -154,6 +156,10 @@ function parseRemoteResult(
     return {
       verified: true,
       proofId: body.proofId,
+      txHash:
+        typeof body.txHash === "string" && body.txHash.length > 0
+          ? body.txHash
+          : undefined,
       verifierMode: mode,
       verifiedAt: body.verifiedAt,
     };
@@ -244,6 +250,7 @@ export class RemoteProofVerifier implements ProofVerifier {
       return {
         verified: result.verified,
         proofId: result.proofId,
+        txHash: result.txHash,
         reason: result.failure,
         answeredAtSec: timing.answeredAtSec,
         verifierMode: result.verifierMode,

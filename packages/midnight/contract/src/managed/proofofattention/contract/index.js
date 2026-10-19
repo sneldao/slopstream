@@ -2,46 +2,46 @@ import * as __compactRuntime from "@midnight-ntwrk/compact-runtime";
 __compactRuntime.checkRuntimeVersion("0.16.0");
 
 const _descriptor_0 = new __compactRuntime.CompactTypeUnsignedInteger(
-  65535n,
-  2,
-);
-
-const _descriptor_1 = __compactRuntime.CompactTypeBoolean;
-
-const _descriptor_2 = new __compactRuntime.CompactTypeUnsignedInteger(
   18446744073709551615n,
   8,
 );
 
-const _descriptor_3 = new __compactRuntime.CompactTypeUnsignedInteger(
+const _descriptor_1 = new __compactRuntime.CompactTypeBytes(32);
+
+const _descriptor_2 = new __compactRuntime.CompactTypeUnsignedInteger(
+  65535n,
+  2,
+);
+
+const _descriptor_3 = __compactRuntime.CompactTypeBoolean;
+
+const _descriptor_4 = new __compactRuntime.CompactTypeUnsignedInteger(
   4294967295n,
   4,
 );
 
-const _descriptor_4 = new __compactRuntime.CompactTypeBytes(32);
-
-const _descriptor_5 = new __compactRuntime.CompactTypeVector(3, _descriptor_4);
+const _descriptor_5 = new __compactRuntime.CompactTypeVector(3, _descriptor_1);
 
 class _Either_0 {
   alignment() {
-    return _descriptor_1
+    return _descriptor_3
       .alignment()
-      .concat(_descriptor_4.alignment().concat(_descriptor_4.alignment()));
+      .concat(_descriptor_1.alignment().concat(_descriptor_1.alignment()));
   }
   fromValue(value_0) {
     return {
-      is_left: _descriptor_1.fromValue(value_0),
-      left: _descriptor_4.fromValue(value_0),
-      right: _descriptor_4.fromValue(value_0),
+      is_left: _descriptor_3.fromValue(value_0),
+      left: _descriptor_1.fromValue(value_0),
+      right: _descriptor_1.fromValue(value_0),
     };
   }
   toValue(value_0) {
-    return _descriptor_1
+    return _descriptor_3
       .toValue(value_0.is_left)
       .concat(
-        _descriptor_4
+        _descriptor_1
           .toValue(value_0.left)
-          .concat(_descriptor_4.toValue(value_0.right)),
+          .concat(_descriptor_1.toValue(value_0.right)),
       );
   }
 }
@@ -55,15 +55,15 @@ const _descriptor_7 = new __compactRuntime.CompactTypeUnsignedInteger(
 
 class _ContractAddress_0 {
   alignment() {
-    return _descriptor_4.alignment();
+    return _descriptor_1.alignment();
   }
   fromValue(value_0) {
     return {
-      bytes: _descriptor_4.fromValue(value_0),
+      bytes: _descriptor_1.fromValue(value_0),
     };
   }
   toValue(value_0) {
-    return _descriptor_4.toValue(value_0.bytes);
+    return _descriptor_1.toValue(value_0.bytes);
   }
 }
 
@@ -116,7 +116,7 @@ export class Contract {
           __compactRuntime.typeError(
             "submitAttentionProof",
             "argument 1 (as invoked from Typescript)",
-            "ProofOfAttention.compact line 79 char 1",
+            "ProofOfAttention.compact line 84 char 1",
             "CircuitContext",
             contextOrig_0,
           );
@@ -129,7 +129,7 @@ export class Contract {
           __compactRuntime.typeError(
             "submitAttentionProof",
             "argument 1 (argument 2 as invoked from Typescript)",
-            "ProofOfAttention.compact line 79 char 1",
+            "ProofOfAttention.compact line 84 char 1",
             "Bytes<32>",
             segmentId_0,
           );
@@ -142,7 +142,7 @@ export class Contract {
           __compactRuntime.typeError(
             "submitAttentionProof",
             "argument 2 (argument 3 as invoked from Typescript)",
-            "ProofOfAttention.compact line 79 char 1",
+            "ProofOfAttention.compact line 84 char 1",
             "Bytes<32>",
             challengeId_0,
           );
@@ -153,12 +153,12 @@ export class Contract {
         };
         const partialProofData = {
           input: {
-            value: _descriptor_4
+            value: _descriptor_1
               .toValue(segmentId_0)
-              .concat(_descriptor_4.toValue(challengeId_0)),
-            alignment: _descriptor_4
+              .concat(_descriptor_1.toValue(challengeId_0)),
+            alignment: _descriptor_1
               .alignment()
-              .concat(_descriptor_4.alignment()),
+              .concat(_descriptor_1.alignment()),
           },
           output: undefined,
           publicTranscript: [],
@@ -171,8 +171,8 @@ export class Contract {
           challengeId_0,
         );
         partialProofData.output = {
-          value: _descriptor_4.toValue(result_0),
-          alignment: _descriptor_4.alignment(),
+          value: _descriptor_1.toValue(result_0),
+          alignment: _descriptor_1.alignment(),
         };
         return {
           result: result_0,
@@ -196,7 +196,7 @@ export class Contract {
           __compactRuntime.typeError(
             "setAttentionThreshold",
             "argument 1 (as invoked from Typescript)",
-            "ProofOfAttention.compact line 98 char 1",
+            "ProofOfAttention.compact line 104 char 1",
             "CircuitContext",
             contextOrig_0,
           );
@@ -209,7 +209,7 @@ export class Contract {
           __compactRuntime.typeError(
             "setAttentionThreshold",
             "argument 1 (argument 2 as invoked from Typescript)",
-            "ProofOfAttention.compact line 98 char 1",
+            "ProofOfAttention.compact line 104 char 1",
             "Uint<0..4294967296>",
             newThreshold_0,
           );
@@ -220,8 +220,8 @@ export class Contract {
         };
         const partialProofData = {
           input: {
-            value: _descriptor_3.toValue(newThreshold_0),
-            alignment: _descriptor_3.alignment(),
+            value: _descriptor_4.toValue(newThreshold_0),
+            alignment: _descriptor_4.alignment(),
           },
           output: undefined,
           publicTranscript: [],
@@ -341,8 +341,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_2.toValue(0n),
-            alignment: _descriptor_2.alignment(),
+            value: _descriptor_0.toValue(0n),
+            alignment: _descriptor_0.alignment(),
           }).encode(),
         },
       },
@@ -362,8 +362,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(new Uint8Array(32)),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(new Uint8Array(32)),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -383,8 +383,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(new Uint8Array(32)),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(new Uint8Array(32)),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -404,8 +404,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(new Uint8Array(32)),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(new Uint8Array(32)),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -425,8 +425,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(new Uint8Array(32)),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(new Uint8Array(32)),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -446,8 +446,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_3.toValue(0n),
-            alignment: _descriptor_3.alignment(),
+            value: _descriptor_4.toValue(0n),
+            alignment: _descriptor_4.alignment(),
           }).encode(),
         },
       },
@@ -467,8 +467,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_1.toValue(false),
-            alignment: _descriptor_1.alignment(),
+            value: _descriptor_3.toValue(false),
+            alignment: _descriptor_3.alignment(),
           }).encode(),
         },
       },
@@ -488,8 +488,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(new Uint8Array(32)),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(new Uint8Array(32)),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -509,8 +509,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_2.toValue(0n),
-            alignment: _descriptor_2.alignment(),
+            value: _descriptor_0.toValue(0n),
+            alignment: _descriptor_0.alignment(),
           }).encode(),
         },
       },
@@ -538,8 +538,8 @@ export class Contract {
           immediate: parseInt(
             __compactRuntime.valueToBigInt(
               {
-                value: _descriptor_0.toValue(tmp_0),
-                alignment: _descriptor_0.alignment(),
+                value: _descriptor_2.toValue(tmp_0),
+                alignment: _descriptor_2.alignment(),
               }.value,
             ),
           ),
@@ -561,14 +561,14 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(
+            value: _descriptor_1.toValue(
               new Uint8Array([
                 115, 108, 111, 112, 115, 116, 114, 101, 97, 109, 58, 118, 49,
                 58, 122, 101, 114, 111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0,
               ]),
             ),
-            alignment: _descriptor_4.alignment(),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -588,14 +588,14 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(
+            value: _descriptor_1.toValue(
               new Uint8Array([
                 115, 108, 111, 112, 115, 116, 114, 101, 97, 109, 58, 118, 49,
                 58, 112, 114, 101, 118, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0,
               ]),
             ),
-            alignment: _descriptor_4.alignment(),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -615,14 +615,14 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(
+            value: _descriptor_1.toValue(
               new Uint8Array([
                 115, 108, 111, 112, 115, 116, 114, 101, 97, 109, 58, 118, 49,
                 58, 112, 114, 101, 118, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0,
               ]),
             ),
-            alignment: _descriptor_4.alignment(),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -642,14 +642,14 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(
+            value: _descriptor_1.toValue(
               new Uint8Array([
                 115, 108, 111, 112, 115, 116, 114, 101, 97, 109, 58, 118, 49,
                 58, 112, 114, 101, 118, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0,
               ]),
             ),
-            alignment: _descriptor_4.alignment(),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -670,8 +670,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_3.toValue(tmp_1),
-            alignment: _descriptor_3.alignment(),
+            value: _descriptor_4.toValue(tmp_1),
+            alignment: _descriptor_4.alignment(),
           }).encode(),
         },
       },
@@ -691,8 +691,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_1.toValue(false),
-            alignment: _descriptor_1.alignment(),
+            value: _descriptor_3.toValue(false),
+            alignment: _descriptor_3.alignment(),
           }).encode(),
         },
       },
@@ -720,8 +720,8 @@ export class Contract {
           immediate: parseInt(
             __compactRuntime.valueToBigInt(
               {
-                value: _descriptor_0.toValue(tmp_2),
-                alignment: _descriptor_0.alignment(),
+                value: _descriptor_2.toValue(tmp_2),
+                alignment: _descriptor_2.alignment(),
               }.value,
             ),
           ),
@@ -733,7 +733,7 @@ export class Contract {
       this._localSecretKey_0(context, partialProofData),
       __compactRuntime.convertFieldToBytes(
         32,
-        _descriptor_2.fromValue(
+        _descriptor_0.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -754,7 +754,7 @@ export class Contract {
             { popeq: { cached: true, result: undefined } },
           ]).value,
         ),
-        "ProofOfAttention.compact line 61 char 48",
+        "ProofOfAttention.compact line 63 char 48",
       ),
     );
     __compactRuntime.queryLedgerState(context, partialProofData, [
@@ -771,8 +771,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(tmp_3),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(tmp_3),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -808,14 +808,14 @@ export class Contract {
       __compactRuntime.typeError(
         "localSecretKey",
         "return value",
-        "ProofOfAttention.compact line 65 char 1",
+        "ProofOfAttention.compact line 67 char 1",
         "Bytes<32>",
         result_0,
       );
     }
     partialProofData.privateTranscriptOutputs.push({
-      value: _descriptor_4.toValue(result_0),
-      alignment: _descriptor_4.alignment(),
+      value: _descriptor_1.toValue(result_0),
+      alignment: _descriptor_1.alignment(),
     });
     return result_0;
   }
@@ -836,14 +836,14 @@ export class Contract {
       __compactRuntime.typeError(
         "listenerSecret",
         "return value",
-        "ProofOfAttention.compact line 69 char 1",
+        "ProofOfAttention.compact line 71 char 1",
         "Bytes<32>",
         result_0,
       );
     }
     partialProofData.privateTranscriptOutputs.push({
-      value: _descriptor_4.toValue(result_0),
-      alignment: _descriptor_4.alignment(),
+      value: _descriptor_1.toValue(result_0),
+      alignment: _descriptor_1.alignment(),
     });
     return result_0;
   }
@@ -863,15 +863,69 @@ export class Contract {
     segmentId_0,
     challengeId_0,
   ) {
+    __compactRuntime.assert(
+      this._equal_0(
+        _descriptor_1.fromValue(
+          __compactRuntime.queryLedgerState(context, partialProofData, [
+            { dup: { n: 0 } },
+            {
+              idx: {
+                cached: false,
+                pushPath: false,
+                path: [
+                  {
+                    tag: "value",
+                    value: {
+                      value: _descriptor_9.toValue(7n),
+                      alignment: _descriptor_9.alignment(),
+                    },
+                  },
+                ],
+              },
+            },
+            { popeq: { cached: false, result: undefined } },
+          ]).value,
+        ),
+        this._publicKey_0(
+          this._localSecretKey_0(context, partialProofData),
+          __compactRuntime.convertFieldToBytes(
+            32,
+            _descriptor_0.fromValue(
+              __compactRuntime.queryLedgerState(context, partialProofData, [
+                { dup: { n: 0 } },
+                {
+                  idx: {
+                    cached: false,
+                    pushPath: false,
+                    path: [
+                      {
+                        tag: "value",
+                        value: {
+                          value: _descriptor_9.toValue(8n),
+                          alignment: _descriptor_9.alignment(),
+                        },
+                      },
+                    ],
+                  },
+                },
+                { popeq: { cached: true, result: undefined } },
+              ]).value,
+            ),
+            "ProofOfAttention.compact line 85 char 47",
+          ),
+        ),
+      ),
+      "Not the verifier",
+    );
     const nullifier_0 = this._persistentHash_0([
       this._listenerSecret_0(context, partialProofData),
       segmentId_0,
       challengeId_0,
     ]);
     __compactRuntime.assert(
-      !this._equal_0(
+      !this._equal_1(
         nullifier_0,
-        _descriptor_4.fromValue(
+        _descriptor_1.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -896,9 +950,9 @@ export class Contract {
       "Replayed attention proof rejected",
     );
     __compactRuntime.assert(
-      !this._equal_1(
+      !this._equal_2(
         nullifier_0,
-        _descriptor_4.fromValue(
+        _descriptor_1.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -923,9 +977,9 @@ export class Contract {
       "Replayed attention proof rejected",
     );
     __compactRuntime.assert(
-      !this._equal_2(
+      !this._equal_3(
         nullifier_0,
-        _descriptor_4.fromValue(
+        _descriptor_1.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -950,9 +1004,9 @@ export class Contract {
       "Replayed attention proof rejected",
     );
     __compactRuntime.assert(
-      !this._equal_3(
+      !this._equal_4(
         nullifier_0,
-        _descriptor_4.fromValue(
+        _descriptor_1.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -976,7 +1030,7 @@ export class Contract {
       ),
       "Replayed attention proof rejected",
     );
-    const tmp_0 = _descriptor_4.fromValue(
+    const tmp_0 = _descriptor_1.fromValue(
       __compactRuntime.queryLedgerState(context, partialProofData, [
         { dup: { n: 0 } },
         {
@@ -1011,14 +1065,14 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(tmp_0),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(tmp_0),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
       { ins: { cached: false, n: 1 } },
     ]);
-    const tmp_1 = _descriptor_4.fromValue(
+    const tmp_1 = _descriptor_1.fromValue(
       __compactRuntime.queryLedgerState(context, partialProofData, [
         { dup: { n: 0 } },
         {
@@ -1053,14 +1107,14 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(tmp_1),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(tmp_1),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
       { ins: { cached: false, n: 1 } },
     ]);
-    const tmp_2 = _descriptor_4.fromValue(
+    const tmp_2 = _descriptor_1.fromValue(
       __compactRuntime.queryLedgerState(context, partialProofData, [
         { dup: { n: 0 } },
         {
@@ -1095,8 +1149,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(tmp_2),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(tmp_2),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -1116,8 +1170,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_4.toValue(nullifier_0),
-            alignment: _descriptor_4.alignment(),
+            value: _descriptor_1.toValue(nullifier_0),
+            alignment: _descriptor_1.alignment(),
           }).encode(),
         },
       },
@@ -1145,8 +1199,8 @@ export class Contract {
           immediate: parseInt(
             __compactRuntime.valueToBigInt(
               {
-                value: _descriptor_0.toValue(tmp_3),
-                alignment: _descriptor_0.alignment(),
+                value: _descriptor_2.toValue(tmp_3),
+                alignment: _descriptor_2.alignment(),
               }.value,
             ),
           ),
@@ -1156,7 +1210,7 @@ export class Contract {
     ]);
     let t_0;
     if (
-      !_descriptor_1.fromValue(
+      !_descriptor_3.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1180,14 +1234,14 @@ export class Contract {
       ((t_0 = ((t1) => {
         if (t1 > 4294967295n) {
           throw new __compactRuntime.CompactError(
-            "ProofOfAttention.compact line 91 char 24: cast from Field or Uint value to smaller Uint value failed: " +
+            "ProofOfAttention.compact line 97 char 24: cast from Field or Uint value to smaller Uint value failed: " +
               t1 +
               " is greater than 4294967295",
           );
         }
         return t1;
       })(
-        _descriptor_2.fromValue(
+        _descriptor_0.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -1210,7 +1264,7 @@ export class Contract {
         ),
       )),
       t_0 >=
-        _descriptor_3.fromValue(
+        _descriptor_4.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -1246,8 +1300,8 @@ export class Contract {
           push: {
             storage: true,
             value: __compactRuntime.StateValue.newCell({
-              value: _descriptor_1.toValue(true),
-              alignment: _descriptor_1.alignment(),
+              value: _descriptor_3.toValue(true),
+              alignment: _descriptor_3.alignment(),
             }).encode(),
           },
         },
@@ -1258,8 +1312,8 @@ export class Contract {
   }
   _setAttentionThreshold_0(context, partialProofData, newThreshold_0) {
     __compactRuntime.assert(
-      this._equal_4(
-        _descriptor_4.fromValue(
+      this._equal_5(
+        _descriptor_1.fromValue(
           __compactRuntime.queryLedgerState(context, partialProofData, [
             { dup: { n: 0 } },
             {
@@ -1284,7 +1338,7 @@ export class Contract {
           this._localSecretKey_0(context, partialProofData),
           __compactRuntime.convertFieldToBytes(
             32,
-            _descriptor_2.fromValue(
+            _descriptor_0.fromValue(
               __compactRuntime.queryLedgerState(context, partialProofData, [
                 { dup: { n: 0 } },
                 {
@@ -1305,7 +1359,7 @@ export class Contract {
                 { popeq: { cached: true, result: undefined } },
               ]).value,
             ),
-            "ProofOfAttention.compact line 99 char 47",
+            "ProofOfAttention.compact line 105 char 47",
           ),
         ),
       ),
@@ -1325,8 +1379,8 @@ export class Contract {
         push: {
           storage: true,
           value: __compactRuntime.StateValue.newCell({
-            value: _descriptor_3.toValue(newThreshold_0),
-            alignment: _descriptor_3.alignment(),
+            value: _descriptor_4.toValue(newThreshold_0),
+            alignment: _descriptor_4.alignment(),
           }).encode(),
         },
       },
@@ -1354,8 +1408,8 @@ export class Contract {
           immediate: parseInt(
             __compactRuntime.valueToBigInt(
               {
-                value: _descriptor_0.toValue(tmp_0),
-                alignment: _descriptor_0.alignment(),
+                value: _descriptor_2.toValue(tmp_0),
+                alignment: _descriptor_2.alignment(),
               }.value,
             ),
           ),
@@ -1395,6 +1449,12 @@ export class Contract {
     }
     return true;
   }
+  _equal_5(x0, y0) {
+    if (!x0.every((x, i) => y0[i] === x)) {
+      return false;
+    }
+    return true;
+  }
 }
 export function ledger(stateOrChargedState) {
   const state =
@@ -1420,7 +1480,7 @@ export function ledger(stateOrChargedState) {
   };
   return {
     get verifiedCount() {
-      return _descriptor_2.fromValue(
+      return _descriptor_0.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1443,7 +1503,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get lastNullifier() {
-      return _descriptor_4.fromValue(
+      return _descriptor_1.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1466,7 +1526,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get prevNullifier1() {
-      return _descriptor_4.fromValue(
+      return _descriptor_1.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1489,7 +1549,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get prevNullifier2() {
-      return _descriptor_4.fromValue(
+      return _descriptor_1.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1512,7 +1572,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get prevNullifier3() {
-      return _descriptor_4.fromValue(
+      return _descriptor_1.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1535,7 +1595,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get attentionThreshold() {
-      return _descriptor_3.fromValue(
+      return _descriptor_4.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1558,7 +1618,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get thresholdMet() {
-      return _descriptor_1.fromValue(
+      return _descriptor_3.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1581,7 +1641,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get owner() {
-      return _descriptor_4.fromValue(
+      return _descriptor_1.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1604,7 +1664,7 @@ export function ledger(stateOrChargedState) {
       );
     },
     get sequence() {
-      return _descriptor_2.fromValue(
+      return _descriptor_0.fromValue(
         __compactRuntime.queryLedgerState(context, partialProofData, [
           { dup: { n: 0 } },
           {
@@ -1655,7 +1715,7 @@ export const pureCircuits = {
       __compactRuntime.typeError(
         "publicKey",
         "argument 1",
-        "ProofOfAttention.compact line 71 char 1",
+        "ProofOfAttention.compact line 73 char 1",
         "Bytes<32>",
         sk_0,
       );
@@ -1668,7 +1728,7 @@ export const pureCircuits = {
       __compactRuntime.typeError(
         "publicKey",
         "argument 2",
-        "ProofOfAttention.compact line 71 char 1",
+        "ProofOfAttention.compact line 73 char 1",
         "Bytes<32>",
         sequence_0,
       );

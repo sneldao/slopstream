@@ -65,7 +65,7 @@ export circuit setSpendThreshold(newThreshold: Uint<64>): [] {
 export circuit recordSpend(spendCents: Uint<64>): [] {
   assert(owner == publicKey(localSecretKey(), sequence as Field as Bytes<32>), "Not the contract owner");
   spendCommitment = disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "slopstream:spend:"), spendCents as Field as Bytes<32>]));
-  if (spendCents as Uint<64> >= spendThreshold) {
+  if (disclose(spendCents as Uint<64> >= spendThreshold)) {
     qualified = true;
   }
   sequence.increment(1);

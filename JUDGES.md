@@ -13,15 +13,18 @@ git rev-parse HEAD
 ## 2. Compile the contracts
 
 ```bash
-# install: https://docs.midnight.network — compact 0.31.1 (language 0.23)
-compact --version
-compact compile contracts/src/ProofOfAttention.compact ./out/proof-of-attention
-compact compile contracts/src/RewardClearing.compact ./out/reward-clearing
-compact compile contracts/src/PreviewRightsThreshold.compact ./out/preview-rights
+# install: https://docs.midnight.network — compactc 0.31.1 (language 0.23)
+compactc --version
+pnpm --filter @slopstream/midnight compact   # compiles all three contracts
+# or individually:
+compactc contracts/src/ProofOfAttention.compact ./out/proofofattention
+compactc contracts/src/RewardClearing.compact ./out/rewardclearing
+compactc contracts/src/PreviewRightsThreshold.compact ./out/previewrightsthreshold
 ```
 
 Expected: `Compiling N circuits:` + `compiler/ contract/ keys/ zkir/` in each out dir.
-`--skip-zk` for fast well-formedness check only.
+Precompiled artifacts for all three are also committed under
+`packages/midnight/contract/src/managed/` if you only want to run tests.
 
 ## 3. Run the circuit-mirror tests (no install)
 

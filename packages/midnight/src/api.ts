@@ -25,15 +25,35 @@ import {
   ledger,
 } from "../contract/src/managed/proofofattention/contract/index.js";
 import {
+  type Contract as RewardClearingContractType,
+  type Ledger as RewardClearingLedger,
+  ledger as rewardClearingLedger,
+} from "../contract/src/managed/rewardclearing/contract/index.js";
+import {
+  type Contract as PreviewRightsContractType,
+  type Ledger as PreviewRightsLedger,
+  ledger as previewRightsLedger,
+} from "../contract/src/managed/previewrightsthreshold/contract/index.js";
+import {
   CompiledProofOfAttentionContract,
+  CompiledRewardClearingContract,
+  CompiledPreviewRightsContract,
   type ProofOfAttentionPrivateState,
+  type RewardClearingPrivateState,
+  type PreviewRightsPrivateState,
   createProofOfAttentionPrivateState,
+  createRewardClearingPrivateState,
+  createPreviewRightsPrivateState,
 } from "./index.js";
 import {
   preprodEnvironment,
   proofOfAttentionPrivateStateKey,
+  rewardClearingPrivateStateKey,
+  previewRightsPrivateStateKey,
   type PrivateStateId,
   type AttentionCircuitKeys,
+  type RewardClearingCircuitKeys,
+  type PreviewRightsCircuitKeys,
 } from "./env.js";
 import { MidnightWalletProvider } from "./wallet.js";
 
@@ -43,18 +63,40 @@ export type AttentionProviders = MidnightProviders<
   ProofOfAttentionPrivateState
 >;
 
+export type RewardClearingProviders = MidnightProviders<
+  RewardClearingCircuitKeys,
+  PrivateStateId,
+  RewardClearingPrivateState
+>;
+
+export type PreviewRightsProviders = MidnightProviders<
+  PreviewRightsCircuitKeys,
+  PrivateStateId,
+  PreviewRightsPrivateState
+>;
+
 export type DeployedAttentionContract = FoundContract<
   Contract<ProofOfAttentionPrivateState>
 >;
 
-const zkConfigPath = path.resolve(
+export type DeployedRewardClearingContract = FoundContract<
+  RewardClearingContractType<RewardClearingPrivateState>
+>;
+
+export type DeployedPreviewRightsContract = FoundContract<
+  PreviewRightsContractType<PreviewRightsPrivateState>
+>;
+
+const managedRoot = path.resolve(
   new URL(".", import.meta.url).pathname,
   "..",
   "contract",
   "src",
   "managed",
-  "proofofattention",
 );
+
+export type ManagedContractName =
+  "proofofattention" | "rewardclearing" | "previewrightsthreshold";
 
 export type MinimalLogger = {
   info: (msg: string) => void;
@@ -62,16 +104,30 @@ export type MinimalLogger = {
   error?: (msg: string) => void;
 };
 
-export interface AttentionStack {
-  readonly providers: AttentionProviders;
+export interface SlopstreamStack {
   readonly walletProvider: MidnightWalletProvider;
+  /**
+   * Builds a providers object for one managed contract. Each contract gets
+   * its own private-state provider (a distinct LevelDB store and its own
+   * setContractAddress scope) and its own zk-config path, so the three
+   * contracts can share one funded wallet without key or state collisions.
+   */
+  providersFor(contract: "proofofattention"): AttentionProviders;
+  providersFor(contract: "rewardclearing"): RewardClearingProviders;
+  providersFor(contract: "previewrightsthreshold"): PreviewRightsProviders;
+  providersFor(
+    contract: ManagedContractName,
+  ): AttentionProviders | RewardClearingProviders | PreviewRightsProviders;
   stop(): Promise<void>;
 }
 
-export const buildAttentionStack = async (
+/** @deprecated Use SlopstreamStack + providersFor. Kept for bootstrap.ts. */
+export type AttentionStack = SlopstreamStack;
+
+export const buildSlopstreamStack = async (
   walletSeed: string,
   logger: MinimalLogger,
-): Promise<AttentionStack> => {
+): Promise<SlopstreamStack> => {
   setNetworkId(preprodEnvironment.networkId);
 
   // The previous hardcoded fallback password was removed: it protected the
@@ -90,54 +146,65 @@ export const buildAttentionStack = async (
   );
   await walletProvider.start();
 
-  const zkConfigProvider = new NodeZkConfigProvider<AttentionCircuitKeys>(
-    zkConfigPath,
+  const publicDataProvider = indexerPublicDataProvider(
+    preprodEnvironment.indexer,
+    preprodEnvironment.indexerWS,
   );
-  const providers: AttentionProviders = {
-    privateStateProvider: levelPrivateStateProvider<
-      PrivateStateId,
-      ProofOfAttentionPrivateState
-    >({
-      privateStateStoreName:
-        process.env.MIDNIGHT_PRIVATE_STATE_STORE ??
-        "slopstream-attention-private-state",
-      signingKeyStoreName: "slopstream-attention-signing-keys",
-      privateStoragePasswordProvider: () => storagePassword,
-      // SECURITY NOTE: accountId is the wallet seed itself, and the LevelDB
-      // private-state store persists account-scoped entries keyed by it.
-      // Anyone with read access to the store directory can recover the seed
-      // and control the wallet. Keep the store directory private; using a
-      // non-secret account id would be safer (not re-architected here).
-      accountId: walletSeed,
-    }),
-    publicDataProvider: indexerPublicDataProvider(
-      preprodEnvironment.indexer,
-      preprodEnvironment.indexerWS,
-    ),
-    zkConfigProvider,
-    proofProvider: httpClientProofProvider(
-      preprodEnvironment.proofServer,
+
+  const providersFor = <K extends string, PS>(
+    contract: ManagedContractName,
+  ): MidnightProviders<K, PrivateStateId, PS> => {
+    const zkConfigProvider = new NodeZkConfigProvider<K>(
+      path.join(managedRoot, contract),
+    );
+    return {
+      privateStateProvider: levelPrivateStateProvider<PrivateStateId, PS>({
+        privateStateStoreName:
+          process.env.MIDNIGHT_PRIVATE_STATE_STORE ??
+          `slopstream-${contract}-private-state`,
+        signingKeyStoreName: `slopstream-${contract}-signing-keys`,
+        privateStoragePasswordProvider: () => storagePassword,
+        // SECURITY NOTE: accountId is the wallet seed itself, and the LevelDB
+        // private-state store persists account-scoped entries keyed by it.
+        // Anyone with read access to the store directory can recover the seed
+        // and control the wallet. Keep the store directory private; using a
+        // non-secret account id would be safer (not re-architected here).
+        accountId: walletSeed,
+      }),
+      publicDataProvider,
       zkConfigProvider,
-    ),
-    walletProvider,
-    midnightProvider: walletProvider,
+      proofProvider: httpClientProofProvider(
+        preprodEnvironment.proofServer,
+        zkConfigProvider,
+      ),
+      walletProvider,
+      midnightProvider: walletProvider,
+    };
   };
 
-  logger.info("Midnight attention stack started (preprod).");
+  logger.info("Midnight stack started (preprod).");
 
   return {
-    providers,
     walletProvider,
+    providersFor: providersFor as SlopstreamStack["providersFor"],
     stop: async () => {
       await walletProvider.stop();
     },
   };
 };
 
-export interface AttentionProofReceipt {
+export const buildAttentionStack = async (
+  walletSeed: string,
+  logger: MinimalLogger,
+): Promise<SlopstreamStack> => buildSlopstreamStack(walletSeed, logger);
+
+export interface ContractCallReceipt {
   readonly contractAddress: ContractAddress;
   readonly txHash: string;
   readonly blockHeight: number;
+}
+
+export interface AttentionProofReceipt extends ContractCallReceipt {
   readonly nullifier: Uint8Array;
 }
 
@@ -248,5 +315,253 @@ export class ProofOfAttentionApi {
         this.deployedContractAddress,
       );
     return contractState != null ? ledger(contractState.data) : null;
+  }
+}
+
+/**
+ * RewardClearing — owner opens a reward pool per cleared bid; listeners claim
+ * shares proven against a per-claim nullifier so no claim replays. Share
+ * weights stay off-chain; the contract records the claim fact.
+ */
+export class RewardClearingApi {
+  private constructor(
+    public readonly deployedContract: DeployedRewardClearingContract,
+    private readonly providers: RewardClearingProviders,
+    private readonly logger?: MinimalLogger,
+  ) {
+    this.deployedContractAddress =
+      deployedContract.deployTxData.public.contractAddress;
+    providers.privateStateProvider.setContractAddress(
+      this.deployedContractAddress,
+    );
+  }
+
+  readonly deployedContractAddress: ContractAddress;
+
+  static async deploy(
+    providers: RewardClearingProviders,
+    logger?: MinimalLogger,
+  ): Promise<RewardClearingApi> {
+    const deployed = await deployContract(providers, {
+      compiledContract: CompiledRewardClearingContract,
+      privateStateId: rewardClearingPrivateStateKey,
+      initialPrivateState: createRewardClearingPrivateState(
+        randomBytes(32),
+        randomBytes(32),
+      ),
+    });
+    return new RewardClearingApi(
+      deployed as DeployedRewardClearingContract,
+      providers,
+      logger,
+    );
+  }
+
+  static async join(
+    providers: RewardClearingProviders,
+    contractAddress: string,
+    logger?: MinimalLogger,
+  ): Promise<RewardClearingApi> {
+    assertIsContractAddress(contractAddress);
+    const deployed = await findDeployedContract<
+      RewardClearingContractType<RewardClearingPrivateState>
+    >(providers, {
+      contractAddress,
+      compiledContract: CompiledRewardClearingContract,
+      privateStateId: rewardClearingPrivateStateKey,
+      initialPrivateState: createRewardClearingPrivateState(
+        randomBytes(32),
+        randomBytes(32),
+      ),
+    });
+    return new RewardClearingApi(
+      deployed as DeployedRewardClearingContract,
+      providers,
+      logger,
+    );
+  }
+
+  async createRewardPool(
+    bidId: Uint8Array,
+    eligibleAmountCents: bigint,
+  ): Promise<ContractCallReceipt> {
+    this.logger?.info("Creating reward pool on Midnight...");
+    const txData = await this.deployedContract.callTx.createRewardPool(
+      bidId,
+      eligibleAmountCents,
+    );
+    return {
+      contractAddress: this.deployedContractAddress,
+      txHash: txData.public.txHash,
+      blockHeight: txData.public.blockHeight,
+    };
+  }
+
+  /**
+   * Claims a listener's share of the open pool. A fresh claim secret is
+   * generated per claim so claims cannot be linked across pools; the returned
+   * nullifier is the exactly-once receipt.
+   */
+  async claimReward(
+    bidId: Uint8Array,
+    amountCents: bigint,
+  ): Promise<AttentionProofReceipt> {
+    const existing = await this.providers.privateStateProvider.get(
+      rewardClearingPrivateStateKey,
+    );
+    if (existing === null) {
+      throw new Error(
+        "Missing private state; deploy or join the contract first",
+      );
+    }
+    await this.providers.privateStateProvider.set(
+      rewardClearingPrivateStateKey,
+      {
+        ...existing,
+        claimSecret: randomBytes(32),
+      },
+    );
+
+    const txData = await this.deployedContract.callTx.claimReward(
+      bidId,
+      amountCents,
+    );
+    return {
+      contractAddress: this.deployedContractAddress,
+      txHash: txData.public.txHash,
+      blockHeight: txData.public.blockHeight,
+      nullifier: (txData as { result?: Uint8Array }).result ?? new Uint8Array(),
+    };
+  }
+
+  async readLedgerState(): Promise<RewardClearingLedger | null> {
+    const contractState =
+      await this.providers.publicDataProvider.queryContractState(
+        this.deployedContractAddress,
+      );
+    return contractState != null
+      ? rewardClearingLedger(contractState.data)
+      : null;
+  }
+}
+
+/**
+ * PreviewRightsThreshold — a brand proves it crossed a spend threshold
+ * without revealing the amount. recordSpend commits the private spend;
+ * proveQualification reveals only the boolean.
+ */
+export class PreviewRightsApi {
+  private constructor(
+    public readonly deployedContract: DeployedPreviewRightsContract,
+    private readonly providers: PreviewRightsProviders,
+    private readonly logger?: MinimalLogger,
+  ) {
+    this.deployedContractAddress =
+      deployedContract.deployTxData.public.contractAddress;
+    providers.privateStateProvider.setContractAddress(
+      this.deployedContractAddress,
+    );
+  }
+
+  readonly deployedContractAddress: ContractAddress;
+
+  static async deploy(
+    providers: PreviewRightsProviders,
+    logger?: MinimalLogger,
+  ): Promise<PreviewRightsApi> {
+    const deployed = await deployContract(providers, {
+      compiledContract: CompiledPreviewRightsContract,
+      privateStateId: previewRightsPrivateStateKey,
+      initialPrivateState: createPreviewRightsPrivateState(randomBytes(32), 0n),
+    });
+    return new PreviewRightsApi(
+      deployed as DeployedPreviewRightsContract,
+      providers,
+      logger,
+    );
+  }
+
+  static async join(
+    providers: PreviewRightsProviders,
+    contractAddress: string,
+    logger?: MinimalLogger,
+  ): Promise<PreviewRightsApi> {
+    assertIsContractAddress(contractAddress);
+    const deployed = await findDeployedContract<
+      PreviewRightsContractType<PreviewRightsPrivateState>
+    >(providers, {
+      contractAddress,
+      compiledContract: CompiledPreviewRightsContract,
+      privateStateId: previewRightsPrivateStateKey,
+      initialPrivateState: createPreviewRightsPrivateState(randomBytes(32), 0n),
+    });
+    return new PreviewRightsApi(
+      deployed as DeployedPreviewRightsContract,
+      providers,
+      logger,
+    );
+  }
+
+  /** Owner-only: commits the brand's cumulative spend (stays private). */
+  async recordSpend(spendCents: bigint): Promise<ContractCallReceipt> {
+    const txData = await this.deployedContract.callTx.recordSpend(spendCents);
+    return {
+      contractAddress: this.deployedContractAddress,
+      txHash: txData.public.txHash,
+      blockHeight: txData.public.blockHeight,
+    };
+  }
+
+  /** Owner-only: updates the threshold that unlocks premium rights. */
+  async setSpendThreshold(
+    thresholdCents: bigint,
+  ): Promise<ContractCallReceipt> {
+    const txData =
+      await this.deployedContract.callTx.setSpendThreshold(thresholdCents);
+    return {
+      contractAddress: this.deployedContractAddress,
+      txHash: txData.public.txHash,
+      blockHeight: txData.public.blockHeight,
+    };
+  }
+
+  /**
+   * Proves spend >= threshold against the committed spend. The caller passes
+   * the true spend into private state; only the boolean is revealed on-chain.
+   */
+  async proveQualification(
+    actualSpendCents: bigint,
+  ): Promise<ContractCallReceipt> {
+    const existing = await this.providers.privateStateProvider.get(
+      previewRightsPrivateStateKey,
+    );
+    if (existing === null) {
+      throw new Error(
+        "Missing private state; deploy or join the contract first",
+      );
+    }
+    await this.providers.privateStateProvider.set(
+      previewRightsPrivateStateKey,
+      {
+        ...existing,
+        actualSpendCents,
+      },
+    );
+    const txData = await this.deployedContract.callTx.proveQualification();
+    return {
+      contractAddress: this.deployedContractAddress,
+      txHash: txData.public.txHash,
+      blockHeight: txData.public.blockHeight,
+    };
+  }
+
+  async readLedgerState(): Promise<PreviewRightsLedger | null> {
+    const contractState =
+      await this.providers.publicDataProvider.queryContractState(
+        this.deployedContractAddress,
+      );
+    return contractState != null
+      ? previewRightsLedger(contractState.data)
+      : null;
   }
 }

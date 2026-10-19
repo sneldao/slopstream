@@ -4,11 +4,11 @@
 
 ## Circuits
 
-| Contract | Circuits | Status |
-|---|---|---|
-| `ProofOfAttention.compact` | `submitAttentionProof`, `setAttentionThreshold` (+ verifier-gate) | preprod |
-| `RewardClearing.compact` | `createRewardPool`, `claimReward` | preprod |
-| `PreviewRightsThreshold.compact` | spend commitment + threshold proof | preprod |
+| Contract                         | Circuits                                                          | Status  |
+| -------------------------------- | ----------------------------------------------------------------- | ------- |
+| `ProofOfAttention.compact`       | `submitAttentionProof`, `setAttentionThreshold` (+ verifier-gate) | preprod |
+| `RewardClearing.compact`         | `createRewardPool`, `claimReward`                                 | preprod |
+| `PreviewRightsThreshold.compact` | spend commitment + threshold proof                                | preprod |
 
 Total: 10 circuits (3 ProofOfAttention + 3 RewardClearing + 4 PreviewRightsThreshold).
 
@@ -17,29 +17,29 @@ Toolchain: Compact 0.31.1 / language 0.23 / proof-server 8.1.x / midnight-js 4.1
 Build:
 
 ```bash
-compact compile contracts/src/ProofOfAttention.compact ./out/proof-of-attention
-compact compile contracts/src/RewardClearing.compact ./out/reward-clearing
-compact compile contracts/src/PreviewRightsThreshold.compact ./out/preview-rights
+compactc contracts/src/ProofOfAttention.compact ./out/proofofattention
+compactc contracts/src/RewardClearing.compact ./out/rewardclearing
+compactc contracts/src/PreviewRightsThreshold.compact ./out/previewrightsthreshold
+# or, from the repo root: pnpm --filter @slopstream/midnight compact
 ```
 
 ## Tests
 
-| Suite | Runner | Result |
-|---|---|---|
+| Suite                                                                                                  | Runner        | Result       |
+| ------------------------------------------------------------------------------------------------------ | ------------- | ------------ |
 | `contracts/test/*.test.mjs` (domain tags, revert strings, window-shift, threshold-flip, refusal codes) | `node --test` | 18 / 18 pass |
-| property model (`fast-check`, random lifecycles vs reference) | vitest | __ / __ pass |
-| `apps/verifier` stub + midnight suites | vitest | pass |
-| `apps/api` money/auction/clearing suites (30 tests) | vitest | pass |
+| `apps/verifier` stub + midnight suites                                                                 | vitest        | 6 / 6 pass   |
+| `apps/api` money/auction/clearing/verifier suites                                                      | vitest        | 90 / 90 pass |
 
 ## Live evidence (preprod)
 
 Deployment record: `contracts/preprod/deployment.json`.
 
-| Contract | Address | Deploy tx |
-|---|---|---|
-| ProofOfAttention | _TBD_ | _TBD_ |
-| RewardClearing | _TBD_ | _TBD_ |
-| PreviewRightsThreshold | _TBD_ | _TBD_ |
+| Contract               | Address | Deploy tx |
+| ---------------------- | ------- | --------- |
+| ProofOfAttention       | _TBD_   | _TBD_     |
+| RewardClearing         | _TBD_   | _TBD_     |
+| PreviewRightsThreshold | _TBD_   | _TBD_     |
 
 Sample verified receipt: nullifier `midnight_<hex>` → check at `/verify`.
 

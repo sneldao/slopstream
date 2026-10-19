@@ -70,4 +70,3 @@ These prove the business model for judges; they do not replace Continuum quality
 ## Progress summary
 
 See [progress.md](./progress.md) for per-lane status. See [wave3-plan.md](./wave3-plan.md) for the Wave 3 comeback execution order.
-

@@ -233,6 +233,15 @@ export function ProofReceipt({
             </div>
             <div style={styles.fullProofId}>{receipt.proofId}</div>
 
+            {receipt.txHash && (
+              <div style={styles.row}>
+                <span style={styles.rowLabel}>Tx</span>
+                <span style={styles.rowValue} title={receipt.txHash}>
+                  {receipt.txHash.slice(0, 10)}…
+                </span>
+              </div>
+            )}
+
             {isVerified && (
               <div style={styles.rewardBox}>
                 <div style={styles.rewardLabel}>ESTIMATED REWARD</div>
@@ -262,6 +271,14 @@ export function ProofReceipt({
             )}
 
             <div style={styles.actions}>
+              {receipt.verifierMode === "midnight" && (
+                <a
+                  style={{ ...styles.secondaryButton, textDecoration: "none" }}
+                  href={`/verify?nullifier=${encodeURIComponent(receipt.proofId)}`}
+                >
+                  Verify on-chain
+                </a>
+              )}
               <button
                 type="button"
                 style={styles.secondaryButton}

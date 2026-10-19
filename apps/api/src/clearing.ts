@@ -226,6 +226,7 @@ export class ClearingEngine {
         ? this.estimateShare(segment, event)
         : undefined,
       verifierMode: outcome.verifierMode,
+      txHash: outcome.txHash,
       createdAt: event.createdAt,
     };
   }

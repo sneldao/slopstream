@@ -105,6 +105,9 @@ export interface AttentionProofReceipt {
   /** Which verifier implementation produced this receipt, so the UI can
    *  label stub vs Midnight receipts truthfully. */
   verifierMode?: "stub" | "midnight";
+  /** Midnight preprod tx hash — present only on real on-chain receipts.
+   *  Lets the receipt deep-link to /verify with independently checkable evidence. */
+  txHash?: string;
   createdAt: string;
 }
 
@@ -145,6 +148,9 @@ export interface AttentionProofVerificationResult {
   verified: boolean;
   /** Stable reference suitable for Lane 2's attention_events.proof_ref. */
   proofId?: string;
+  /** Midnight preprod tx hash — present only when the proof was recorded
+   *  on-chain. Lane 2 forwards it onto the receipt for /verify deep-linking. */
+  txHash?: string;
   /** Present only when `verified` is false. */
   failure?: AttentionProofVerificationFailure;
   /** Identifies the verifier implementation that produced this result. */

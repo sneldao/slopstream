@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import {
-  buildAttentionStack,
+  buildSlopstreamStack,
   ProofOfAttentionApi,
-  type AttentionStack,
+  type SlopstreamStack,
 } from "../src/index.js";
 import { fundFromFaucetAndWait, generateDust } from "../src/wallet.js";
 import pino from "pino";
@@ -41,12 +41,12 @@ export const bootstrap = async (opts: {
    *  wallet was funded manually (e.g. via the faucet UI with captcha). */
   skipFaucetRequest?: boolean;
 }): Promise<{
-  stack: AttentionStack;
+  stack: SlopstreamStack;
   api: ProofOfAttentionApi;
   shutdown: () => Promise<void>;
 }> => {
   const seed = getWalletSeed();
-  const stack = await buildAttentionStack(seed, logger);
+  const stack = await buildSlopstreamStack(seed, logger);
 
   if (opts.fund) {
     const unshieldedState = await fundFromFaucetAndWait(
@@ -68,10 +68,11 @@ export const bootstrap = async (opts: {
     }
   }
 
+  const providers = stack.providersFor("proofofattention");
   const address = process.env.PROOF_OF_ATTENTION_CONTRACT_ADDRESS;
   const api = address
-    ? await ProofOfAttentionApi.join(stack.providers, address, logger)
-    : await ProofOfAttentionApi.deploy(stack.providers, logger);
+    ? await ProofOfAttentionApi.join(providers, address, logger)
+    : await ProofOfAttentionApi.deploy(providers, logger);
 
   logger.info(
     `ProofOfAttention contract address: ${api.deployedContractAddress}`,
@@ -86,7 +87,7 @@ export const bootstrap = async (opts: {
   };
 };
 
-const waitForDust = async (stack: AttentionStack): Promise<void> => {
+export const waitForDust = async (stack: SlopstreamStack): Promise<void> => {
   const deadline = Date.now() + 10 * 60_000;
   while (Date.now() < deadline) {
     const state = await new Promise<{ dust: bigint }>((resolve) => {
