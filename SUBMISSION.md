@@ -59,6 +59,15 @@ pnpm --filter @slopstream/api test             # 90/90
 Then open `/verify` on the deployed web app and paste a `midnight_<hex>`
 nullifier from a receipt.
 
+**On-chain status at submission:** three contracts compiled with artifacts in
+`contracts/`; funded deployer wallet on preprod; dust-registration tx
+`00c44c15a2973ba032fa9586a19ad91aa2b17edadf2004b8eb64acb68f37a55ebc` confirmed
+on-chain (check via the Blockfrost indexer). `deploy:all` is in flight —
+the deploy txs fire automatically once the dust sub-wallet's sync reaches the
+registration point (preprod wallet sync trial-decrypts ~1.7M indices; hours,
+not minutes). `contracts/preprod/deployment.json` gets real addresses when it
+lands.
+
 ## Honest limits
 
 - Backend ledger remains authoritative for clearing during the hackathon;

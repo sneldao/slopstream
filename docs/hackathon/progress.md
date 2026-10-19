@@ -519,16 +519,29 @@ written; `midnightntwrk` topic added to the repo.
 **Deploy status (nuncio-vultr):** proof-server upgraded to
 `midnightntwrk/proof-server:8.1.3` (patches critical GHSA-wr7g-rr4v-jmj8 —
 canonical-transcript fix for one-time-check bypass). Wallet funded via manual
-faucet claim (5000 tNIGHT, tx `002876af…`). `deploy:all` run hit recurring
-`Wallet.Sync` stream errors in `wallet-sdk-unshielded-wallet@3.1.0` — all
-transports verified healthy by direct test (indexer HTTP + WS, node RPC WS,
-`unshieldedTransactions` subscription returns live data), so suspicion is
-payload-shape drift between `wallet-sdk-indexer-client@1.2.2` and the
-Blockfrost-hosted indexer 4.3.5. No stable fix exists (newer SDK lines are
-ledger-9/v5 RCs). Watch `~/slopstream-deploy/deploy-all3.log`; if it wedges,
-options: (a) wait — errors may be per-event while progress still advances,
-(b) test `wallet-sdk-*` 4.0.0-rc / testkit 5.0.0-rc in a branch,
-(c) narrow to the decode failure and patch the schema locally.
+faucet claim (tx `002876af…`).
+
+**Deploy diagnosis — resolved (86ab054):** a sync-probe script streaming
+facade progress showed the wallet was never wedged on errors — the earlier
+`Wallet.Sync` lines were Effect `ParseError` payloads printed as
+`[object Object]` from run 1 only. The real blocker: `fundFromFaucetAndWait`
+required all three sub-wallets `isStrictlyComplete()`, but shielded + dust
+trial-decrypt the full ~1.7M-index preprod history (hours) while unshielded
+tx-id sync finishes in ~6 s. Fixes: balance gate is unshielded-only, dust
+address comes from the first state emission (key-derived, no sync needed),
+`waitForDust` deadline 10 min → 24 h and runs unconditionally (covers restarts
+where UTXOs are already registered). Result: funding passed in 6 s and dust
+registration tx `00c44c15a2973ba032fa9586a19ad91aa2b17edadf2004b8eb64acb68f37a55ebc`
+is confirmed on preprod — verifiable via the indexer.
+
+**Still waiting on:** `dust.balance()` goes positive only once the dust
+sub-wallet's sync reaches the registration tx — the same multi-hour
+full-history grind. `deploy-all6` runs unassisted (`~/slopstream-deploy/
+deploy-all6.log`, launcher `run-deploy.sh`); when dust shows it deploys all
+three contracts and writes `contracts/preprod/deployment.json` in one shot —
+pull + commit when it lands. Note sync state is in-memory
+(`txHistoryStorage.storage = {}`), so any process restart re-grinds from
+zero — leave the run alone.
 
 **Research findings worth planning around:** mainnet contract deployment went
 permissionless 2026-10-02 (no review gate — roadmap claim upgraded); ledger
