@@ -72,9 +72,13 @@ context }` request.
     (audio_image tier).
   - Video generation via `flows.video` with `veo-3.1-fast-generate-001`
     (video + premium tiers).
-  - Spend mitigation via `ELEVENLABS_MAX_TIER` — caps the generation tier,
-    downgrading higher tiers to the cap. Set to `audio` to skip image/video
-    generation entirely (TTS-only, cheapest path).
+  - Spend mitigation on two axes. Per call: `ELEVENLABS_MAX_TIER` caps the
+    tier, downgrading anything above it, and **defaults to `audio`** so image
+    and video never fire by an omitted env line. Per process:
+    `ELEVENLABS_MAX_GENERATIONS` (default 200) refuses once spent — a runaway
+    live-generating loop fails closed into encores instead of an open-ended
+    invoice. Both are reported on `GET /health` as `cost`. Honest limit: the
+    counter is per-process, so the account's plan cap stays the real ceiling.
   - Template-based ad script generation from the brand brief (no separate
     LLM API key needed).
   - Assets are published through `AssetPublisher`: locally under `/assets/`

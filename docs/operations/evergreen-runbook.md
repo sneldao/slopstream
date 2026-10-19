@@ -21,7 +21,8 @@
 1. **Configure the generator for direct mode** (local machine only):
    `GENERATOR_MODE=elevenlabs`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`,
    `ELEVENLABS_TTS_MODEL=eleven_flash_v2_5` (cheaper for the bulk mint),
-   `ELEVENLABS_MAX_TIER=audio_image` (video sparingly — 1-2 entries max),
+   `ELEVENLABS_MAX_TIER=audio_image` (**required** — unset now defaults to
+   `audio`, so image work needs saying out loud; video sparingly, 1-2 entries max),
    `ASSET_BASE_URL=https://assets.example.com/slopstream`.
 2. **Mint 12-15 candidates** across 3-4 fictional brands (Acme-style).
    Keep briefs to 15-20s of speech (~40-55 words). Favor `audio` and
@@ -114,7 +115,40 @@ Rotation variety skips the last aired brand **and** last aired style (see
 `pickNextEvergreen`), which is what makes a small catalog feel like a channel.
 Cadence: one fresh segment a week keeps the loop from going stale.
 
-## 4. Rollback
+## 4. Spend controls (why ElevenLabs cannot run away)
+
+The load-bearing protection is the posture above, not a limit in code:
+`EVERGREEN_MODE=1` takes a branch in the scheduler poll that only calls
+`/evergreen/air-next`. It never touches a provider, so the steady state is $0
+by construction. The generation session is the only thing that spends.
+
+When `GENERATOR_MODE=elevenlabs` is on, cost is bounded on two axes:
+
+| Axis | Control | Effect |
+| ---- | ------- | ------ |
+| Cost **per call** | `ELEVENLABS_MAX_TIER` (default `audio`) | `audio` returns before `flows.image` / `flows.video`, which is where the money is |
+| **Number of calls** | `ELEVENLABS_MAX_GENERATIONS` (default 200) | The provider throws once spent; the scheduler marks the segment `failed` and encores cover the gap |
+
+Plus the structural bounds: single-flight (one generation in flight, ever),
+prefetch depth clamped 1-3, generations started only on scheduler ticks, and a
+word budget on the script so TTS characters per call stay flat.
+
+Be honest about what the budget is **not**: it is a per-process runaway brake,
+not a billing quota. A restart resets the counter, so the ElevenLabs plan
+limit on the account remains the real ceiling. If you want a hard monthly cap,
+set it in the ElevenLabs dashboard.
+
+Two narrow paths can double-charge a single segment, and neither loops: a
+provider error *and* a `/failed` error in the same tick (the segment stays
+unprocessed, next tick re-drives), or an orchestrator restart while a segment
+is `generating` (the poll re-drives the closed slot). Both are bounded by the
+budget above.
+
+`GET /health` on the generator reports the effective posture — `cost.maxTier`,
+`cost.callsUsed`, `cost.callBudget` — so "is this going to stop?" is answerable
+without reading env files. The same line prints on boot.
+
+## 5. Rollback
 
 - Bad catalog push -> API refuses boot (fail-closed), previous container
   keeps serving. Fix the JSON/bytes, redeploy.
