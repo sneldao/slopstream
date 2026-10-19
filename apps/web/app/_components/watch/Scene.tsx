@@ -432,6 +432,7 @@ function MediaAsset({
 }) {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const visual = segment.media?.visual;
   // `assetUrl` remains only for already-persisted demo history during the
   // manifest migration. Newly generated segments always use `media.visual`.
@@ -440,6 +441,12 @@ function MediaAsset({
   useEffect(() => {
     setFailed(false);
     setReady(false);
+  }, [mediaUrl]);
+  // Cached images can be complete before onLoad attaches (rotation re-airs
+  // the same creative), which would leave the media at opacity 0 forever.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) setReady(true);
   }, [mediaUrl]);
 
   if (!mediaUrl || failed || mediaType === "audio") {
@@ -497,6 +504,7 @@ function MediaAsset({
       {/* Generated asset URLs are dynamic and cannot use next/image host allowlists. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         className="continuum-portal__media"
         src={mediaUrl}
         alt=""
