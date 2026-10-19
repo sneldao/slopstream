@@ -129,6 +129,7 @@ export function airNextEvergreen(
     thresholdFraction: store.thresholdFraction,
     windowClosed: false,
     brief: entry.brief,
+    ...(entry.style ? { style: entry.style } : {}),
   };
   ledger.segments.set(segment.id, segment);
   const state = store.states.get(entry.id) ?? {

@@ -85,6 +85,9 @@ export interface SegmentRow {
   brief?: string;
   /** The scraped company this free segment was generated from. */
   scrapedCompanyId?: string;
+  /** Evergreen catalog treatment label, carried onto the snapshot so the
+   *  rotation's visual variety is visible to clients. */
+  style?: string;
 }
 
 export interface ChallengeRow {

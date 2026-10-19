@@ -489,6 +489,10 @@ export interface Segment {
   /** Timestamp of when the segment's attention window opened (playback
    *  start). Used to enforce the recent-segment age cap. */
   windowOpenedAtMs?: number;
+  /** Visual treatment of an evergreen segment, e.g. "paper-collage". Lets the
+   *  audience see the rotation change look, not just the brand. Absent for
+   *  generated segments, which have no catalog style. */
+  style?: string;
 }
 
 // ---------------------------------------------------------------------------

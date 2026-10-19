@@ -34,6 +34,7 @@ function toSharedSegment(segment: SegmentRow): SharedSegment {
     ...(segment.windowOpenedAtMs !== undefined
       ? { windowOpenedAtMs: segment.windowOpenedAtMs }
       : {}),
+    ...(segment.style !== undefined ? { style: segment.style } : {}),
   };
 }
 

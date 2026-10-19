@@ -230,6 +230,28 @@ describe("rotation", () => {
     expect(store.states.get("evergreen_test")?.airCount).toBe(1);
     expect(ledger.segments.get(out!.segment.id)?.brief).toBe("Fun ad");
   });
+  it("carries the catalog style onto the aired segment", () => {
+    const store: EvergreenStore = {
+      entries: [entry({ style: "paper-collage" })],
+      assetBaseUrl: "https://assets.example.test/slopstream",
+      states: new Map(),
+      thresholdFraction: 0.6,
+    };
+    const ledger = new Ledger();
+    const out = airNextEvergreen(store, ledger, 1, 1_000_000);
+    expect(ledger.segments.get(out!.segment.id)?.style).toBe("paper-collage");
+  });
+  it("leaves style absent for an entry that declares none", () => {
+    const store: EvergreenStore = {
+      entries: [entry()],
+      assetBaseUrl: "https://assets.example.test/slopstream",
+      states: new Map(),
+      thresholdFraction: 0.6,
+    };
+    const ledger = new Ledger();
+    const out = airNextEvergreen(store, ledger, 1, 1_000_000);
+    expect(ledger.segments.get(out!.segment.id)?.style).toBeUndefined();
+  });
 
   it("repeats a single-entry catalog despite the variety penalty", () => {
     const only = entry({ id: "evergreen_only", brandId: "brand_solo" });
