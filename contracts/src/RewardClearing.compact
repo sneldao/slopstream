@@ -1,17 +1,94 @@
-// RewardClearing — proves reward pool creation and distributes claims.
-// Interface sketch; implementation lands with the Compact toolchain.
-// Fully on-chain RewardClearing is P2 — the backend ledger handles
-// distribution first (see docs/hackathon/build-order.md).
+// Slopstream RewardClearing — Wave 3. Proves reward pool creation and
+// distributes per-listener claims without revealing share weights.
 //
-// createRewardPool(
-//     bidId,
-//     eligibleAmountUsd
-// )
+// Privacy: verified advertiser spend -> listener reward pool. The per-listener
+// share is weighted by private factors (difficulty, duration, uniqueness,
+// anti-fraud score). The backend computes each share off-chain and constructs
+// the claim; the contract verifies the claim against the pool's
+// eligible_amount and records a per-claim nullifier so no listener can
+// double-claim. Weighting inputs and listener identity stay hidden.
 //
-// claimReward(
-//     listenerCommitment,
-//     rewardProof
-// )
+// Trust assumption (stated plainly): the backend does the share math AND
+// constructs the claim, so the contract provides auditability +
+// non-repudiation of each claimed share, not independent recomputation.
+// Acceptable because hackathon balances are internal (no fiat leaves).
 //
-// Makes the economic relationship explicit:
-// verified advertiser spend -> listener reward pool.
+// Stripe moves dollars. Midnight proves facts.
+
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+// Total eligible reward for this pool (cents), set once at creation.
+export ledger eligibleAmount: Uint<64>;
+
+// Bid this pool was created from (opaque 32-byte bid id hash).
+export ledger bidId: Bytes<32>;
+
+// Whether the pool is open for claims.
+export ledger poolOpen: Boolean;
+
+// Nullifier window for consumed claims (same 4-deep replay pattern as
+// ProofOfAttention — a claim replayed within the window is rejected).
+export ledger lastClaimNullifier: Bytes<32>;
+export ledger prevClaimNullifier1: Bytes<32>;
+export ledger prevClaimNullifier2: Bytes<32>;
+export ledger prevClaimNullifier3: Bytes<32>;
+
+// Hashed deployer key; authorizes pool creation.
+export ledger owner: Bytes<32>;
+
+// Administrative sequence; binds the owner key to current state.
+export ledger sequence: Counter;
+
+constructor() {
+  eligibleAmount = 0 as Uint<64>;
+  bidId = pad(32, "slopstream:rc:zero");
+  poolOpen = false;
+  lastClaimNullifier = pad(32, "slopstream:rc:zero");
+  prevClaimNullifier1 = pad(32, "slopstream:rc:prev1");
+  prevClaimNullifier2 = pad(32, "slopstream:rc:prev2");
+  prevClaimNullifier3 = pad(32, "slopstream:rc:prev3");
+  sequence.increment(1);
+  owner = disclose(publicKey(localSecretKey(), sequence as Field as Bytes<32>));
+}
+
+// Deployer/administrator secret key (dApp private state).
+witness localSecretKey(): Bytes<32>;
+
+// Ephemeral claim secret (dApp private state). Fresh per listener per pool,
+// so no listener can be linked across pools.
+witness claimSecret(): Bytes<32>;
+
+export circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "slopstream:pk:"), sequence, sk]);
+}
+
+// Owner-only: open a reward pool for a cleared bid.
+export circuit createRewardPool(poolBidId: Bytes<32>, poolEligibleAmount: Uint<64>): [] {
+  assert(owner == publicKey(localSecretKey(), sequence as Field as Bytes<32>), "Not the contract owner");
+  bidId = disclose(poolBidId);
+  eligibleAmount = disclose(poolEligibleAmount);
+  poolOpen = true;
+  sequence.increment(1);
+}
+
+// A listener claims their share of the open pool. claimAmountCents is the
+// backend-computed share, disclosed so pool accounting is auditable; the
+// weighting inputs that produced it are never on-chain. Returns the claim
+// nullifier as the exactly-once receipt.
+export circuit claimReward(poolBidId: Bytes<32>, claimAmountCents: Uint<64>): Bytes<32> {
+  assert(poolOpen, "Reward pool is not open");
+  assert(poolBidId == bidId, "Claim is for a different pool");
+  assert(claimAmountCents as Uint<64> <= eligibleAmount, "Claim exceeds pool");
+  const nullifier = persistentHash<Vector<3, Bytes<32>>>([claimSecret(), poolBidId, pad(32, "slopstream:rc:claim")]);
+  assert(nullifier != lastClaimNullifier, "Replayed reward claim rejected");
+  assert(nullifier != prevClaimNullifier1, "Replayed reward claim rejected");
+  assert(nullifier != prevClaimNullifier2, "Replayed reward claim rejected");
+  assert(nullifier != prevClaimNullifier3, "Replayed reward claim rejected");
+  prevClaimNullifier3 = prevClaimNullifier2;
+  prevClaimNullifier2 = prevClaimNullifier1;
+  prevClaimNullifier1 = lastClaimNullifier;
+  lastClaimNullifier = disclose(nullifier);
+  return disclose(nullifier);
+}

@@ -1,0 +1,10 @@
+{
+  "network": "midnight-preprod",
+  "toolchain": { "compact": "0.31.1", "language": "0.23" },
+  "contracts": {
+    "ProofOfAttention": { "address": "TBD-wave3-deploy", "deployTx": "TBD", "circuits": ["submitAttentionProof", "setAttentionThreshold", "publicKey"] },
+    "RewardClearing": { "address": "TBD-wave3-deploy", "deployTx": "TBD", "circuits": ["createRewardPool", "claimReward", "publicKey"] },
+    "PreviewRightsThreshold": { "address": "TBD-wave3-deploy", "deployTx": "TBD", "circuits": ["setSpendThreshold", "recordSpend", "proveQualification", "publicKey"] }
+  },
+  "note": "Filled at Wave 3 preprod deploy. Verifier wiring: packages/midnight + apps/verifier (VERIFIER_MODE=midnight)."
+}

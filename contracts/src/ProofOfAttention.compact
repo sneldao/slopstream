@@ -14,10 +14,12 @@
 //
 // Replay protection keeps the last 4 accepted nullifiers, so a proof replayed
 // within the window is rejected even when other proofs landed in between.
-// Known limitation (preprod): submitAttentionProof is not caller-gated — the
-// listener secret is the only input gate, and the verifier is the only
-// intended submitter. The backend ledger (not the on-chain counter) is
-// authoritative for clearing; production needs verifier-key authorization.
+// Known limitation (preprod) — RESOLVED Wave 3: submitAttentionProof is now
+// caller-gated by verifier-key authorization. Only the holder of
+// localSecretKey (the verifier process) can submit: the circuit asserts
+// owner == publicKey(localSecretKey(), sequence) before accepting.
+// The backend ledger (not the on-chain counter) remains authoritative for
+// clearing; the chain provides auditability + non-repudiation.
 
 pragma language_version 0.23;
 
@@ -76,7 +78,11 @@ export circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
 // segment. segmentId and challengeId are public bindings supplied by the
 // backend; the listener secret stays private. The returned nullifier is the
 // public receipt that this specific proof was consumed exactly once.
+//
+// Wave 3: verifier-key gated — only the verifier (holder of localSecretKey)
+// can submit. Anyone else's transaction fails with "Not the verifier".
 export circuit submitAttentionProof(segmentId: Bytes<32>, challengeId: Bytes<32>): Bytes<32> {
+  assert(owner == publicKey(localSecretKey(), sequence as Field as Bytes<32>), "Not the verifier");
   const nullifier = persistentHash<Vector<3, Bytes<32>>>([listenerSecret(), segmentId, challengeId]);
   assert(nullifier != lastNullifier, "Replayed attention proof rejected");
   assert(nullifier != prevNullifier1, "Replayed attention proof rejected");
