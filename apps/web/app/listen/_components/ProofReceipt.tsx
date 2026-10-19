@@ -53,7 +53,7 @@ export function ProofReceipt({
   const shareText = isVerified
     ? `Attention verified on Slopstream for ${brand?.name ?? receipt.brandId}. Proof ${receipt.proofId}${
         receipt.estimatedRewardUsd
-          ? ` · ~$${receipt.estimatedRewardUsd.toFixed(2)} pending pool close`
+          ? ` · ~${receipt.estimatedRewardUsd.toFixed(2)} points pending pool close`
           : ""
       }`
     : `Attention check missed on Slopstream. Stay for the next one.`;
@@ -74,7 +74,7 @@ export function ProofReceipt({
     return () => clearInterval(interval);
   }, [receipt.proofId]);
 
-  // Reward counts up from $0.00.
+  // Reward counts up from 0.00 pts.
   useEffect(() => {
     if (!receipt.estimatedRewardUsd) return;
     const target = receipt.estimatedRewardUsd;
@@ -253,9 +253,9 @@ export function ProofReceipt({
 
             {isVerified && (
               <div style={styles.rewardBox}>
-                <div style={styles.rewardLabel}>ESTIMATED REWARD</div>
+                <div style={styles.rewardLabel}>ESTIMATED POINTS</div>
                 <div style={styles.rewardAmount}>
-                  ~${reward.toFixed(2)}
+                  ~{reward.toFixed(2)} pts
                   <span style={styles.rewardPending}>
                     {" "}
                     (pending pool close)

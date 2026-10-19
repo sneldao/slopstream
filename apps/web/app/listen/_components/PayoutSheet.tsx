@@ -6,7 +6,9 @@ import type { PayoutReceipt } from "@slopstream/shared";
 import { errorMessage } from "@/lib/errors";
 
 /**
- * Stub payout sheet — pending vs available, then cash out.
+ * Points ledger sheet — pending vs available, then claim. Deliberately not
+ * called a payout and never shows a currency sign: the demo balance is a
+ * scoreboard entry, and the submission story says so out loud.
  */
 export function PayoutSheet({
   availableUsd,
@@ -47,7 +49,7 @@ export function PayoutSheet({
           className="slop-payout-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label="Request payout"
+          aria-label="Claim points"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -61,29 +63,30 @@ export function PayoutSheet({
             transition={{ type: "spring", stiffness: 280, damping: 22 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="slop-payout-sheet__kicker">Payout</div>
-            <h2>Cash out</h2>
+            <div className="slop-payout-sheet__kicker">Ledger</div>
+            <h2>Claim points</h2>
             <p>
-              Rewards move from pending to available when an ad&apos;s attention
-              window closes. Cash out once available reaches $
-              {minimumUsd.toFixed(2)}. This demo records the payout from your
-              internal balance; it does not send a bank payment.
+              Points move from pending to available when an ad&apos;s attention
+              window closes. Claim once your balance reaches{" "}
+              {minimumUsd.toFixed(2)} points. This demo records the claim to
+              your ledger — it is a scoreboard entry, not a payment, and it
+              settles nothing in cash.
             </p>
 
             <div className="slop-payout-sheet__rows">
               <div>
                 <span>Pending</span>
-                <strong>${pendingUsd.toFixed(2)}</strong>
+                <strong>{pendingUsd.toFixed(2)} pts</strong>
               </div>
               <div>
-                <span>Available to cash out</span>
-                <strong>${availableUsd.toFixed(2)}</strong>
+                <span>Available to claim</span>
+                <strong>{availableUsd.toFixed(2)} pts</strong>
               </div>
             </div>
 
             {done ? (
               <p className="slop-payout-sheet__done" role="status">
-                Requested — payout submitted.
+                Claimed — logged to your ledger.
               </p>
             ) : (
               <>
@@ -111,17 +114,17 @@ export function PayoutSheet({
                   }}
                 >
                   {requesting
-                    ? "Requesting…"
+                    ? "Claiming…"
                     : canCashOut
-                      ? `Request $${availableUsd.toFixed(2)}`
+                      ? `Claim ${availableUsd.toFixed(2)} points`
                       : availableUsd > 0
-                        ? `Need $${shortfallUsd.toFixed(2)} more`
+                        ? `${shortfallUsd.toFixed(2)} points to go`
                         : "Nothing available yet"}
                 </button>
                 {!canCashOut && availableUsd > 0 && (
                   <p className="slop-payout-sheet__hint">
-                    Payouts unlock at ${minimumUsd.toFixed(2)}. Keep listening
-                    to build your available balance.
+                    Claims unlock at {minimumUsd.toFixed(2)} points. Keep
+                    listening to build your balance.
                   </p>
                 )}
               </>
@@ -130,10 +133,10 @@ export function PayoutSheet({
             {payoutHistory.length > 0 && (
               <section
                 className="slop-payout-sheet__history"
-                aria-label="Payout history"
+                aria-label="Claim history"
               >
                 <div className="slop-payout-sheet__history-title">
-                  Recent payouts
+                  Recent claims
                 </div>
                 {payoutHistory.slice(0, 5).map((payout) => (
                   <div
@@ -149,7 +152,7 @@ export function PayoutSheet({
                         },
                       )}
                     </span>
-                    <strong>${payout.amountUsd.toFixed(2)}</strong>
+                    <strong>{payout.amountUsd.toFixed(2)} pts</strong>
                     <small>{payout.status}</small>
                   </div>
                 ))}

@@ -2600,6 +2600,18 @@ main.has-dock {
   font-variant-numeric: tabular-nums;
 }
 
+/* The unit sits beside the figure, never above it — the number is the readout.
+   A currency sign would say something this product does not promise. */
+.listen-readout__unit {
+  margin-left: 8px;
+  color: rgba(255, 253, 246, 0.42);
+  font-family: var(--slop-body);
+  font-size: var(--t-micro);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-widest);
+  text-transform: uppercase;
+}
+
 /* The threshold is the extent of a rule, not a bar inside a box. */
 .listen-readout__rule {
   position: relative;

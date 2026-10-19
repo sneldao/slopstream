@@ -38,7 +38,7 @@ import { PayoutSheet } from "./_components/PayoutSheet";
  * one calm moment. Sound fires on challenge appearance and proof verified.
  */
 export default function ListenPage() {
-  const { state, connectionStatus } = useStream();
+  const { state, connectionStatus, hasEverConnected } = useStream();
   useMediaPreload(state.upcomingSegments);
   const audioUrl = playbackAudioUrl(state.nowPlaying);
   const { signalRef, unlock, muted, toggleMute, playbackState } =
@@ -289,11 +289,11 @@ export default function ListenPage() {
                 }}
                 aria-live="polite"
                 onClick={() => setPayoutOpen(true)}
-                title="View pending and available rewards"
+                title="View pending and available points"
               >
-                <span style={styles.balanceLabel}>Available</span>
+                <span style={styles.balanceLabel}>My points</span>
                 <span style={styles.balanceAmount}>
-                  ${availableUsd.toFixed(2)}
+                  {availableUsd.toFixed(2)}
                 </span>
               </motion.button>
             </>
@@ -329,7 +329,11 @@ export default function ListenPage() {
               {connectionStatus !== "connected" && (
                 <div role="status" style={styles.signalNotice}>
                   <span style={styles.signalDot} />
-                  Reconnecting to the live stream
+                  {/* Only a socket that has since dropped is *re*connecting.
+                      A first-time listener has nothing to reconnect to. */}
+                  {hasEverConnected
+                    ? "Reconnecting to the live stream"
+                    : "Connecting to the live stream"}
                 </div>
               )}
 
@@ -352,6 +356,11 @@ export default function ListenPage() {
                   <div style={{ ...styles.brandName, color: brandColor }}>
                     {activeBrand?.name ?? "Open Stream"}
                   </div>
+                  {/* The catalog's treatment label — the rotation changes look
+                      as well as brand, and naming it makes that visible. */}
+                  {state.nowPlaying?.style && (
+                    <div style={styles.styleTag}>{state.nowPlaying.style}</div>
+                  )}
                   <div style={styles.nowPlayingRule} />
                 </motion.div>
               ) : (
@@ -387,10 +396,11 @@ export default function ListenPage() {
                   it matters. */}
               <section className="listen-readout">
                 <span className="listen-readout__label">
-                  Total paid to viewers
+                  Points shared with viewers
                 </span>
                 <span className="listen-readout__amount" aria-live="polite">
-                  ${state.listenerRewardsUsd.toFixed(2)}
+                  {state.listenerRewardsUsd.toFixed(2)}
+                  <span className="listen-readout__unit">pts</span>
                 </span>
 
                 {attention && (
@@ -438,7 +448,8 @@ export default function ListenPage() {
                   )}
                   {state.lastClear ? (
                     <span>
-                      Last clear ${state.lastClear.listenerPoolUsd.toFixed(2)}
+                      Last window shared{" "}
+                      {state.lastClear.listenerPoolUsd.toFixed(2)} pts
                     </span>
                   ) : null}
                 </p>
@@ -456,15 +467,15 @@ export default function ListenPage() {
               <section className="listen-ledger" aria-live="polite">
                 <div className="listen-ledger__row">
                   <span>Pending</span>
-                  <strong>${pendingUsd.toFixed(2)}</strong>
+                  <strong>{pendingUsd.toFixed(2)} pts</strong>
                 </div>
                 <div className="listen-ledger__row">
                   <span>Available</span>
-                  <strong>${availableUsd.toFixed(2)}</strong>
+                  <strong>{availableUsd.toFixed(2)} pts</strong>
                 </div>
                 <div className="listen-ledger__row listen-ledger__row--mute">
                   <span>Today verified</span>
-                  <span>+${todayVerified.toFixed(2)}</span>
+                  <span>+{todayVerified.toFixed(2)} pts</span>
                 </div>
                 <button
                   type="button"
@@ -472,8 +483,8 @@ export default function ListenPage() {
                   onClick={() => setPayoutOpen(true)}
                 >
                   {availableUsd >= LISTENER_PAYOUT_MINIMUM_USD
-                    ? "Request payout"
-                    : "How payouts work"}
+                    ? "Claim points"
+                    : "How points work"}
                 </button>
               </section>
             </motion.div>
@@ -866,6 +877,14 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "var(--s-2)",
     textTransform: "uppercase",
     textShadow: "0 8px 30px rgba(0,0,0,0.36)",
+  },
+  styleTag: {
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    fontSize: "var(--t-micro)",
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.5)",
+    marginTop: "var(--s-2)",
   },
   nowPlayingRule: {
     width: 42,

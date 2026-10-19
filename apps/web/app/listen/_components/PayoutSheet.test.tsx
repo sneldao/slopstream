@@ -31,20 +31,24 @@ function render(
 describe("PayoutSheet", () => {
   it("explains that a small available balance is below the minimum", () => {
     const html = render(0.5);
-    expect(html).toContain("Need $0.50 more");
-    expect(html).toContain("Payouts unlock at $1.00");
+    expect(html).toContain("0.50 points to go");
+    expect(html).toContain("Claims unlock at 1.00 points");
   });
 
   it("keeps the empty state distinct from a below-minimum balance", () => {
     const html = render(0, 2);
     expect(html).toContain("Nothing available yet");
-    expect(html).not.toContain("Need $");
+    expect(html).not.toContain("points to go");
   });
 
-  it("renders recent completed payout history", () => {
+  it("renders recent completed claim history", () => {
     const html = render(0, 0, [payout]);
-    expect(html).toContain("Recent payouts");
-    expect(html).toContain("$4.25");
+    expect(html).toContain("Recent claims");
+    expect(html).toContain("4.25 pts");
     expect(html).toContain("Aug");
+  });
+
+  it("never renders a currency sign — the balance is points, not money", () => {
+    expect(render(12.5, 3, [payout])).not.toContain("$");
   });
 });
