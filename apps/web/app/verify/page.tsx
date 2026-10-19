@@ -244,9 +244,11 @@ export default function VerifyPage() {
           type="button"
           className="verify-submit"
           onClick={() => void check()}
-          disabled={!normalized}
+          disabled={!normalized || status.kind === "checking"}
         >
-          Check on-chain state
+          {status.kind === "checking"
+            ? "Reading indexer…"
+            : "Check on-chain state"}
         </button>
 
         <div className={resultClass} aria-live="polite">
