@@ -15,9 +15,9 @@
       "kind": "audio"
     },
     "visual": {
-      "key": "image/3a3785d3bb0f9f89ccd60f45b417ddd8f614face16167527287d776b51b4ff3a.png",
-      "contentType": "image/png",
-      "sha256": "3a3785d3bb0f9f89ccd60f45b417ddd8f614face16167527287d776b51b4ff3a",
+      "key": "image/85e9289d8974f94eee3891a0a749a0118bcba5361f8e573b6cfbd66c60427c2f.webp",
+      "contentType": "image/webp",
+      "sha256": "85e9289d8974f94eee3891a0a749a0118bcba5361f8e573b6cfbd66c60427c2f",
       "kind": "image"
     }
   },

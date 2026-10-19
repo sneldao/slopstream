@@ -73,12 +73,31 @@ export const viewport: Viewport = {
   ],
 };
 
+// The gateway origin is build-time inlined; absent in same-origin proxy setups.
+const gatewayOrigin = (() => {
+  const raw = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+})();
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={archivo.variable}>
       <body>
+        {/* Warm the TLS+DNS path to the media gateway before the first
+            segment's assets are fetched. */}
+        {gatewayOrigin ? (
+          <>
+            <link rel="preconnect" href={gatewayOrigin} />
+            <link rel="dns-prefetch" href={gatewayOrigin} />
+          </>
+        ) : null}
         <MotionProvider>{children}</MotionProvider>
       </body>
     </html>
