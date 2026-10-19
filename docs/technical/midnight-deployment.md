@@ -75,6 +75,18 @@ MIDNIGHT_WALLET_SEED=abcdef0123456789...
 # Encryption password for the LevelDB private-state store
 MIDNIGHT_PRIVATE_STATE_PASSWORD=strong-random-password
 
+# Blockfrost Midnight Preprod project token — REQUIRED since 2026-10-09.
+# Midnight's own hosted preprod indexer/RPC were decommissioned
+# (indexer now returns HTTP 410 ENDPOINT_DECOMMISSIONED); Blockfrost serves
+# both, and every request needs ?project_id=. Create a Midnight Preprod
+# project at https://blockfrost.io.
+MIDNIGHT_BLOCKFROST_PROJECT_ID=your-preprod-project-id
+
+# Optional: override the proof server (default http://127.0.0.1:6300).
+# Pin midnightntwrk/proof-server:8.1.3 — the 8.1.x line for ledger 8
+# (9.0.0-rc.x is ledger-9 only, not on public networks yet).
+# MIDNIGHT_PROOF_SERVER_URL=http://127.0.0.1:6300
+
 # Shared bearer token — must match PROOF_VERIFIER_TOKEN in apps/api/.env
 VERIFIER_API_TOKEN=production-strength-secret
 
@@ -110,15 +122,17 @@ refuses to start.
 
 ### Environment variable reference
 
-| Variable | Mode | Required | Description |
-|---|---|---|---|
-| `VERIFIER_MODE` | both | No (default `stub`) | `stub` or `midnight` |
-| `PORT` | both | No (default `4100`) | HTTP listen port |
-| `VERIFIER_API_TOKEN` | both | production | Shared bearer token for `/v1/attention-proofs/verify` |
-| `NODE_ENV` | both | No | `production` enforces token strength |
-| `PROOF_OF_ATTENTION_CONTRACT_ADDRESS` | midnight | Yes | Deployed contract address |
-| `MIDNIGHT_WALLET_SEED` | midnight | Yes | 64 hex character wallet seed |
-| `MIDNIGHT_PRIVATE_STATE_PASSWORD` | midnight | Yes | Encryption key for private-state LevelDB |
+| Variable                              | Mode     | Required            | Description                                                    |
+| ------------------------------------- | -------- | ------------------- | -------------------------------------------------------------- |
+| `VERIFIER_MODE`                       | both     | No (default `stub`) | `stub` or `midnight`                                           |
+| `PORT`                                | both     | No (default `4100`) | HTTP listen port                                               |
+| `VERIFIER_API_TOKEN`                  | both     | production          | Shared bearer token for `/v1/attention-proofs/verify`          |
+| `NODE_ENV`                            | both     | No                  | `production` enforces token strength                           |
+| `PROOF_OF_ATTENTION_CONTRACT_ADDRESS` | midnight | Yes                 | Deployed contract address                                      |
+| `MIDNIGHT_WALLET_SEED`                | midnight | Yes                 | 64 hex character wallet seed                                   |
+| `MIDNIGHT_PRIVATE_STATE_PASSWORD`     | midnight | Yes                 | Encryption key for private-state LevelDB                       |
+| `MIDNIGHT_BLOCKFROST_PROJECT_ID`      | midnight | Yes                 | Blockfrost Midnight Preprod project token (indexer + RPC auth) |
+| `MIDNIGHT_PROOF_SERVER_URL`           | midnight | No                  | Proof server URL (default `http://127.0.0.1:6300`)             |
 
 ### Security notes
 

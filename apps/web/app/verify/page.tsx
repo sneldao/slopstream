@@ -12,8 +12,16 @@ type VerifyStatus =
   | { kind: "indexer-error"; message: string }
   | { kind: "awaiting-deploy" };
 
+// Midnight's own hosted preprod indexer was decommissioned 2026-10-09
+// (HTTP 410 ENDPOINT_DECOMMISSIONED). Blockfrost now serves the public
+// indexer; every request needs a project token. For a browser page the
+// documented pattern is ?project_id= in the URL — the token is meant to be
+// public (same as any NEXT_PUBLIC_ value).
+const BLOCKFROST_PROJECT_ID =
+  process.env.NEXT_PUBLIC_BLOCKFROST_MIDNIGHT_PROJECT_ID ?? "";
 const PREPROD_INDEXER =
-  "https://indexer.preprod.midnight.network/api/v4/graphql";
+  process.env.NEXT_PUBLIC_MIDNIGHT_INDEXER ??
+  `https://midnight-preprod.blockfrost.io/api/v0${BLOCKFROST_PROJECT_ID ? `?project_id=${BLOCKFROST_PROJECT_ID}` : ""}`;
 async function canonSha(input: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -98,7 +106,10 @@ export default function VerifyPage() {
       if (!res.ok) {
         setStatus({
           kind: "indexer-error",
-          message: `Indexer HTTP ${res.status}. NOT "no record" — state unread.`,
+          message:
+            res.status === 403 && !BLOCKFROST_PROJECT_ID
+              ? 'Indexer needs a Blockfrost project token (NEXT_PUBLIC_BLOCKFROST_MIDNIGHT_PROJECT_ID unset). NOT "no record" — state unread.'
+              : `Indexer HTTP ${res.status}. NOT "no record" — state unread.`,
         });
         return;
       }

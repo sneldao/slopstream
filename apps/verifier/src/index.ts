@@ -65,9 +65,13 @@ async function startMidnightServer(): Promise<void> {
   const stack = await buildAttentionStack(walletSeed, {
     info: (msg) => console.log(`[midnight] ${msg}`),
   });
-  const api = await ProofOfAttentionApi.join(stack.providers, contractAddress, {
-    info: (msg) => console.log(`[midnight] ${msg}`),
-  });
+  const api = await ProofOfAttentionApi.join(
+    stack.providersFor("proofofattention"),
+    contractAddress,
+    {
+      info: (msg) => console.log(`[midnight] ${msg}`),
+    },
+  );
 
   const server = createVerifierServer({
     apiToken,

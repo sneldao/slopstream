@@ -94,24 +94,56 @@ Say so plainly (honesty scored).
 
 ## Deploy runbook (the remaining blocker)
 
-Preprod deploy needs a proof server + funded wallet. Nothing local:
+Preprod deploy needs a proof server + funded wallet + Blockfrost token.
+Nothing local — run on nuncio-vultr (`~/slopstream-deploy`, proof-server
+container already up; bump it to `midnightntwrk/proof-server:8.1.3` first —
+8.1.3 patches critical GHSA-wr7g-rr4v-jmj8, a one-time-check bypass that is
+exactly our replay/double-claim threat class).
 
 ```bash
-# 1. Run a proof server (docker, or the VPS noted in progress.md):
-docker run -d -p 6300:6300 midnightntwrk/proof-server:8.1.0
-#    or point MIDNIGHT_PROOF_SERVER_URL at a hosted one.
+# 0. Prereqs (2026-10 network change):
+#    - MIDNIGHT_BLOCKFROST_PROJECT_ID — Midnight's own preprod indexer/RPC
+#      were decommissioned 2026-10-09 (410 ENDPOINT_DECOMMISSIONED). Blockfrost
+#      serves them now: create a Midnight Preprod project at blockfrost.io.
+#    - proof-server 8.1.3 (ledger 8.1.3 / node 1.0.400 line — the supported
+#      matrix for public networks)
+#    - DO NOT run bare `compact update` — it installs 0.35.x (ledger-9 only,
+#      undeployable to preprod/mainnet today). Stay on compactc 0.31.1.
 
-# 2. Deploy all three contracts from one wallet:
 export MIDNIGHT_PRIVATE_STATE_PASSWORD=<pick one>
+export MIDNIGHT_BLOCKFROST_PROJECT_ID=<blockfrost preprod project>
+export MIDNIGHT_PROOF_SERVER_URL=http://127.0.0.1:6300
 pnpm --filter @slopstream/midnight deploy:all
 #    Writes contracts/preprod/deployment.json with addresses + tx hashes.
 #    If the faucet endpoint is a no-op: claim tNIGHT via the faucet UI,
-#    then SKIP_FUNDS_REQUEST=1 pnpm --filter @slopstream/midnight deploy:all
+#    then SKIP_FUNDS_REQUEST=1 ... deploy:all
 
-# 3. Flip the verifier to midnight mode:
+# Then flip the verifier to midnight mode:
 export PROOF_OF_ATTENTION_CONTRACT_ADDRESS=<from deployment.json>
 export VERIFIER_MODE=midnight
 ```
+
+## Network state (2026-10-19 research refresh)
+
+- **Mainnet went permissionless Oct 2** — contracts deploy without review.
+  Submission stays on preprod (free faucet, judges verify there) but the
+  roadmap can now credibly say "mainnet deploy" — no review gate remains.
+- **Ledger v8→v9 hard fork is in flight** (node 2.1.0-rc.x on dev/stagenet;
+  public nets still on ledger 8 / node 1.0.400). Deployed v8-compiled
+  contracts keep working post-fork without recompile — midnight-js v5 handles
+  era routing. Our compiled artifacts are forward-compatible.
+- **midnight-js 5.0.0 is RC (rc.5, Oct 17)** — required upgrade before the
+  v9 fork: `MidnightConfig` replaces `setNetworkId`, unified `MidnightJsError`,
+  ESM-only, Node 22.12+. Stay on 4.1.1 for this wave; schedule the v5 bump
+  before the fork lands on preprod.
+- **Compact 0.34/0.35 (language 0.26/0.27)** bring `kernel.caller()` (real
+  caller identity — could replace our publicKey-hash verifier gate),
+  cross-contract calls, events, P256/Ed25519/SHA-512 — all ledger-9 only.
+  Roadmap fodder, not this wave.
+- **proof-server 8.1.3** (Oct 2) is a critical security patch; 8.0.3 on the
+  VPS must be bumped before deploy.
+- New browser-facing verifier reality: /verify needs a Blockfrost project_id
+  (NEXT_PUBLIC_BLOCKFROST_MIDNIGHT_PROJECT_ID) — the old public indexer is 410.
 
 ## Wave narrative
 

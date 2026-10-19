@@ -12,7 +12,8 @@
 
 Total: 10 circuits (3 ProofOfAttention + 3 RewardClearing + 4 PreviewRightsThreshold).
 
-Toolchain: Compact 0.31.1 / language 0.23 / proof-server 8.1.x / midnight-js 4.1.x.
+Toolchain: Compact 0.31.1 / language 0.23 / proof-server 8.1.3 / midnight-js 4.1.x.
+Network: preprod via Blockfrost-hosted indexer/RPC (`MIDNIGHT_BLOCKFROST_PROJECT_ID` required — Midnight's own endpoints were decommissioned 2026-10-09).
 
 Build:
 

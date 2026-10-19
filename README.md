@@ -38,7 +38,7 @@ $ REWARD
 5. Correct answers produce a verification result that the attention condition was satisfied.
 6. Once a segment clears its attention threshold the advertiser spend clears — and up to 80% flows into a listener reward pool.
 
-Attention is verified by a real Midnight contract. `ProofOfAttention.compact` (Compact 0.23, compiled against the preprod testnet toolchain) records each verified listener as an on-chain nullifier — the listener secret is an ephemeral witness that lives only in the prover's private state (rotated every submission); just a ZK proof and the replay-protecting nullifier land on-chain, and segment/challenge binding is proven in-circuit, never disclosed — and flips a public threshold flag that the backend watches before clearing advertiser spend. Replays are rejected against a 4-deep window of recently accepted nullifiers. On preprod the on-chain counter is corroborating evidence: the backend's own ledger of graded attention events is authoritative for clearing. The verifier (`apps/verifier`) runs in two modes: `VERIFIER_MODE=stub` (typed JSON checks, for offline demos) and `VERIFIER_MODE=midnight` (submits real proofs to the deployed contract on Midnight preprod).
+Attention is verified by three real Midnight contracts (Compact language 0.23, compiled against the preprod toolchain): `ProofOfAttention.compact` records each verified listener as an on-chain nullifier — the listener secret is an ephemeral witness that lives only in the prover's private state (rotated every submission); just a ZK proof and the replay-protecting nullifier land on-chain, and segment/challenge binding is proven in-circuit, never disclosed — and flips a public threshold flag that the backend watches before clearing advertiser spend. Replays are rejected against a 4-deep window of recently accepted nullifiers, and submission is caller-gated to the verifier key. `RewardClearing.compact` records per-listener reward claims as exactly-once nullifiers without revealing share weights, and `PreviewRightsThreshold.compact` lets a brand prove `spend >= threshold` while the amount itself never touches the ledger. On preprod the on-chain records are corroborating evidence: the backend's own ledger of graded attention events is authoritative for clearing. The verifier (`apps/verifier`) runs in two modes: `VERIFIER_MODE=stub` (typed JSON checks, for offline demos) and `VERIFIER_MODE=midnight` (submits real proofs to the deployed contract on Midnight preprod).
 
 ## Positioning
 
@@ -55,7 +55,7 @@ One caveat on the 80% idea: economically strong, but legally/payment-wise, don't
 ```text
 contracts/              Midnight/Compact contracts (Lane 1)
 packages/shared/        Shared types: WS events, challenges, proofs, bids
-packages/midnight/      Compiled ProofOfAttention artifacts + Midnight SDK wiring (deploy, state, submit-proof)
+packages/midnight/      Compiled artifacts for all 3 contracts + Midnight SDK wiring (deploy:all, state, submit-proof)
 apps/api/               Backend API: ledger, auction, Stripe (Lane 2)
 apps/verifier/          Attention-proof verifier — stub JSON or live Midnight proofs (Lane 1)
 apps/orchestrator/      Stream orchestrator + WebSocket gateway (Lane 3)
@@ -69,7 +69,7 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:verifier
 
 ## Midnight Buildathon — judge evaluation guide
 
-Slopstream is entered in the Midnight Buildathon (Wave 1: Aug 27 – Sep 16, 2026). This section is the fastest path for a judge to evaluate the Midnight integration.
+Slopstream is entered in the Midnight Buildathon (Wave 3: Oct 27 – Nov 16, 2026). This section is the fastest path for a judge to evaluate the Midnight integration; see [JUDGES.md](JUDGES.md) for the 5-minute checklist and [SUBMISSION.md](SUBMISSION.md) for the Wave 2 → Wave 3 diff.
 
 **The privacy story in one paragraph:** brands buy verified human attention, but neither the listener's identity nor their answers may ever touch a public ledger. `ProofOfAttention.compact` proves "a valid listener satisfied this segment's challenge" while keeping the listener secret, answer, and session in private state — only a replay-protecting nullifier, an aggregate count, and a threshold flag are disclosed. That is Midnight's dual-ledger model doing exactly what it is for: prove the fact, hide the person.
 
@@ -90,20 +90,20 @@ pnpm test           # 280+ tests incl. verifier stub + remote-verifier integrati
 pnpm --filter @slopstream/midnight compact
 ```
 
-The checked-in artifacts under `packages/midnight/contract/src/managed/proofofattention/` (bindings, prover/verifier keys, ZK IR) are the output of that exact command.
+The checked-in artifacts under `packages/midnight/contract/src/managed/{proofofattention,rewardclearing,previewrightsthreshold}/` (bindings, prover/verifier keys, ZK IR) are the output of that exact command.
 
-**Verify against live preprod** (requires a funded wallet seed + private-state password):
+**Verify against live preprod** (requires a funded wallet seed + private-state password + `MIDNIGHT_BLOCKFROST_PROJECT_ID` — the Midnight-hosted preprod endpoints were decommissioned 2026-10-09 and Blockfrost now serves indexer + RPC):
 
 ```sh
 cd packages/midnight
-pnpm deploy        # deploys ProofOfAttention, prints the contract address
+pnpm deploy:all    # funds one wallet, deploys all 3 contracts, writes contracts/preprod/deployment.json
 pnpm state         # reads verifiedCount / thresholdMet / nullifier window
 pnpm submit-proof  # submits one proof, shows tx hash + nullifier receipt
 ```
 
-Then run the verifier in midnight mode (`apps/verifier/.env`: `VERIFIER_MODE=midnight` + wallet seed + contract address) and submit an attention proof through the API — the receipt returns `verifierMode: "midnight"` with a `midnight_<nullifier>` proof ID. Full steps: [docs/technical/midnight-deployment.md](docs/technical/midnight-deployment.md).
+Then run the verifier in midnight mode (`apps/verifier/.env`: `VERIFIER_MODE=midnight` + wallet seed + contract address) and submit an attention proof through the API — the receipt returns `verifierMode: "midnight"` with a `midnight_<nullifier>` proof ID and the on-chain tx hash, deep-linked to `/verify` where anyone can re-check the nullifier against the public indexer without trusting us. Full steps: [docs/technical/midnight-deployment.md](docs/technical/midnight-deployment.md).
 
-**What is Midnight-related and new:** `contracts/src/ProofOfAttention.compact` (102 lines: nullifier circuit, 4-deep replay window, owner-gated threshold), `packages/midnight/src/` (wallet, ZK witnesses, deploy/state/submit scripts), `apps/verifier/src/midnightVerifier.ts` (structural checks → on-chain recording). Pre-existing product code (stream, auction, ledger, UI) is the surrounding application. See [docs/technical/contracts.md](docs/technical/contracts.md) for the contract design and [docs/hackathon/progress.md](docs/hackathon/progress.md) for per-wave status.
+**What is Midnight-related and new:** `contracts/src/{ProofOfAttention,RewardClearing,PreviewRightsThreshold}.compact` (10 exported circuits across three contracts), `packages/midnight/src/` (wallet, ZK witnesses, per-contract providers over one funded wallet, deploy/state/submit scripts), `apps/verifier/src/midnightVerifier.ts` (structural checks → on-chain recording), `apps/web/app/verify/` (independent verification page). Pre-existing product code (stream, auction, ledger, UI) is the surrounding application. See [docs/technical/contracts.md](docs/technical/contracts.md) for the contract design and [docs/hackathon/progress.md](docs/hackathon/progress.md) for per-wave status.
 
 ## License
 

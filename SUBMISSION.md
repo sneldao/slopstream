@@ -13,17 +13,18 @@ real problem; the "weird infinite AI ad stream" is just the demo surface.
 
 ## Wave 2 → Wave 3 diff (meaningful new Midnight functionality)
 
-| Area               | Wave 2 (`main` at wave close)                      | Wave 3 (this submission)                                                               |
-| ------------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Contracts          | 1 (`ProofOfAttention`)                             | 3 (`ProofOfAttention`, `RewardClearing`, `PreviewRightsThreshold`)                     |
-| Exported circuits  | 3                                                  | 10                                                                                     |
-| Caller-gating      | `submitAttentionProof` not gated (documented hole) | Verifier-key gated: `owner == publicKey(localSecretKey(), sequence)`                   |
-| Compiled artifacts | `managed/proofofattention` only                    | `managed/{proofofattention,rewardclearing,previewrightsthreshold}` committed           |
-| Deploy wiring      | single-contract `deploy` script                    | `deploy:all` — one wallet, three contracts, writes `contracts/preprod/deployment.json` |
-| Receipts           | `verifierMode` label only                          | `txHash` threaded verifier → api → shared → UI; `/verify?nullifier=` deep-link         |
-| Verification       | none                                               | `/verify` page: raw state SHA-256 + independent console/terminal/AI checks             |
-| Tests              | verifier/api vitest only                           | + `contracts/test/*.test.mjs` circuit mirrors, `node --test`, zero installs — 18/18    |
-| Judge pack         | none                                               | `JUDGES.md` + `PROOF.md` + this file                                                   |
+| Area               | Wave 2 (`main` at wave close)                      | Wave 3 (this submission)                                                                         |
+| ------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Contracts          | 1 (`ProofOfAttention`)                             | 3 (`ProofOfAttention`, `RewardClearing`, `PreviewRightsThreshold`)                               |
+| Exported circuits  | 3                                                  | 10                                                                                               |
+| Caller-gating      | `submitAttentionProof` not gated (documented hole) | Verifier-key gated: `owner == publicKey(localSecretKey(), sequence)`                             |
+| Compiled artifacts | `managed/proofofattention` only                    | `managed/{proofofattention,rewardclearing,previewrightsthreshold}` committed                     |
+| Deploy wiring      | single-contract `deploy` script                    | `deploy:all` — one wallet, three contracts, writes `contracts/preprod/deployment.json`           |
+| Receipts           | `verifierMode` label only                          | `txHash` threaded verifier → api → shared → UI; `/verify?nullifier=` deep-link                   |
+| Verification       | none                                               | `/verify` page: raw state SHA-256 + independent console/terminal/AI checks                       |
+| Tests              | verifier/api vitest only                           | + `contracts/test/*.test.mjs` circuit mirrors, `node --test`, zero installs — 18/18              |
+| Judge pack         | none                                               | `JUDGES.md` + `PROOF.md` + this file                                                             |
+| Network layer      | Midnight-hosted preprod indexer/RPC                | Blockfrost indexer/RPC + `?project_id=` auth — the old endpoints went 410 on 2026-10-09 mid-wave |
 
 ## Circuits (10 exported)
 
@@ -64,8 +65,11 @@ nullifier from a receipt.
 - Wave 1: stub loop (bid → generate → play → challenge → receipt → 80/20 clearing).
 - Wave 2: preprod `ProofOfAttention`.
 - Wave 3 (this): clearing + spend-threshold contracts, verifier-gating,
-  judge-verifiable proof surface.
+  judge-verifiable proof surface, Blockfrost migration.
 - Next: on-chain bid clearing, DUST-funded listener wallets, pilot with one
-  live brand + 10 listeners.
+  live brand + 10 listeners. Midnight mainnet opened permissionless deployment
+  on 2026-10-02 — production deploy no longer needs a review slot. Before the
+  ledger v8→v9 fork reaches preprod: bump to midnight-js 5.x (our v8-compiled
+  contracts keep working across the fork — no recompile needed).
 
 License: Apache-2.0. Toolchain: compactc 0.31.1 / language 0.23 / midnight-js 4.1.x.

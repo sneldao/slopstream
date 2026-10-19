@@ -47,6 +47,7 @@ import {
 } from "./index.js";
 import {
   preprodEnvironment,
+  assertMidnightEndpointsConfigured,
   proofOfAttentionPrivateStateKey,
   rewardClearingPrivateStateKey,
   previewRightsPrivateStateKey,
@@ -128,6 +129,7 @@ export const buildSlopstreamStack = async (
   walletSeed: string,
   logger: MinimalLogger,
 ): Promise<SlopstreamStack> => {
+  assertMidnightEndpointsConfigured();
   setNetworkId(preprodEnvironment.networkId);
 
   // The previous hardcoded fallback password was removed: it protected the
