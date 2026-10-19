@@ -2,5 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "cd ../.. && pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/web build"
+  "buildCommand": "cd ../.. && pnpm --filter @slopstream/shared build && pnpm --filter @slopstream/web build",
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_BASE_URL": "https://slopstream.144.202.117.160.sslip.io",
+      "NEXT_PUBLIC_WS_URL": "wss://slopstream.144.202.117.160.sslip.io",
+      "NEXT_PUBLIC_SITE_URL": "https://slopstreamapp.vercel.app"
+    }
+  }
 }
