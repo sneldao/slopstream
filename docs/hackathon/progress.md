@@ -7,6 +7,8 @@ implemented, what's stubbed, known inconsistencies, and next steps.
 
 **Product direction (2026-08-30):** Phase 1 north star is the free Continuum — immersive, unbroken, enjoyable — not the auction marketplace. Recent plumbing: overdue auction sweep, demo scraped seed, scheduler prefetch. **Launch simplification (2026-08-30):** removed web demo mode (`demoFixture`, `NEXT_PUBLIC_STREAM_MODE`); the Continuum lives at `/` (`/screen` redirects for legacy links); all surfaces use the live gateway only.
 
+**Frontend hardening (2026-10-19):** `/verify` is a design-system surface now reachable from the nav, sitemap and the phone dock; reduced motion, audio-stall feedback, route boundaries, a11y and the brand typeface are enforced across every surface. Details in Lane 3.
+
 This is a chronological implementation log, so older entries below describe
 the superseded 3D fluid-world prototype. The current product baseline is the
 HTML/CSS **Continuum**: a colourful central media portal, persistent archive
@@ -400,6 +402,42 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
     and Prometheus metrics routes, a full fake-Lane-2 + fake-generator
     end-to-end drive through one gateway sequence space, the dead-generator
     failure path, and proxy/auth forwarding.
+- **Frontend hardening pass (2026-10-19)** — the product-critique follow-up, web
+  only (`apps/web`); no contract, verifier or deploy file touched:
+  - `/verify` rebuilt on the design system — it was an off-brand page with an
+    inline dark palette and no header. Now `SphereField` + tokens +
+    `SurfaceHeader`, with the pure logic extracted to `lib/verifyProof.ts`
+    (8 tests), the contract address allowlisted before it reaches the GraphQL
+    query string, deep-link prefill confirmed in a browser, and the page present
+    in `SurfaceNav`, `sitemap.ts` and the phone dock.
+  - **Reduced motion is now actually enforced.** The design language promised
+    it; the canvas and rAF loops ignored it. `lib/useMotionPreference.ts` backs
+    every decorative loop (`Scene`, `SoftBlob`, `AmbientGlow`, `WorldPreview`,
+    `FullBleedVisualizer`, `AudioVisualizer`) with the _live_ media query, so an
+    OS change mid-session stills or resumes the picture without a reload —
+    verified by fingerprinting canvas pixels across toggles.
+  - **Silent audio failure surfaced** — `PlaybackNotice` ("The stream audio
+    stalled. Tap to restore sound") on `/` and `/listen` when playback is
+    degraded. `ended` is deliberately not surfaced: a between-segment gap would
+    cry wolf every 20 seconds.
+  - **Route boundaries** — `error.tsx`, `global-error.tsx`, `not-found.tsx`, so
+    a client crash no longer white-screens the stream.
+  - **A11y** — `OutbidFlash` announces the overtake in text (the animation is a
+    picture, not a reading); decorative emoji and canvases are `aria-hidden`;
+    the WorldPreview canvas is `role="img"` labelled with the standings; verify
+    inputs carry `aria-invalid` plus a format hint. `StatsFooter` deliberately
+    has no live region — `AnimatedNumber` mutates `textContent` at 60fps.
+  - **Nav and dock** — dock columns follow the link count (`grid-auto-flow:
+    column`) instead of a fixed repeat, and Verify is reachable on phones: it
+    lived inside the header switcher, which is `display: none` below 720px.
+  - **Type** — Archivo self-hosted as `--font-archivo`. The brand face was
+    "Avenir Next", which exists only on Apple hardware, so the wordmark rendered
+    as Helvetica on Windows, Android and the demo projector. Mobile legibility
+    floor for `--t-micro/eyebrow/caption/body` at ≤720px.
+  - Brand-palette `setProperty` blocks, duplicated across three surfaces,
+    deduped into `useBrandPalette`.
+  - Web tests 48 → 61 across 16 files; `pnpm -r test` green; `next build`
+    renders 14 static pages.
 
 ### Lane 3: stubbed / not yet implemented
 
@@ -444,6 +482,10 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
    (`ELEVENLABS_TTS_MODEL`, `ELEVENLABS_MAX_TIER`). Initial testing uses
    `eleven_flash_v2_5` TTS with tier capped at `audio`; raise the cap to
    unlock image/video generation.
+6. **Browser-verify two hardened paths with the full stack up.** `Scene`'s
+   reduced-motion gating and a real `PlaybackNotice` stall need a live
+   API + orchestrator to appear on screen; both are unit-covered only, because
+   the web app renders no canvas at all without stream state.
 
 ---
 

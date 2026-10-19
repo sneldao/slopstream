@@ -24,4 +24,20 @@ describe("SurfaceNav", () => {
 
     expect(html).toContain('aria-label="Choose a role"');
   });
+
+  it("links the public verification surface without making it a fourth role", () => {
+    const html = renderToStaticMarkup(<SurfaceNav showDock={false} />);
+
+    expect(html).toContain('href="/verify"');
+    expect(html).toContain("Verify");
+    expect(html).toContain('class="slop-nav__utility');
+    expect(html).not.toContain('class="slop-nav__link slop-nav__utility');
+  });
+
+  it("puts verification in the phone dock, which is the only nav below 720px", () => {
+    const html = renderToStaticMarkup(<SurfaceNav />);
+
+    expect(html).toContain('class="slop-dock__utility');
+    expect(html).toContain('href="/verify"');
+  });
 });

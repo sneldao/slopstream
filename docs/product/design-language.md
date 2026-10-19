@@ -32,6 +32,21 @@ A fourth implementation rule follows from the first:
 
 Default demos and first impressions should emphasize rows 1–2. Use **theater mode** (`T` or `?theater=1`) when the story is Continuum quality, not auction mechanics.
 
+### Type
+
+The display face is **Archivo** (400–900), self-hosted through `next/font` and
+exposed as `--font-archivo`. It is the wordmark, the surface headers and every
+oversized number. The earlier stack named "Avenir Next" first, which exists only
+on Apple hardware — on Windows, Android and the demo projector the wordmark
+rendered as Helvetica. A brand face that ships is worth more than a nicer face
+that does not.
+
+Type is a token ladder (`--t-micro` … `--t-monument`), never a literal size at a
+call site. The micro/eyebrow steps are sized for a projector read across a room,
+so below 720px the ladder gets a legibility floor (`--t-micro` 11px,
+`--t-eyebrow` 12px, `--t-caption` 13px, `--t-body` 14px) rather than each screen
+inventing a bigger font.
+
 ## The big screen
 
 The big screen is an autonomous media field with six layers:
@@ -112,6 +127,11 @@ and lightweight enough for a phone.
 - A verified answer creates a **pending** reward. It becomes **available** only
   after the segment clears; the payout sheet explains that real payout rails
   are still a future capability.
+- **A stalled stream says so.** Autoplay can be blocked, and a suspended
+  `AudioContext` is silent by design. When playback is degraded the surface
+  shows a notice — "The stream audio stalled. Tap to restore sound" — rather
+  than failing quietly. Muted listeners are never nagged, and a
+  between-segment gap is deliberately not treated as a stall.
 
 The big screen may say that an Earn Mode opportunity is available, but the
 question, choices, answer and personal receipt remain on the listener device.
@@ -123,11 +143,25 @@ Listen (02) and Brand (03). Desktop uses the surface switcher; smaller screens
 get a thumb-reachable dock. The screen can deliberately suppress both in
 theater mode.
 
+Verification (`/verify`) is **not a fourth role** — nobody acts there, they
+check. It sits apart from the switcher behind a hairline rule on desktop, and
+takes a quieter slot at the end of the dock on phones, because below 720px the
+switcher is hidden and the dock is the only nav that exists. A utility nobody
+can reach on the device most people hold is not a public audit surface.
+
 On narrow displays, media portal recipes collapse to one reliable central
 composition and archive cards withdraw rather than competing with the current
 asset. When the stream is between segments, archive cards use a slower idle
-drift so the Continuum still breathes. Reduced-motion preferences disable
-continuous drift and ripple loops.
+drift so the Continuum still breathes.
+
+Reduced-motion preferences disable continuous drift and ripple loops — and the
+loops are gated on the **live** preference, not the value read at mount. A
+canvas effect that samples `matchMedia` once keeps animating until something
+happens to re-run it, which means the guardrail does not fire when someone
+turns the setting on mid-session. Every decorative rAF loop subscribes instead,
+so the picture stills or resumes without a reload. Reduced motion stills the
+art; it never blanks it, and count-ups and typed hashes snap to their final
+value rather than disappearing.
 
 ## Implementation guardrails
 
@@ -144,6 +178,16 @@ continuous drift and ripple loops.
   content keeps the cream/ink contrast system.
 - WebGL/WebGPU effects are optional enhancement layers. They must not become a
   prerequisite for rendering the media world.
+- Decorative canvas/rAF loops read `usePrefersReducedMotion()` in the component
+  and list it in the effect's dependency array. The non-hook
+  `prefersReducedMotion()` sample is only correct for one-shot animations (a
+  receipt count-up, a typed hash) that re-run on their own regardless.
+- Brand palette variables (`--brand-primary`, `--brand-secondary`,
+  `--brand-glow`) are applied through `useBrandPalette`. A surface does not
+  write its own `setProperty` block.
+- Every surface is a design-system page — `SurfaceHeader`, shared nav, tokens.
+  `/verify` once hand-rolled a dark palette and appeared in no nav, sitemap or
+  dock; an audit page nobody can reach is worse than an honest absence.
 
 ## Historical prototype
 

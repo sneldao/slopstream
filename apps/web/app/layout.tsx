@@ -1,7 +1,19 @@
 import type { Metadata, Viewport } from "next";
+import { Archivo } from "next/font/google";
 import "./globals.css";
 import { MotionProvider } from "./_components/MotionProvider";
 import { siteUrl } from "@/lib/siteUrl";
+
+// The brand typeface was a system-font wish: "Avenir Next" only exists on
+// Apple hardware, so the wordmark rendered as Helvetica for everyone on
+// Windows, Android and the demo projector. Self-hosted here — downloaded at
+// build time, no runtime request to Google.
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-archivo",
+  display: "swap",
+});
 
 const baseUrl = siteUrl();
 const title = "Slopstream — the live attention market";
@@ -65,7 +77,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={archivo.variable}>
       <body>
         <MotionProvider>{children}</MotionProvider>
       </body>

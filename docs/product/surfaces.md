@@ -1,6 +1,6 @@
 # Main Surfaces
 
-Slopstream has three main surfaces: the big screen (the centerpiece), the listener client, and the brand bidding console. Plus one signature artifact: the proof receipt.
+Slopstream has three main surfaces: the big screen (the centerpiece), the listener client, and the brand bidding console. Plus one signature artifact: the proof receipt. And one public utility that is deliberately not a fourth role: `/verify`, where anyone re-checks a receipt without trusting us.
 
 **Phase 1 priority:** make `/` an irresistible Continuum experience. The brand console and marketplace loop matter for phase 3 demos; they should not dominate how we evaluate day-to-day product quality.
 
@@ -230,8 +230,30 @@ Every verified interaction produces a beautiful receipt — the one calm moment 
 
 The receipt animates in: card fades and scales up with a spring, "ATTENTION VERIFIED" stamps in as a rotating seal, the proof hash types in character by character, and the reward amount counts up from $0.00. The [design language](design-language.md#listener-experience) defines the calm-versus-energetic interaction balance.
 
+Receipts link here: a Midnight-mode receipt renders **Verify on-chain** pointing at `/verify?nullifier=<proof id>`, which pre-fills the nullifier.
+
 This is the moment to demonstrate **why Midnight exists**. The audience doesn't need to understand the cryptography first. They see:
 
 > I answered → proof → reward.
 
 The reward is an _estimate_ until the attention window closes and the pool is distributed proportionally (see [economics](economics.md#dont-pay-per-question)) — the receipt shows a pending share, not a settled payout.
+
+## E. The public verification surface
+
+`/verify` is the page that makes the receipt's "Verified by Midnight" line falsifiable. It is not a role — nothing is placed, answered or paid here. It is the surface a judge, a regulator or a rival opens in their own browser.
+
+Two inputs — the contract address (from `contracts/preprod/deployment.json`) and a nullifier, deep-linked from any receipt — and one read: a browser-side GraphQL `contractState(address:)` query against the public Blockfrost preprod indexer, searching the returned state for that nullifier. No Slopstream server is in the path, so the page cannot lie by omission.
+
+The whole design of the page is the distinction between **no record** and **state unread**:
+
+| Outcome | Meaning | What the page says |
+| --- | --- | --- |
+| Nullifier present in contract state | the acceptance was recorded on-chain | "Nullifier found on-chain", plus a SHA-256 of the state that was read |
+| State read successfully, entry absent | nothing was recorded | "No record found" — and the note that this verdict only appears after a successful read |
+| HTTP failure, 403 with no project token, malformed address, no state returned, network error | the state was never read | "Indexer error … NOT 'no record'" |
+
+A verdict that silently degrades to "no record" while the indexer is down is the cheapest way to lose trust, so the failure branch gets its own sentence and its own colour. The address is allowlisted (`[A-Za-z0-9_.:-]{1,200}`) rather than escaped, because it is interpolated into a GraphQL query string.
+
+Under the verdict, three snippets that run none of our code: a browser-console `fetch`, a `curl` one-liner, and an AI prompt — same address, same nullifier, same indexer. The point is not that the button is trustworthy; it is that the button is optional.
+
+The page prints its own limits rather than leaving them to be inferred: Midnight verified the ZK proof on acceptance and this page decodes; the backend ledger is authoritative for clearing during the hackathon; reward weights are off-chain while the chain records the claims; not audited, not mainnet.

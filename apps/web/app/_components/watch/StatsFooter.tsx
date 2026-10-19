@@ -22,7 +22,7 @@ export function StatsFooter({
   totalClearedVolumeUsd: number;
 }) {
   return (
-    <div style={styles.row}>
+    <div style={styles.row} role="group" aria-label="Live stream totals">
       <Stat icon="💸" label="total paid" hero>
         <AnimatedNumber
           value={listenerRewardsUsd}
@@ -64,7 +64,9 @@ function Stat({
 }) {
   return (
     <div style={styles.stat}>
-      <span style={styles.icon}>{icon}</span>
+      <span style={styles.icon} aria-hidden>
+        {icon}
+      </span>
       <span
         style={{
           ...styles.value,

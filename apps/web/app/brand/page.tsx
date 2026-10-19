@@ -5,6 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { BrandSummary, ProductionTier } from "@slopstream/shared";
 import { TIER_BID_THRESHOLDS_USD } from "@slopstream/shared";
 import { useStream } from "@/lib/useStream";
+import {
+  useBrandPalette,
+  usePrefersReducedMotion,
+} from "@/lib/useMotionPreference";
 import { useSoundDesign } from "@/lib/useSoundDesign";
 import { requestJson } from "@/lib/liveApi";
 import { hexA } from "@/lib/color";
@@ -89,13 +93,7 @@ export default function BrandPage() {
       });
   }, [state.lastSettlement, demoBrandToken]);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (myBrand) {
-      root.style.setProperty("--brand-primary", myBrand.primaryColor);
-      root.style.setProperty("--brand-secondary", myBrand.secondaryColor);
-    }
-  }, [myBrand]);
+  useBrandPalette(myBrand);
 
   // OUTBID detection with sound + haptic.
   useEffect(() => {
@@ -650,6 +648,7 @@ function AmbientGlow({
   intensity: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -665,7 +664,10 @@ function AmbientGlow({
       const w = canvas.width;
       const h = canvas.height;
       phase += 0.015;
-      currentIntensity += (intensity - currentIntensity) * 0.05;
+      // The loop exists to ease intensity; a still frame jumps to the target.
+      currentIntensity = reducedMotion
+        ? intensity
+        : currentIntensity + (intensity - currentIntensity) * 0.05;
 
       ctx.clearRect(0, 0, w, h);
 
@@ -688,11 +690,11 @@ function AmbientGlow({
       ctx.fillStyle = grad2;
       ctx.fillRect(0, 0, w, h);
 
-      raf = requestAnimationFrame(render);
+      if (!reducedMotion) raf = requestAnimationFrame(render);
     };
     render();
     return () => cancelAnimationFrame(raf);
-  }, [color, secondary, intensity]);
+  }, [color, secondary, intensity, reducedMotion]);
 
   return (
     <canvas
@@ -700,6 +702,7 @@ function AmbientGlow({
       width={560}
       height={1000}
       style={styles.glowCanvas}
+      aria-hidden
     />
   );
 }
@@ -758,6 +761,7 @@ function WorldPreview({
   myBrandColor: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -881,11 +885,11 @@ function WorldPreview({
         ctx.fillText("YOUR BRAND ENTERS HERE", cx, h - 13);
       }
 
-      raf = requestAnimationFrame(render);
+      if (!reducedMotion) raf = requestAnimationFrame(render);
     };
     render();
     return () => cancelAnimationFrame(raf);
-  }, [leaderboard, brandById, myBrandId, myBrandColor]);
+  }, [leaderboard, brandById, myBrandId, myBrandColor, reducedMotion]);
 
   return (
     <div style={styles.worldPreviewWrap}>
@@ -895,6 +899,17 @@ function WorldPreview({
         width={520}
         height={160}
         style={styles.worldPreviewCanvas}
+        role="img"
+        aria-label={
+          leaderboard.length
+            ? `Standing bids: ${leaderboard
+                .map(
+                  (entry, i) =>
+                    `${i + 1}. ${brandById[entry.brandId]?.name ?? entry.brandId} at $${entry.amountUsd.toFixed(0)}${entry.brandId === myBrandId ? " (you)" : ""}`,
+                )
+                .join("; ")}`
+            : "No bids placed yet."
+        }
       />
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import type { AudioSignal } from "@/lib/useAudioSignal";
+import { usePrefersReducedMotion } from "@/lib/useMotionPreference";
 
 /**
  * A soft-body blob — the Floaty soul. Renders as an SVG path that wobbles
@@ -38,6 +39,7 @@ export function SoftBlob({
   const pathRef = useRef<SVGPathElement>(null);
   const phaseRef = useRef(0);
   const rafRef = useRef(0);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const points = 8;
@@ -46,9 +48,7 @@ export function SoftBlob({
     const rx = width / 2 - 4;
     const ry = height / 2 - 4;
 
-    const animate = () => {
-      phaseRef.current += 0.02;
-      const phase = phaseRef.current;
+    const draw = (phase: number) => {
       const signal = signalRef?.current;
       const audioBoost = signal
         ? signal.smoothAmplitude * 0.3 + signal.beat * 0.2
@@ -72,12 +72,22 @@ export function SoftBlob({
       // Build a smooth closed path through the points using Catmull-Rom.
       const d = catmullRomClosed(pts);
       if (pathRef.current) pathRef.current.setAttribute("d", d);
+    };
 
+    // Reduced motion still gets the blob — it just stops writhing.
+    if (reducedMotion) {
+      draw(0);
+      return;
+    }
+
+    const animate = () => {
+      phaseRef.current += 0.02;
+      draw(phaseRef.current);
       rafRef.current = requestAnimationFrame(animate);
     };
     animate();
     return () => cancelAnimationFrame(rafRef.current);
-  }, [width, height, agitation, signalRef]);
+  }, [width, height, agitation, signalRef, reducedMotion]);
 
   const id = useRef(
     `blob-grad-${Math.random().toString(36).slice(2, 8)}`,

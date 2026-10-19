@@ -9,6 +9,12 @@ const NAV = [
   { href: "/brand", label: "Sponsor" },
 ] as const;
 
+/**
+ * Not roles — the public audit surface. Rendered apart from the switcher so
+ * Watch / Earn / Sponsor stays the three-way choice it is meant to be.
+ */
+const UTILITY = [{ href: "/verify", label: "Verify" }] as const;
+
 function isNavActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
@@ -86,6 +92,19 @@ export function SurfaceNav({
               </a>
             );
           })}
+          {UTILITY.map((item) => {
+            const active = isNavActive(pathname, item.href);
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                className={`slop-nav__utility${active ? " is-active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            );
+          })}
         </nav>
 
         {trailing ? (
@@ -107,6 +126,21 @@ export function SurfaceNav({
                 key={item.href}
                 href={item.href}
                 className={`slop-dock__link${active ? " is-active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            );
+          })}
+          {/* Below 720px the header switcher is hidden, so the dock is the only
+              nav a phone has — the audit surface has to live here too. */}
+          {UTILITY.map((item) => {
+            const active = isNavActive(pathname, item.href);
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                className={`slop-dock__utility${active ? " is-active" : ""}`}
                 aria-current={active ? "page" : undefined}
               >
                 {item.label}

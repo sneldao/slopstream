@@ -15,8 +15,9 @@
   --slop-lime: #b8ff65;
   --slop-violet: #9b7bff;
   --slop-display:
-    "Avenir Next Condensed", "Avenir Next", "Helvetica Neue", sans-serif;
-  --slop-body: "Avenir Next", "Helvetica Neue", sans-serif;
+    var(--font-archivo), "Avenir Next Condensed", "Avenir Next",
+    "Helvetica Neue", sans-serif;
+  --slop-body: var(--font-archivo), "Avenir Next", "Helvetica Neue", sans-serif;
 
   /* ---------------------------------------------------------------------
      Form tokens.
@@ -146,6 +147,18 @@ body {
   overflow-x: hidden;
 }
 
+/* The micro/eyebrow steps are sized for a projector across a room. On a phone
+   held at 30cm they are decoration, not text — so the scale lifts rather than
+   every call site growing a magic number. */
+@media (max-width: 720px) {
+  :root {
+    --t-micro: 11px;
+    --t-eyebrow: 12px;
+    --t-caption: 13px;
+    --t-body: 14px;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -153,6 +166,20 @@ body {
 button,
 input {
   font: inherit;
+}
+
+/* Assistive-only text. Used where the visual form is a 60fps animation or a
+   decorative emoji — the picture is for sighted viewers, this is the reading. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 button,
@@ -322,6 +349,53 @@ a.slop-wordmark-chip:hover {
 
 .slop-nav__index {
   color: var(--slop-yellow);
+}
+
+/* The public audit surface sits apart from the three roles — a rule, not a
+   fourth button, so the role choice stays a three-way decision. */
+.slop-nav__utility {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  margin-left: var(--s-2);
+  padding-left: var(--s-3);
+  border-left: 1px solid var(--edge-light);
+  color: rgba(255, 253, 246, 0.48);
+  font-size: var(--t-eyebrow);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 220ms ease;
+}
+
+.slop-nav--light .slop-nav__utility {
+  border-left-color: var(--edge-ink);
+  color: rgba(16, 16, 20, 0.52);
+}
+
+.slop-nav__utility:hover {
+  color: var(--slop-yellow);
+}
+
+.slop-nav--light .slop-nav__utility:hover {
+  color: var(--slop-ink);
+}
+
+.slop-nav__utility.is-active {
+  color: var(--slop-yellow);
+}
+
+.slop-nav--light .slop-nav__utility.is-active {
+  color: var(--slop-ink);
+}
+
+@media (max-width: 560px) {
+  .slop-nav__utility {
+    margin-left: 0;
+    padding-left: var(--s-2);
+    border-left: 0;
+  }
 }
 
 .slop-nav__link.is-active .slop-nav__index {
@@ -674,7 +748,10 @@ main.has-dock {
   right: max(12px, env(safe-area-inset-right, 0px));
   bottom: max(12px, env(safe-area-inset-bottom, 0px));
   left: max(12px, env(safe-area-inset-left, 0px));
-  grid-template-columns: repeat(4, 1fr);
+  /* Columns follow the link count — a fixed repeat left the dock one slot
+     short the day a role was dropped. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: var(--s-1);
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -724,6 +801,63 @@ main.has-dock {
   transform: scale(0.9);
 }
 
+/* Transient system notices — reconnect, stalled audio. Readable at phone
+   distance (unlike the projector-scale chrome), and never louder than the
+   stream itself. */
+.screen-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  position: fixed;
+  top: calc(72px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  max-width: min(92vw, 460px);
+  padding: 10px var(--s-4);
+  border: 1px solid rgba(255, 228, 94, 0.32);
+  border-radius: var(--r-pill);
+  background: var(--veil-dark-3);
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  backdrop-filter: blur(var(--blur-md));
+  box-shadow: var(--shadow-ambient-sm);
+  color: var(--slop-yellow);
+  font-size: var(--t-caption);
+  font-weight: var(--w-strong);
+  line-height: 1.3;
+}
+
+.screen-notice button {
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 6px 14px;
+  background: var(--slop-yellow);
+  color: var(--slop-ink);
+  font: inherit;
+  font-weight: var(--w-black);
+  cursor: pointer;
+}
+
+.screen-notice button:focus-visible {
+  outline: 2px solid var(--slop-cream);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .screen-notice {
+    position: fixed;
+    top: auto;
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    transform: none;
+    max-width: none;
+    z-index: 70;
+  }
+}
+
 /* The market summary opens beneath the fixed role switcher rather than
    competing for the same top-center space. */
 .screen-market-hero {
@@ -766,6 +900,37 @@ main.has-dock {
 
 .slop-dock__link.is-active span {
   color: var(--slop-ink);
+}
+
+/* Same dock, different kind of thing: the roles are where you go to act, this
+   is the public audit surface. Quieter, and separated by a hairline so it does
+   not read as a fourth role. */
+.slop-dock__utility {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-1);
+  min-height: 48px;
+  padding-right: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--r-md);
+  color: rgba(255, 253, 246, 0.5);
+  font-size: var(--t-micro);
+  font-weight: var(--w-black);
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 220ms ease;
+}
+
+.slop-dock__utility::before {
+  color: var(--slop-yellow);
+  content: "⌕";
+  font-size: 13px;
+}
+
+.slop-dock__utility.is-active {
+  color: var(--slop-yellow);
 }
 
 .slop-join-pulse {
@@ -2919,4 +3084,312 @@ main.has-dock {
     left: clamp(16px, 3vw, 32px) !important;
     max-width: calc(100vw - 220px);
   }
+}
+
+/* --------------------------------------------------------------------------
+   Independent verification — the public audit surface (/verify).
+   Same cream/ink system as the rest of the product; this page is the thesis,
+   so it should not read as a different product.
+   -------------------------------------------------------------------------- */
+.verify-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: var(--s-6) max(var(--s-4), env(safe-area-inset-right, 0px))
+    var(--s-8) max(var(--s-4), env(safe-area-inset-left, 0px));
+}
+
+.verify-title {
+  margin: 0;
+  color: var(--platform-text);
+  font-family: var(--slop-display);
+  font-size: var(--t-title);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-tight);
+  line-height: 1.05;
+}
+
+.verify-lede {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--platform-text-dim);
+  font-size: var(--t-body-lg);
+  line-height: 1.55;
+}
+
+.verify-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.verify-label {
+  color: var(--platform-text-dim);
+  font-size: var(--t-caption);
+  font-weight: var(--w-strong);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+}
+
+.verify-input {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--s-3);
+  border: 1px solid var(--edge-light-strong);
+  border-radius: var(--r-sm);
+  background: var(--veil-dark-2);
+  color: var(--platform-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-body);
+  word-break: break-all;
+}
+
+.verify-input::placeholder {
+  color: rgba(255, 253, 246, 0.34);
+}
+
+.verify-input[aria-invalid="true"] {
+  border-color: var(--slop-coral);
+}
+
+.verify-submit {
+  align-self: flex-start;
+  min-height: 48px;
+  padding: var(--s-3) var(--s-6);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--slop-yellow);
+  color: var(--slop-ink);
+  font-size: var(--t-body);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--shadow-sticker-sm);
+  transition: transform 180ms var(--ease-out-expo);
+}
+
+.verify-submit:active {
+  transform: scale(0.97);
+}
+
+.verify-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.verify-hint {
+  margin: 0;
+  color: var(--platform-text-dim);
+  font-size: var(--t-caption);
+  line-height: 1.5;
+}
+
+.verify-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--edge-light);
+  border-radius: var(--r-md);
+  background: var(--veil-dark-3);
+  font-size: var(--t-body);
+}
+
+.verify-result--found {
+  border-color: var(--slop-lime);
+}
+
+.verify-result--missing {
+  border-color: var(--slop-coral);
+}
+
+.verify-result--warn {
+  border-color: var(--slop-yellow);
+}
+
+.verify-verdict {
+  color: var(--platform-text);
+  font-family: var(--slop-display);
+  font-size: var(--t-body-lg);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+}
+
+.verify-result--found .verify-verdict {
+  color: var(--slop-lime);
+}
+
+.verify-result--missing .verify-verdict {
+  color: var(--slop-coral);
+}
+
+.verify-result--warn .verify-verdict,
+.verify-result--warn .verify-mono {
+  color: var(--slop-yellow);
+}
+
+.verify-mono {
+  color: var(--platform-text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-caption);
+  word-break: break-all;
+}
+
+.verify-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-5);
+}
+
+.verify-heading {
+  margin: 0;
+  color: var(--platform-text);
+  font-size: var(--t-body-lg);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+}
+
+.verify-sub {
+  margin: 0;
+  color: var(--platform-text-dim);
+  font-size: var(--t-body);
+  line-height: 1.55;
+}
+
+.verify-snippet {
+  overflow: hidden;
+  border: 1px solid var(--edge-light);
+  border-radius: var(--r-sm);
+  background: var(--veil-dark-2);
+}
+
+.verify-snippet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--edge-light);
+  color: var(--platform-text);
+  font-size: var(--t-caption);
+  font-weight: var(--w-strong);
+}
+
+.verify-copy {
+  min-height: 36px;
+  padding: var(--s-1) var(--s-3);
+  border: 1px solid var(--edge-light-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--slop-yellow);
+  font-size: var(--t-caption);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.verify-pre {
+  margin: 0;
+  padding: var(--s-3);
+  overflow-x: auto;
+  color: var(--platform-text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-caption);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.verify-limits {
+  margin: 0;
+  padding-left: var(--s-5);
+  color: var(--platform-text-dim);
+  font-size: var(--t-body);
+  line-height: 1.65;
+}
+
+/* Route boundaries — the failure states a live stream will eventually hit. */
+.slop-stop {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-4);
+  width: min(100%, 560px);
+  margin: 0 auto;
+  padding: var(--s-8) max(var(--s-4), env(safe-area-inset-right, 0px))
+    var(--s-8) max(var(--s-4), env(safe-area-inset-left, 0px));
+}
+
+.slop-stop__title {
+  margin: 0;
+  color: var(--platform-text);
+  font-family: var(--slop-display);
+  font-size: var(--t-display);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-tight);
+  line-height: 1;
+}
+
+.slop-stop__body {
+  margin: 0;
+  color: var(--platform-text-dim);
+  font-size: var(--t-body-lg);
+  line-height: 1.55;
+}
+
+.slop-stop__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.slop-stop__actions button,
+.slop-stop__actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: var(--s-3) var(--s-5);
+  border-radius: var(--r-pill);
+  font-size: var(--t-body);
+  font-weight: var(--w-black);
+  letter-spacing: var(--track-wide);
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.slop-stop__actions button,
+.slop-stop__actions .slop-stop__primary {
+  border: 0;
+  background: var(--slop-yellow);
+  color: var(--slop-ink);
+  box-shadow: var(--shadow-sticker-sm);
+}
+
+.slop-stop__actions a {
+  border: 1px solid var(--edge-light-strong);
+  background: transparent;
+  color: var(--platform-text);
+}
+
+.slop-stop__detail {
+  width: 100%;
+  padding: var(--s-3);
+  overflow-x: auto;
+  border: 1px solid var(--edge-light);
+  border-radius: var(--r-sm);
+  background: var(--veil-dark-2);
+  color: var(--platform-text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-caption);
+  white-space: pre-wrap;
+  word-break: break-word;
 }

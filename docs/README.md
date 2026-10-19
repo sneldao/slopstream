@@ -6,8 +6,8 @@ Product design and technical architecture for **The Continuum** — a live, infi
 
 - [overview.md](product/overview.md) — north star, phased rollout, core idea, positioning, and the proof-of-use / agent-channel future direction.
 - [economics.md](product/economics.md) — phased rollout of the marketplace, verified spend, the 80/20 split, the attention reward pool, bid clearing semantics, auction strategy, and anti-gaming.
-- [surfaces.md](product/surfaces.md) — the three main surfaces: the big screen, the listener experience (QR + mobile web), and the brand bidding console, plus the proof receipt.
-- [design-language.md](product/design-language.md) — the authoritative Continuum design system: colourful media portals, archive fragments, composition recipes, event language, theater mode, and opt-in Earn Mode.
+- [surfaces.md](product/surfaces.md) — the three main surfaces: the big screen, the listener experience (QR + mobile web), and the brand bidding console, plus the proof receipt and the public verification page.
+- [design-language.md](product/design-language.md) — the authoritative Continuum design system: colourful media portals, archive fragments, composition recipes, event language, type, navigation and reduced-motion behavior, and opt-in Earn Mode.
 - [content.md](product/content.md) — The Continuum (primary product), creative formats, attention challenges, and the free ad engine that powers the stream (not merely cold-start filler).
 
 ## Technical

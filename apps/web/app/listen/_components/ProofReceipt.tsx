@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { AttentionProofReceipt, BrandSummary } from "@slopstream/shared";
+import { prefersReducedMotion } from "@/lib/useMotionPreference";
 
 /**
  * The proof receipt — the one calm moment in the slop (design-language.md
@@ -60,6 +61,10 @@ export function ProofReceipt({
   // Proof hash types in character by character.
   useEffect(() => {
     const hash = receipt.proofId.replace(/^0x/, "").slice(0, 8).toUpperCase();
+    if (prefersReducedMotion()) {
+      setTypedHash(`0x${hash}`);
+      return;
+    }
     let i = 0;
     const interval = setInterval(() => {
       i += 1;
@@ -73,6 +78,10 @@ export function ProofReceipt({
   useEffect(() => {
     if (!receipt.estimatedRewardUsd) return;
     const target = receipt.estimatedRewardUsd;
+    if (prefersReducedMotion()) {
+      setReward(target);
+      return;
+    }
     let frame = 0;
     const totalFrames = 30;
     const animate = () => {

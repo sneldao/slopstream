@@ -12,6 +12,10 @@ import {
 } from "@slopstream/shared";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
+import {
+  useBrandPalette,
+  usePrefersReducedMotion,
+} from "@/lib/useMotionPreference";
 import { playbackAudioUrl } from "@/lib/mediaPlayback";
 import { useMediaPreload } from "@/lib/mediaPreload";
 import { useSoundDesign } from "@/lib/useSoundDesign";
@@ -24,6 +28,7 @@ import { errorMessage } from "@/lib/errors";
 import { SphereField } from "../_components/SphereField";
 import { SurfaceHeader } from "../_components/SurfaceHeader";
 import { FirstRunCoach } from "../_components/FirstRunCoach";
+import { PlaybackNotice } from "../_components/PlaybackNotice";
 import { LoopStatus } from "../_components/LoopStatus";
 import { PayoutSheet } from "./_components/PayoutSheet";
 
@@ -36,11 +41,8 @@ export default function ListenPage() {
   const { state, connectionStatus } = useStream();
   useMediaPreload(state.upcomingSegments);
   const audioUrl = playbackAudioUrl(state.nowPlaying);
-  const { signalRef, unlock, muted, toggleMute } = useAudioSignal(
-    !!state.nowPlaying,
-    audioUrl,
-    state.nowPlayingStartedAt,
-  );
+  const { signalRef, unlock, muted, toggleMute, playbackState } =
+    useAudioSignal(!!state.nowPlaying, audioUrl, state.nowPlayingStartedAt);
   const { play } = useSoundDesign();
   const [joined, setJoined] = useState(false);
   const [receipt, setReceipt] = useState<AttentionProofReceipt | null>(null);
@@ -149,17 +151,7 @@ export default function ListenPage() {
     : undefined;
   const brandColor = activeBrand?.primaryColor ?? "#ffd76a";
 
-  useEffect(() => {
-    if (activeBrand) {
-      const root = document.documentElement;
-      root.style.setProperty("--brand-primary", activeBrand.primaryColor);
-      root.style.setProperty("--brand-secondary", activeBrand.secondaryColor);
-    } else {
-      const root = document.documentElement;
-      root.style.setProperty("--brand-primary", "var(--platform-bg-2)");
-      root.style.setProperty("--brand-secondary", "var(--platform-bg-1)");
-    }
-  }, [activeBrand]);
+  useBrandPalette(activeBrand);
 
   const challenge = state.activeChallenge;
   const attention = state.attention;
@@ -254,6 +246,12 @@ export default function ListenPage() {
       />
       <SphereField className="sphere-field--soft listen-spheres" />
       <div className="slop-grain" />
+
+      <PlaybackNotice
+        playbackState={playbackState}
+        muted={muted}
+        onRetry={unlock}
+      />
 
       <SurfaceHeader
         subtitle="Earn"
@@ -533,6 +531,7 @@ function FullBleedVisualizer({
   active: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -581,14 +580,20 @@ function FullBleedVisualizer({
       ctx.arc(cx2, cy2, r2, 0, Math.PI * 2);
       ctx.fill();
 
-      raf = requestAnimationFrame(render);
+      if (!reducedMotion) raf = requestAnimationFrame(render);
     };
     render();
     return () => cancelAnimationFrame(raf);
-  }, [signalRef, brandColor, secondaryColor, active]);
+  }, [signalRef, brandColor, secondaryColor, active, reducedMotion]);
 
   return (
-    <canvas ref={canvasRef} width={440} height={900} style={styles.bgCanvas} />
+    <canvas
+      ref={canvasRef}
+      width={440}
+      height={900}
+      style={styles.bgCanvas}
+      aria-hidden
+    />
   );
 }
 

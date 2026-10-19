@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStream } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
+import { useBrandPalette } from "@/lib/useMotionPreference";
 import { playbackAudioUrl } from "@/lib/mediaPlayback";
 import { useMediaPreload } from "@/lib/mediaPreload";
 import { useSoundDesign } from "@/lib/useSoundDesign";
@@ -20,6 +21,7 @@ import { EarnCta } from "./_components/watch/EarnCta";
 import { SurfaceHeader } from "./_components/SurfaceHeader";
 import { LoopStatus } from "./_components/LoopStatus";
 import { WelcomeOverlay } from "./_components/WelcomeOverlay";
+import { PlaybackNotice } from "./_components/PlaybackNotice";
 import {
   useKeyboardShortcuts,
   KeyboardHint,
@@ -51,11 +53,8 @@ export default function HomePage() {
   // Explicit manifests are authoritative. Direct legacy MP3s remain playable
   // during migration; visual URLs are never rewritten into guessed narration.
   const audioUrl = playbackAudioUrl(state.nowPlaying);
-  const { signalRef, unlock, muted, toggleMute } = useAudioSignal(
-    !!state.nowPlaying,
-    audioUrl,
-    state.nowPlayingStartedAt,
-  );
+  const { signalRef, unlock, muted, toggleMute, playbackState } =
+    useAudioSignal(!!state.nowPlaying, audioUrl, state.nowPlayingStartedAt);
   const { play } = useSoundDesign();
 
   // Keyboard shortcuts: M toggles mute, Escape exits theater. T is already
@@ -93,18 +92,7 @@ export default function HomePage() {
   const fluidBrand = state.brandById[leaderBrandId] ?? FREE_BRAND_SUMMARY;
 
   // Set brand-palette CSS variables.
-  useEffect(() => {
-    const root = document.documentElement;
-    if (activeBrand) {
-      root.style.setProperty("--brand-primary", activeBrand.primaryColor);
-      root.style.setProperty("--brand-secondary", activeBrand.secondaryColor);
-      root.style.setProperty("--brand-glow", `${activeBrand.primaryColor}33`);
-    } else {
-      root.style.setProperty("--brand-primary", "var(--platform-bg-2)");
-      root.style.setProperty("--brand-secondary", "var(--platform-bg-1)");
-      root.style.setProperty("--brand-glow", "rgba(255,215,106,0.18)");
-    }
-  }, [activeBrand]);
+  useBrandPalette(activeBrand);
 
   // Sound design — fire on event changes.
   const lastOutbidId = useRef(0);
@@ -175,8 +163,16 @@ export default function HomePage() {
           onClick={toggleMute}
           aria-label={muted ? "Unmute" : "Mute"}
         >
-          {muted ? "🔇" : "🔊"}
+          <span aria-hidden>{muted ? "🔇" : "🔊"}</span>
         </button>
+      )}
+
+      {audioStarted && (
+        <PlaybackNotice
+          playbackState={playbackState}
+          muted={muted}
+          onRetry={unlock}
+        />
       )}
 
       {/* Crisp editorial labels remain HTML above the moving media world. */}

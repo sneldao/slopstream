@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { AudioSignal } from "@/lib/useAudioSignal";
+import { usePrefersReducedMotion } from "@/lib/useMotionPreference";
 import type {
   AttentionState,
   ClearBurst,
@@ -156,6 +157,7 @@ export function Scene(props: SceneProps) {
 function ContinuumWorld(props: SceneProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const previousSegment = useRef<Segment | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
   const [sessionArchive, setSessionArchive] = useState<ArchiveItem[]>([]);
 
   useEffect(() => {
@@ -181,7 +183,7 @@ function ContinuumWorld(props: SceneProps) {
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root || reducedMotion) return;
     let frame = 0;
     const move = (event: PointerEvent) => {
       cancelAnimationFrame(frame);
@@ -199,11 +201,15 @@ function ContinuumWorld(props: SceneProps) {
       cancelAnimationFrame(frame);
       window.removeEventListener("pointermove", move);
     };
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    if (reducedMotion) {
+      root.style.setProperty("--continuum-pulse", "1");
+      return;
+    }
     let frame = 0;
     const tick = () => {
       const signal = props.signalRef.current;
@@ -215,7 +221,7 @@ function ContinuumWorld(props: SceneProps) {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [props.signalRef]);
+  }, [props.signalRef, reducedMotion]);
 
   const activeBrand = props.segment?.brandId
     ? props.brandById[props.segment.brandId]

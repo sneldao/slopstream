@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ClearBurst } from "@/lib/streamReducer";
+import { prefersReducedMotion } from "@/lib/useMotionPreference";
 
 interface ProofReceipt3DProps {
   burst: ClearBurst | undefined;
@@ -180,6 +181,12 @@ function CountUp({ value, prefix = "" }: { value: number; prefix?: string }) {
     const duration = 800;
     const startTime = performance.now();
     let raf = 0;
+
+    if (prefersReducedMotion()) {
+      ref.current = value;
+      setDisplay(value);
+      return;
+    }
 
     const tick = () => {
       const elapsed = performance.now() - startTime;

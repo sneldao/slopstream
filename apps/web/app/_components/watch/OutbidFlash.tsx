@@ -36,74 +36,84 @@ export function OutbidFlashOverlay({
   const toColor = next?.primaryColor ?? "#888";
 
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          key={flash.flashId}
-          style={styles.overlay}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-        >
-          {/* Color wash: paint flows from old leader to new leader. */}
+    <>
+      {/* The animation is a picture; this is the reading. Kept mounted so the
+          text change is what announces the event, not a node insertion. */}
+      <p role="status" className="sr-only">
+        Outbid. {next?.name ?? flash.newBrandId} now leads with $
+        {flash.newAmountUsd.toFixed(0)}, up from $
+        {flash.prevAmountUsd.toFixed(0)}.
+      </p>
+      <AnimatePresence>
+        {visible && (
           <motion.div
-            style={{
-              ...styles.wash,
-              background: `linear-gradient(110deg, ${fromColor} 0%, ${toColor} 100%)`,
-            }}
-            initial={{ clipPath: "inset(0 100% 0 0)" }}
-            animate={{ clipPath: "inset(0 0% 0 0)" }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-          />
-
-          {/* Splash ring ripples outward. */}
-          <motion.div
-            style={{ ...styles.ring, borderColor: toColor }}
-            initial={{ scale: 0.2, opacity: 0.7 }}
-            animate={{ scale: 3.5, opacity: 0 }}
-            transition={{ duration: 1.1, ease: "easeOut" }}
-          />
-
-          {/* OUTBID text burst. */}
-          <motion.div
-            style={styles.text}
-            initial={{ scale: 0.3, opacity: 0, rotate: -6 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            transition={{
-              type: "spring",
-              stiffness: 380,
-              damping: 12,
-              delay: 0.15,
-            }}
+            key={flash.flashId}
+            style={styles.overlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            aria-hidden
           >
-            <span style={styles.bolt}>⚡</span> OUTBID{" "}
-            <span style={styles.bolt}>⚡</span>
-          </motion.div>
+            {/* Color wash: paint flows from old leader to new leader. */}
+            <motion.div
+              style={{
+                ...styles.wash,
+                background: `linear-gradient(110deg, ${fromColor} 0%, ${toColor} 100%)`,
+              }}
+              initial={{ clipPath: "inset(0 100% 0 0)" }}
+              animate={{ clipPath: "inset(0 0% 0 0)" }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+            />
 
-          {/* New leader + amount. */}
-          <motion.div
-            style={styles.sub}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{
-              delay: 0.35,
-              type: "spring",
-              stiffness: 300,
-              damping: 22,
-            }}
-          >
-            <span style={{ color: toColor, fontWeight: 800 }}>
-              {next?.name}
-            </span>
-            <span style={styles.amounts}>
-              ${flash.prevAmountUsd.toFixed(0)} → $
-              {flash.newAmountUsd.toFixed(0)}
-            </span>
+            {/* Splash ring ripples outward. */}
+            <motion.div
+              style={{ ...styles.ring, borderColor: toColor }}
+              initial={{ scale: 0.2, opacity: 0.7 }}
+              animate={{ scale: 3.5, opacity: 0 }}
+              transition={{ duration: 1.1, ease: "easeOut" }}
+            />
+
+            {/* OUTBID text burst. */}
+            <motion.div
+              style={styles.text}
+              initial={{ scale: 0.3, opacity: 0, rotate: -6 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 380,
+                damping: 12,
+                delay: 0.15,
+              }}
+            >
+              <span style={styles.bolt}>⚡</span> OUTBID{" "}
+              <span style={styles.bolt}>⚡</span>
+            </motion.div>
+
+            {/* New leader + amount. */}
+            <motion.div
+              style={styles.sub}
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{
+                delay: 0.35,
+                type: "spring",
+                stiffness: 300,
+                damping: 22,
+              }}
+            >
+              <span style={{ color: toColor, fontWeight: 800 }}>
+                {next?.name}
+              </span>
+              <span style={styles.amounts}>
+                ${flash.prevAmountUsd.toFixed(0)} → $
+                {flash.newAmountUsd.toFixed(0)}
+              </span>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

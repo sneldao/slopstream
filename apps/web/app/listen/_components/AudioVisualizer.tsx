@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import type { AudioSignal } from "@/lib/useAudioSignal";
 import { hexA } from "@/lib/color";
+import { usePrefersReducedMotion } from "@/lib/useMotionPreference";
 
 /**
  * Audio-reactive visualizer — a pulsing blob that breathes with the shared
@@ -20,6 +21,7 @@ export function AudioVisualizer({
   signalRef: React.RefObject<AudioSignal>;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,6 +29,8 @@ export function AudioVisualizer({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Reduced motion keeps the brand-tinted blob as a still frame — the
+    // picture carries the meaning, the writhing does not.
     let raf = 0;
     let phase = 0;
 
@@ -74,12 +78,12 @@ export function AudioVisualizer({
       ctx.lineWidth = 2 + beat * 2;
       ctx.stroke();
 
-      raf = requestAnimationFrame(render);
+      if (!reducedMotion) raf = requestAnimationFrame(render);
     };
     render();
 
     return () => cancelAnimationFrame(raf);
-  }, [brandColor, active, signalRef]);
+  }, [brandColor, active, signalRef, reducedMotion]);
 
   return (
     <div style={styles.wrap}>
