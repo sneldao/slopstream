@@ -432,7 +432,7 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
     inputs carry `aria-invalid` plus a format hint. `StatsFooter` deliberately
     has no live region — `AnimatedNumber` mutates `textContent` at 60fps.
   - **Nav and dock** — dock columns follow the link count (`grid-auto-flow:
-    column`) instead of a fixed repeat, and Verify is reachable on phones: it
+column`) instead of a fixed repeat, and Verify is reachable on phones: it
     lived inside the header switcher, which is `display: none` below 720px.
   - **Type** — Archivo self-hosted as `--font-archivo`. The brand face was
     "Avenir Next", which exists only on Apple hardware, so the wordmark rendered
@@ -459,6 +459,24 @@ client, brand console, demo harness, WebSocket gateway, orchestrator.
   `_slotLeaders`) has been removed. Lane 2's lifecycle routes populate
   `brandId` from the segment's brand; the demo fixture populates it per
   scene.
+- **Cold "Connecting" on a dead feed — resolved.** The live hook used to
+  refuse to fetch at all unless `NEXT_PUBLIC_API_BASE_URL` or
+  `NEXT_PUBLIC_WS_URL` was set, and a first snapshot failure scheduled no
+  retry, so a misconfigured or single-origin deployment sat on "Connecting to
+  the live stream" forever. It now always attempts the snapshot (deriving
+  same-origin when unconfigured, the way `gatewayBaseUrl()` already did),
+  retries every 1.5s, and labels a never-connected failure honestly: `No
+signal` on the big screen (coral, not caution yellow) and "Can't reach the
+  live stream" on the listener. `connectionLabel()` is the single decision
+  point, tested in `lib/useStream.test.ts`.
+- **PWA manifest URLs — resolved.** `manifest.ts` built `start_url` and every
+  shortcut `url` from `siteUrl()`, so a deployment whose
+  `NEXT_PUBLIC_SITE_URL` differed from the served origin emitted a manifest
+  Chrome rejected outright (`start_url` ignored as cross-origin, scope narrowed
+  to the document directory, shortcuts dropped for falling outside it, then
+  "property 'url' of 'shortcut' not present"). The manifest is origin-relative
+  now; `siteUrl()` stays for sitemap/robots/OG, where an absolute URL is the
+  requirement.
 - **No Tailwind** — used CSS variables + inline styles + Framer Motion
   instead. The design-language doc lists Tailwind as P0, but the per-brand
   dynamic color system maps more naturally to CSS custom properties. Can be
@@ -546,6 +564,25 @@ three contracts and writes `contracts/preprod/deployment.json` in one shot —
 pull + commit when it lands. Note sync state is in-memory
 (`txHistoryStorage.storage = {}`), so any process restart re-grinds from
 zero — leave the run alone.
+
+**Backend revival (same day):** the Coolify stack on nuncio-vultr
+(`slopstream-verifier|generator|api|orchestrator`) had been `exited` since
+~Aug 31 — no containers, no FQDNs — which is why the Vercel site 404'd its
+same-origin snapshot fetch. Restarted all four via the Coolify API; all
+`running:healthy`. Two fixes the provisioning had never finished: (1) the
+orchestrator got `fqdn=https://slopstream.144.202.117.160.sslip.io` via
+artisan (the public API rejects `fqdn`), plus a manual
+`docker network connect coolify` — apps deployed to the project network
+aren't reachable by traefik otherwise; (2) the generator crash-looped on
+`ASSET_BASE_URL` validation — set to
+`https://slopstream-assets.144.202.117.160.sslip.io` (env var +
+`fqdn` + coolify network attach; https cert may lag behind LE renewals —
+http route already serves). Verified: snapshot 200 with valid cert,
+`wss://…/ws` 101 upgrade, sequence advancing with real aired segments.
+Frontend env is baked in `apps/web/vercel.json` `build.env` (e796e11) —
+rebuilds pick up the gateway with no dashboard changes. NOTE: fqdn/env
+edits were made directly in Coolify (artisan + API envs), not through
+`provision-coolify.sh` — a future provisioner run may overwrite them.
 
 **Research findings worth planning around:** mainnet contract deployment went
 permissionless 2026-10-02 (no review gate — roadmap claim upgraded); ledger
