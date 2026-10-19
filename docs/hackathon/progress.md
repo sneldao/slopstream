@@ -162,8 +162,12 @@ challenge-source`, verifies the returned canonical segment ID, and posts
 ### Lane 1: next steps
 
 1. ~~Wire the Compact toolchain and implement `ProofOfAttention.compact`~~ —
-   done; remaining: run the proof server on the VPS, deploy to preprod, and
-   smoke-test with `submit-proof`.
+   done; ~~run the proof server on the VPS~~ — done (nuncio-vultr,
+   `midnightntwrk/proof-server:8.1.3` on 127.0.0.1:6300). Remaining: set
+   `MIDNIGHT_BLOCKFROST_PROJECT_ID` in `~/slopstream-deploy/deploy.env`
+   (Midnight-hosted endpoints decommissioned 2026-10-09), run
+   `pnpm --filter @slopstream/midnight deploy:all` to deploy all 3 Wave 3
+   contracts, smoke-test with `submit-proof`.
 2. Replace the process-local verifier nonce set with durable shared storage
    before more than one verifier instance is used. Generation jobs persist
    when `GENERATION_JOB_DB_PATH` is set; retries/dead-letter and ledger

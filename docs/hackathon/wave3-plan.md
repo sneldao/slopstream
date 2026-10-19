@@ -54,8 +54,10 @@ Say so plainly (honesty scored).
 - [x] Toolchain pinned: compactc 0.31.1 / language 0.23 / midnight-js 4.1.x
       (README + PROOF.md). All 3 compiled to `packages/midnight/contract/src/managed/`.
 - [ ] Deploy all 3 to preprod → commit `contracts/preprod/deployment.json`
-      (addresses + tx hashes). **BLOCKED: needs proof server + funded wallet
-      (no docker locally — see "Deploy runbook" below).**
+      (addresses + tx hashes). **READY on nuncio-vultr** — repo at HEAD,
+      proof-server upgraded to 8.1.3, deploy.env has seed + password; the only
+      missing piece is a `MIDNIGHT_BLOCKFROST_PROJECT_ID` (create a Midnight
+      Preprod project at blockfrost.io). See "Deploy runbook" below.
 - [x] `packages/midnight` deploy/join/submit wiring for all 3
       (`providersFor(contract)`, `deploy:all` script writes deployment.json);
       receipts carry `txHash` end-to-end (verifier → api → shared → UI).
