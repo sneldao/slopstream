@@ -333,20 +333,45 @@ export default function ListenPage() {
                 </div>
               )}
 
-              {/* Now playing — floating over the visualizer */}
-              <motion.div
-                style={styles.nowPlaying}
-                key={activeBrandId ?? "free"}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              >
-                <div style={styles.listeningLabel}>Now playing</div>
-                <div style={{ ...styles.brandName, color: brandColor }}>
-                  {activeBrand?.name ?? "Open Stream"}
-                </div>
-                <div style={styles.nowPlayingRule} />
-              </motion.div>
+              {/* Now playing — floating over the visualizer. A joined listener
+                  on a cold stream has no segment yet, and the visualizer is
+                  still; naming a brand there invents a title for nothing. */}
+              {state.nowPlaying ? (
+                <motion.div
+                  style={styles.nowPlaying}
+                  key={activeBrandId ?? "free"}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 20,
+                  }}
+                >
+                  <div style={styles.listeningLabel}>Now playing</div>
+                  <div style={{ ...styles.brandName, color: brandColor }}>
+                    {activeBrand?.name ?? "Open Stream"}
+                  </div>
+                  <div style={styles.nowPlayingRule} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  style={styles.nowPlaying}
+                  key="standby"
+                  role="status"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <div style={styles.listeningLabel}>Standby</div>
+                  <div style={{ ...styles.brandName, color: brandColor }}>
+                    {state.generation
+                      ? "Assembling next beat"
+                      : "Next segment incoming"}
+                  </div>
+                  <div style={styles.nowPlayingRule} />
+                </motion.div>
+              )}
 
               {/* Audio visualizer — the heartbeat blob */}
               <AudioVisualizer
