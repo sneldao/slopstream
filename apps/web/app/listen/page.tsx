@@ -10,7 +10,11 @@ import {
   type PayoutHistoryResponse,
   type PayoutReceipt,
 } from "@slopstream/shared";
-import { useStream } from "@/lib/useStream";
+import {
+  useStream,
+  connectionLabel,
+  type ConnectionLabel,
+} from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import {
   useBrandPalette,
@@ -31,6 +35,13 @@ import { FirstRunCoach } from "../_components/FirstRunCoach";
 import { PlaybackNotice } from "../_components/PlaybackNotice";
 import { LoopStatus } from "../_components/LoopStatus";
 import { PayoutSheet } from "./_components/PayoutSheet";
+
+const SIGNAL_NOTICES: Record<ConnectionLabel, string> = {
+  Live: "Live", // never rendered — the notice only shows while not connected
+  Connecting: "Connecting to the live stream",
+  Reconnecting: "Reconnecting to the live stream",
+  "No signal": "Can't reach the live stream",
+};
 
 /**
  * The listener experience — a game show on a phone. Full-bleed audio-
@@ -329,11 +340,11 @@ export default function ListenPage() {
               {connectionStatus !== "connected" && (
                 <div role="status" style={styles.signalNotice}>
                   <span style={styles.signalDot} />
-                  {/* Only a socket that has since dropped is *re*connecting.
-                      A first-time listener has nothing to reconnect to. */}
-                  {hasEverConnected
-                    ? "Reconnecting to the live stream"
-                    : "Connecting to the live stream"}
+                  {
+                    SIGNAL_NOTICES[
+                      connectionLabel(connectionStatus, hasEverConnected)
+                    ]
+                  }
                 </div>
               )}
 

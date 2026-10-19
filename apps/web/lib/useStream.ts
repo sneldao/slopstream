@@ -32,6 +32,24 @@ export function useStream(): UseStreamResult {
   };
 }
 
+export type ConnectionLabel =
+  "Live" | "Connecting" | "Reconnecting" | "No signal";
+
+/**
+ * Name the connection state the way a viewer can act on it. A client that has
+ * opened a socket and lost it is *re*connecting; a client that never opened one
+ * and keeps failing is not "connecting" — that label hides a dead feed behind
+ * an excuse. Retries continue either way.
+ */
+export function connectionLabel(
+  status: LiveConnectionStatus,
+  hasEverConnected: boolean,
+): ConnectionLabel {
+  if (status === "connected") return "Live";
+  if (status === "offline" && !hasEverConnected) return "No signal";
+  return hasEverConnected ? "Reconnecting" : "Connecting";
+}
+
 /** Apply a single delivery to a state — exposed for tests. */
 export function applyDelivery(
   prev: StreamState,

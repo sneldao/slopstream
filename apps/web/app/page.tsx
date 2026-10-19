@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { useStream } from "@/lib/useStream";
+import { useStream, connectionLabel } from "@/lib/useStream";
 import { useAudioSignal } from "@/lib/useAudioSignal";
 import { useBrandPalette } from "@/lib/useMotionPreference";
 import { playbackAudioUrl } from "@/lib/mediaPlayback";
@@ -38,13 +38,10 @@ const Scene = dynamic(
 export default function HomePage() {
   const { state, connectionStatus, hasEverConnected } = useStream();
   const isLive = connectionStatus === "connected";
-  // A cold "offline" (never connected) is still trying for the first time;
-  // only label it Reconnecting after a drop.
-  const connectionLabel = isLive
-    ? "Live"
-    : connectionStatus === "offline" && hasEverConnected
-      ? "Reconnecting"
-      : "Connecting";
+  const connectionLabelText = connectionLabel(
+    connectionStatus,
+    hasEverConnected,
+  );
   useMediaPreload(state.upcomingSegments);
   const { theater, toggle: toggleTheater } = useTheaterMode(true);
   const [marketOpen, setMarketOpen] = useState(false);
@@ -212,11 +209,18 @@ export default function HomePage() {
             <span
               className={`slop-hud-pill slop-hud-pill--connection${isLive ? " is-live" : ""}`}
               style={{
-                color: isLive ? "#b8ff65" : "#ffe45e",
+                // Waiting is yellow; a feed that keeps failing is coral. A
+                // projector left on "Connecting" in caution colours hides an
+                // outage, so the colour carries the difference.
+                color: isLive
+                  ? "#b8ff65"
+                  : connectionLabelText === "No signal"
+                    ? "#ff5c58"
+                    : "#ffe45e",
               }}
             >
               <span style={styles.connectionDot} />
-              {connectionLabel}
+              {connectionLabelText}
             </span>
           ) : null
         }

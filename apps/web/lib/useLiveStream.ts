@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StreamSnapshot, WsDelivery } from "@slopstream/shared";
-import { apiBaseUrl, apiUrl } from "./liveApi";
+import { apiUrl } from "./liveApi";
 import {
   reduceStreamEvent,
   snapshotToState,
@@ -22,6 +22,7 @@ import {
 
 const SNAPSHOT_PATH = "/stream/snapshot";
 const DEFAULT_WS_PATH = "/ws";
+const RETRY_MS = 1500;
 
 function resolveWsUrl(afterSequence: number): string | null {
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
@@ -74,28 +75,47 @@ export function useLiveStream(): LiveStreamResult {
   const stopped = useRef(true);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchSnapshot = useCallback(async (): Promise<StreamState | null> => {
-    try {
-      const res = await fetch(apiUrl(SNAPSHOT_PATH));
-      if (!res.ok) {
+  useEffect(() => {
+    const fetchSnapshot = async (): Promise<number | null> => {
+      try {
+        const res = await fetch(apiUrl(SNAPSHOT_PATH));
+        if (!res.ok) {
+          setStatus("offline");
+          return null;
+        }
+        const snapshot = (await res.json()) as StreamSnapshot;
+        lastSequence.current = snapshot.asOfSequence;
+        seenEventIds.current = new Set();
+        setState(snapshotToState(snapshot));
+        setStatus("connecting");
+        return snapshot.asOfSequence;
+      } catch {
         setStatus("offline");
         return null;
       }
-      const snapshot = (await res.json()) as StreamSnapshot;
-      const next = snapshotToState(snapshot);
-      lastSequence.current = snapshot.asOfSequence;
-      seenEventIds.current = new Set();
-      setState(next);
-      setStatus("connecting");
-      return next;
-    } catch {
-      setStatus("offline");
-      return null;
-    }
-  }, []);
+    };
 
-  const connect = useCallback(
-    (fromSequence: number) => {
+    const scheduleRetry = (then: () => void) => {
+      if (stopped.current) return;
+      reconnectTimer.current = setTimeout(then, RETRY_MS);
+    };
+
+    const attempt = () => {
+      if (stopped.current) return;
+      // Retries keep the last label — otherwise a dead feed flaps between
+      // "Connecting" and "No signal" on every cycle.
+      setStatus((prev) => (prev === "offline" ? prev : "connecting"));
+      void fetchSnapshot().then((asOfSequence) => {
+        if (stopped.current) return;
+        // A snapshot that never loaded still needs retrying — otherwise the
+        // first failure ends the conversation and the client sits claiming to
+        // be connecting forever.
+        if (asOfSequence === null) scheduleRetry(attempt);
+        else connect(asOfSequence);
+      });
+    };
+
+    function connect(fromSequence: number): void {
       const url = resolveWsUrl(fromSequence);
       if (!url || stopped.current) return;
       const ws = new WebSocket(url);
@@ -136,31 +156,17 @@ export function useLiveStream(): LiveStreamResult {
         wsRef.current = null;
         if (stopped.current) return;
         setStatus("offline");
-        // Reconnect after a short backoff; the snapshot fetch on reconnect
-        // handles any missed events.
-        reconnectTimer.current = setTimeout(
-          () => void fetchSnapshot().then((s) => s && connect(s.asOfSequence)),
-          1500,
-        );
+        // The snapshot fetch on reconnect handles any missed events.
+        scheduleRetry(attempt);
       };
 
       ws.onerror = () => {
         ws.close();
       };
-    },
-    [fetchSnapshot],
-  );
-
-  useEffect(() => {
-    if (!apiBaseUrl() && !process.env.NEXT_PUBLIC_WS_URL) {
-      setStatus("offline");
-      return;
     }
-    setStatus("connecting");
+
     stopped.current = false;
-    void fetchSnapshot().then((s) => {
-      if (s) connect(s.asOfSequence);
-    });
+    attempt();
 
     return () => {
       stopped.current = true;
@@ -168,7 +174,7 @@ export function useLiveStream(): LiveStreamResult {
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [fetchSnapshot, connect]);
+  }, []);
 
   return { state, status, hasEverConnected };
 }
