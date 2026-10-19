@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slopstream — Wave 2 Deck</title>
+<style>
+  /* ============================================================
+     Slopstream — Wave 2 deck. Self-contained, offline, no CDN,
+     no web fonts. 1280x720 logical slides. Print: 1 slide/page.
+     ============================================================ */
+  :root{
+    --cream:#FFFDF6;
+    --cream-2:#F6F1E2;
+    --ink:#0B0B0A;
+    --ink-2:#1B1B18;
+    --ink-3:#4A4A44;
+    --yellow:#FFE45E;
+    --yellow-deep:#E9C93F;
+    --line:#D9D2BE;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --display:"Helvetica Neue","Arial Black",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    --body:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    --k:1;
+  }
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--cream-2);
+    font-family:var(--body);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- deck shell (screen) ---------- */
+  .deck{display:flex;flex-direction:column;align-items:center;gap:28px;padding:28px 0}
+  body.js .deck{position:fixed;inset:0;display:grid;place-items:center;padding:0;overflow:hidden;background:var(--ink)}
+  body.js .track{transform:scale(var(--k));transform-origin:center center}
+
+  .slide{
+    position:relative;
+    width:1280px;height:720px;
+    flex:0 0 auto;
+    background:var(--cream);
+    color:var(--ink);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    box-shadow:0 24px 70px rgba(0,0,0,.35);
+  }
+  body.js .slide{display:none;box-shadow:none}
+  body.js .slide.active{display:flex}
+
+  .slide.dark{background:var(--ink);color:var(--cream)}
+
+  /* ---------- chrome ---------- */
+  .pad{padding:46px 72px 0}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+  .kicker{
+    font-family:var(--display);
+    font-weight:900;font-size:15px;line-height:1;
+    letter-spacing:.2em;text-transform:uppercase;
+    color:var(--ink);
+    background:var(--yellow);
+    padding:9px 14px 8px;
+    white-space:nowrap;
+  }
+  .dark .kicker{color:var(--ink)}
+  .pageno{
+    font-family:var(--display);font-weight:900;font-size:15px;letter-spacing:.14em;
+    color:var(--ink-3);text-transform:uppercase;text-align:right;line-height:1.5;
+  }
+  .dark .pageno{color:rgba(255,253,246,.5)}
+  .pageno b{display:block;font-size:34px;letter-spacing:-.03em;color:var(--ink)}
+  .dark .pageno b{color:var(--cream)}
+
+  .claim{
+    font-family:var(--display);font-weight:900;text-transform:uppercase;
+    letter-spacing:-.035em;line-height:.9;margin:0;
+  }
+  .lead{font-size:19px;line-height:1.45;font-weight:500;max-width:62ch;margin:0}
+  .lead b{font-weight:800}
+  .foot{
+    margin-top:auto;
+    display:flex;align-items:center;justify-content:space-between;gap:20px;
+    padding:0 72px 26px;
+    font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-3);
+    border-top:2px solid var(--ink);
+    padding-top:14px;
+  }
+  .dark .foot{color:rgba(255,253,246,.6);border-top-color:var(--yellow)}
+  .foot .tag{font-family:var(--mono);text-transform:none;letter-spacing:0;font-size:12px}
+
+  .hl{background:var(--yellow);padding:0 .12em;box-decoration-break:clone}
+  .mono{font-family:var(--mono);font-weight:600}
+  .tok{
+    font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:0;
+    background:var(--ink);color:var(--yellow);padding:3px 7px;white-space:nowrap;
+  }
+  .dark .tok{background:var(--yellow);color:var(--ink)}
+
+  /* ---------- hatching for "private" ---------- */
+  .hatch{
+    background-image:repeating-linear-gradient(135deg,rgba(11,11,10,.16) 0 2px,transparent 2px 7px);
+  }
+  .hatch-y{
+    background-image:repeating-linear-gradient(135deg,rgba(11,11,10,.13) 0 2px,transparent 2px 7px),var(--yellow);
+  }
+
+  /* ================= slide 1 : problem ================= */
+  .s1 .body{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;padding:18px 72px 0;align-items:start}
+  .s1 .claim{font-size:74px}
+  .s1 .lead{margin-top:22px}
+  .split{display:grid;gap:0;border:3px solid var(--ink)}
+  .split .pane{padding:20px 22px}
+  .split .pane + .pane{border-top:3px solid var(--ink)}
+  .pane.claimed{background:var(--ink);color:var(--cream)}
+  .pane.proved{background:var(--yellow);color:var(--ink)}
+  .pane .lab{font-family:var(--display);font-weight:900;font-size:13px;letter-spacing:.22em;text-transform:uppercase;opacity:.75}
+  .pane .stat{font-family:var(--display);font-weight:900;font-size:42px;letter-spacing:-.03em;line-height:1;margin-top:10px}
+  .pane .sub{font-size:13.5px;font-weight:600;margin-top:8px;opacity:.8}
+  .pane.proved .stat{font-size:56px}
+  .verdict{margin-top:16px;font-size:14px;font-weight:800;letter-spacing:.02em;border-left:4px solid var(--ink);padding-left:12px;color:var(--ink)}
+  .micro{margin-top:10px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:800}
+
+  /* ================= slide 2 : thesis ================= */
+  .s2 .body{padding:14px 72px 0;display:flex;flex-direction:column;height:100%}
+  .s2 .claim{font-size:112px;letter-spacing:-.05em}
+  .s2 .claim em{font-style:normal;color:var(--yellow)}
+  .s2 .thesis{margin-top:20px;font-size:22px;line-height:1.4;font-weight:600;max-width:74ch;color:var(--cream)}
+  .s2 .three{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:rgba(255,228,94,.45);margin-top:auto;margin-bottom:22px;border:2px solid var(--yellow)}
+  .s2 .three div{background:var(--ink);padding:16px 18px}
+  .s2 .three .n{font-family:var(--display);font-weight:900;font-size:12px;letter-spacing:.2em;color:var(--yellow)}
+  .s2 .three .t{font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:-.02em;text-transform:uppercase;margin-top:8px;line-height:1.05}
+  .s2 .motta{margin-top:18px;font-family:var(--display);font-weight:900;font-size:19px;letter-spacing:.02em;text-transform:uppercase}
+  .s2 .motta span{color:var(--yellow)}
+
+  /* ================= slide 3 : product ================= */
+  .s3 .body{display:grid;grid-template-columns:1fr 1.08fr;gap:40px;padding:16px 72px 0;align-items:start}
+  .s3 .claim{font-size:56px}
+  .s3 .lead{margin-top:18px}
+  .loop{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+  .loop span{
+    font-family:var(--display);font-weight:900;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;
+    border:2px solid var(--ink);padding:7px 11px;background:var(--cream)
+  }
+  .loop span.on{background:var(--yellow)}
+  .devices{display:grid;grid-template-columns:1.55fr .85fr;gap:16px;align-items:end}
+  .screen{border:3px solid var(--ink);background:var(--ink);aspect-ratio:16/9;display:flex;flex-direction:column;padding:12px;position:relative}
+  .screen .bar{display:flex;justify-content:space-between;font-family:var(--display);font-weight:900;font-size:10.5px;letter-spacing:.18em;color:var(--yellow);text-transform:uppercase}
+  .screen .art{flex:1;margin-top:10px;background:linear-gradient(135deg,#211f14 0%,#3a3410 60%,#211f14 100%);display:grid;place-items:center;color:var(--cream);border:1px dashed rgba(255,228,94,.4)}
+  .screen .art .big{font-family:var(--display);font-weight:900;font-size:23px;letter-spacing:-.02em;text-transform:uppercase;text-align:center;line-height:1.05;padding:0 10px}
+  .screen .meta{margin-top:10px;display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:rgba(255,253,246,.72);letter-spacing:.06em;text-transform:uppercase}
+  .phone{border:3px solid var(--ink);background:var(--cream);aspect-ratio:9/16;padding:11px;display:flex;flex-direction:column;gap:9px}
+  .phone .ph{font-family:var(--display);font-weight:900;font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+  .phone .q{border:2px solid var(--ink);padding:8px;font-size:11.5px;font-weight:700;line-height:1.25}
+  .phone .pay{margin-top:auto;background:var(--yellow);border:2px solid var(--ink);padding:8px;font-family:var(--display);font-weight:900;font-size:13px;letter-spacing:-.01em;text-transform:uppercase;line-height:1.1}
+  .cap{margin-top:10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--ink-3)}
+
+  /* ================= slide 4 : architecture ================= */
+  .s4 .body{padding:8px 72px 0}
+  .s4 .claim{font-size:44px}
+  .legend{display:flex;gap:18px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:16px;height:16px;border:2px solid var(--ink);margin-right:7px;vertical-align:-3px}
+  .legend .pub i{background:var(--yellow)}
+  .legend .pri i{background:var(--ink)}
+  .legend .nev i{background:var(--cream);border-style:dashed}
+  .legend span{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center}
+  .dgwrap{margin-top:6px}
+  svg.dg{display:block;width:100%;height:auto;font-family:var(--body)}
+  svg.dg text{font-family:var(--display);font-weight:900;letter-spacing:-.01em}
+  svg.dg .sm{font-family:var(--mono);font-weight:600;letter-spacing:0}
+  svg.dg .tiny{font-size:9.5px;font-weight:800;letter-spacing:.1em}
+
+  /* ================= slide 5 : privacy table ================= */
+  .s5 .body{padding:12px 72px 0}
+  .s5 .claim{font-size:44px}
+  .pt{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:3px solid var(--ink);margin-top:16px}
+  .pt .col{display:flex;flex-direction:column}
+  .pt .col + .col{border-left:3px solid var(--ink)}
+  .pt h3{
+    margin:0;padding:12px 16px;font-family:var(--display);font-weight:900;font-size:23px;letter-spacing:-.02em;text-transform:uppercase;
+    border-bottom:3px solid var(--ink)
+  }
+  .pt .col.pub h3{background:var(--yellow)}
+  .pt .col.pri h3{background:var(--ink);color:var(--cream)}
+  .pt .col.nev h3{background:var(--cream);color:var(--ink-3)}
+  .pt ul{list-style:none;margin:0;padding:12px 16px 14px;display:flex;flex-direction:column;gap:11px;flex:1}
+  .pt li{font-size:14.5px;line-height:1.3;font-weight:600}
+  .pt li b{display:block;font-family:var(--display);font-weight:900;font-size:15.5px;letter-spacing:-.01em;text-transform:uppercase}
+  .pt li b .mono{text-transform:none;letter-spacing:0;font-weight:600;font-size:12.5px}
+  .pt .pri ul{background:var(--ink);color:var(--cream)}
+  .pt .nev ul{background-image:repeating-linear-gradient(135deg,rgba(11,11,10,.055) 0 3px,transparent 3px 10px)}
+  .s5 .note{margin-top:12px;font-size:13px;font-weight:700;color:var(--ink-3);letter-spacing:.01em}
+
+  /* ================= slide 6 : /verify ================= */
+  .s6 .body{display:grid;grid-template-columns:.92fr 1.08fr;gap:38px;padding:14px 72px 0;align-items:start}
+  .s6 .claim{font-size:52px}
+  .s6 .lead{margin-top:16px}
+  .win{border:3px solid var(--ink);background:var(--cream);box-shadow:10px 10px 0 var(--ink)}
+  .win .tb{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:3px solid var(--ink);background:var(--cream-2)}
+  .win .dots{display:flex;gap:5px}
+  .win .dots i{width:9px;height:9px;border:2px solid var(--ink);display:block}
+  .win .url{flex:1;border:2px solid var(--ink);background:var(--cream);padding:5px 9px;font-family:var(--mono);font-size:12px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .win .in{padding:16px 18px}
+  .vstate{border:2px solid var(--ink);padding:10px 12px;background:var(--yellow)}
+  .vstate .lab{font-size:10.5px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+  .vstate .sha{font-family:var(--mono);font-size:12.5px;font-weight:700;margin-top:6px;word-break:break-all}
+  .vrows{margin-top:12px;border:2px solid var(--ink)}
+  .vrows div{display:flex;justify-content:space-between;gap:12px;padding:7px 11px;font-size:12.5px;font-weight:700}
+  .vrows div + div{border-top:2px solid var(--ink)}
+  .vrows .k{letter-spacing:.09em;text-transform:uppercase;font-size:11px;font-weight:900;color:var(--ink-3)}
+  .vrows .yes{background:var(--ink);color:var(--yellow);padding:2px 8px;font-family:var(--display);font-size:11.5px;letter-spacing:.1em}
+  .checks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .checks div{border:2px solid var(--ink);padding:8px 9px;font-size:11.5px;font-weight:800;line-height:1.25}
+  .checks .h{font-family:var(--display);font-weight:900;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:4px}
+  .falsify{margin-top:12px;border-left:5px solid var(--yellow);background:var(--cream-2);padding:11px 13px;font-size:13.5px;font-weight:700;line-height:1.35}
+
+  /* ================= slide 7 : diff ================= */
+  .s7 .body{padding:10px 72px 0}
+  .s7 .claim{font-size:42px}
+  table.diff{width:100%;border-collapse:collapse;margin-top:14px;font-size:13.2px}
+  table.diff th,table.diff td{border:2px solid var(--ink);padding:6px 10px;vertical-align:top;text-align:left}
+  table.diff thead th{
+    font-family:var(--display);font-weight:900;font-size:13.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:var(--cream)
+  }
+  table.diff thead th.now{background:var(--yellow);color:var(--ink)}
+  table.diff td.area{font-family:var(--display);font-weight:900;font-size:12.5px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;background:var(--cream-2)}
+  table.diff td.w1{color:var(--ink-3);font-weight:600}
+  table.diff td.w2{font-weight:700;background:rgba(255,228,94,.22)}
+  table.diff td.w2 b{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.01em}
+  table.diff .mono{font-size:11.6px}
+  .gate{display:flex;gap:14px;margin-top:12px;flex-wrap:wrap}
+  .gate span{border:2px solid var(--ink);padding:5px 10px;font-size:11.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;background:var(--yellow)}
+  .gate span.ghost{background:var(--cream)}
+
+  /* ================= slide 8 : roadmap ================= */
+  .s8 .body{padding:12px 72px 0;display:flex;flex-direction:column;height:100%}
+  .s8 .claim{font-size:46px}
+  .tl{position:relative;margin:26px 0 0}
+  .tl .rail{position:absolute;left:0;right:0;top:34px;height:4px;background:var(--ink)}
+  .tl .row{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;position:relative}
+  .tl .stop{padding-top:0}
+  .tl .dot{width:22px;height:22px;border:4px solid var(--ink);background:var(--cream);border-radius:50%;position:relative;z-index:2;margin:24px 0 14px}
+  .tl .stop.hot .dot{background:var(--yellow)}
+  .tl .who{font-family:var(--display);font-weight:900;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+  .tl .what{font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-.025em;text-transform:uppercase;line-height:1.02;margin-top:6px}
+  .tl .detail{font-size:13px;font-weight:600;line-height:1.35;margin-top:8px;color:var(--ink-2)}
+  .tl .stop.hot .what{background:var(--yellow);display:inline-block;padding:0 .1em}
+  .limits{margin-top:22px;border:3px solid var(--ink);display:grid;grid-template-columns:1.25fr .75fr}
+  .limits .ls{padding:14px 18px;border-right:3px solid var(--ink)}
+  .limits h4{margin:0 0 10px;font-family:var(--display);font-weight:900;font-size:16px;letter-spacing:.05em;text-transform:uppercase}
+  .limits ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px}
+  .limits li{font-size:13.2px;line-height:1.34;font-weight:600}
+  .limits li b{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.01em}
+  .limits .next{padding:14px 18px;background:var(--ink);color:var(--cream)}
+  .limits .next h4{color:var(--yellow)}
+  .limits .next li b{color:var(--yellow)}
+
+  /* ---------- screen hud ---------- */
+  .hud{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    display:none;align-items:center;gap:14px;
+    background:rgba(11,11,10,.82);color:var(--cream);
+    padding:8px 14px;border:1px solid rgba(255,228,94,.5);
+    font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    z-index:50;
+  }
+  body.js .hud{display:flex}
+  .hud .dots{display:flex;gap:6px}
+  .hud .dots i{width:8px;height:8px;background:rgba(255,253,246,.3);display:block;cursor:pointer}
+  .hud .dots i.on{background:var(--yellow)}
+
+  /* ---------- print ---------- */
+  @page{size:1280px 720px;margin:0}
+  @media print{
+    html,body{background:#fff}
+    .hud{display:none !important}
+    body.js .deck{position:static;display:block;padding:0;background:#fff}
+    body.js .track{transform:none !important}
+    .slide{display:flex !important;box-shadow:none;transform:none !important;
+           page-break-after:always;break-after:page;break-inside:avoid}
+    .slide:last-of-type{page-break-after:auto;break-after:auto}
+  }
+</style>
+</head>
+<body>
+<div class="deck"><div class="track">
+
+<!-- ============================== 1 ============================== -->
+<section class="slide s1" id="s1">
+  <div class="pad head">
+    <span class="kicker">01 — The problem</span>
+    <span class="pageno">Slopstream<b>Wave&nbsp;2</b></span>
+  </div>
+  <div class="body">
+    <div>
+      <h1 class="claim" style="margin-top:18px">Attention<br>fraud is<br><span class="hl">unverifiable</span></h1>
+      <p class="lead">Ad platforms report their own numbers. Brands pay for
+        &ldquo;impressions&rdquo; they cannot check — and checking harder means
+        building surveillance databases of <b>who watched what</b>.</p>
+      <p class="verdict">Verification today = trust the platform, <b>or</b> violate privacy.<br>There is no third option on the market.</p>
+      <p class="micro">Slide numbers are illustrative of the shape of the problem, not a claim about any real campaign.</p>
+    </div>
+    <div class="split">
+      <div class="pane claimed">
+        <div class="lab">Platform claims</div>
+        <div class="stat">1,204,882</div>
+        <div class="sub">impressions &middot; CPM $4.10 &middot; 71% viewability &middot; 100% human</div>
+      </div>
+      <div class="pane proved">
+        <div class="lab">Independently provable</div>
+        <div class="stat">0</div>
+        <div class="sub">facts the buyer can check without the platform&rsquo;s word — or a profile of the viewer.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Prove the fact, hide the person</span><span class="tag">1 / 8</span></div>
+</section>
+
+<!-- ============================== 2 ============================== -->
+<section class="slide dark s2" id="s2">
+  <div class="pad head">
+    <span class="kicker">02 — The thesis</span>
+    <span class="pageno">Midnight<b>Dual&nbsp;ledger</b></span>
+  </div>
+  <div class="body">
+    <h1 class="claim" style="margin-top:14px">Prove the fact.<br><em>Hide the person.</em></h1>
+    <p class="thesis">Slopstream proves an ad slot <b>met a verified-attention threshold</b>
+      without revealing who watched, what they answered, or building a profiling database.</p>
+    <div class="three">
+      <div><div class="n">A</div><div class="t">Brands can&rsquo;t see viewers</div></div>
+      <div><div class="n">B</div><div class="t">Viewers can&rsquo;t be linked across segments</div></div>
+      <div><div class="n">C</div><div class="t">Rival brands can&rsquo;t see spend</div></div>
+    </div>
+    <div class="motta">Stripe moves dollars. <span>Midnight proves facts.</span></div>
+  </div>
+  <div class="foot"><span>Apache-2.0 &middot; compactc 0.31.1 / language 0.23 / runtime 0.16.0</span><span class="tag">2 / 8</span></div>
+</section>
+
+<!-- ============================== 3 ============================== -->
+<section class="slide s3" id="s3">
+  <div class="pad head">
+    <span class="kicker">03 — The product</span>
+    <span class="pageno">Eternal<b>Loop</b></span>
+  </div>
+  <div class="body">
+    <div>
+      <h1 class="claim" style="margin-top:16px">A live stream where the <span class="hl">proof is the product</span></h1>
+      <p class="lead">An infinite AI-generated ad stream. Brands bid on slots, listeners
+        join by QR, answer a challenge during the slot, and are paid from the reward pool —
+        <b>80/20 listeners / platform</b>. Every slot ends in a ledger fact, not a screenshot.</p>
+      <div class="loop">
+        <span>Bid</span><span>Generate</span><span>Play</span><span class="on">Challenge</span><span class="on">Prove on-chain</span><span>Clear 80/20</span>
+      </div>
+      <p class="cap">6-second loop of the big-screen UI + listener phone.</p>
+    </div>
+    <div>
+      <div class="devices">
+        <div class="screen">
+          <div class="bar"><span>LIVE &middot; SLOT 0421</span><span>10 segments</span></div>
+          <div class="art"><div class="big">Verified<br>attention<br>threshold</div></div>
+          <div class="meta"><span>verified 7 / 5</span><span>thresholdMet&nbsp;true</span></div>
+        </div>
+        <div class="phone">
+          <div class="ph">/listen</div>
+          <div class="q">Challenge: which brand just aired?<br><span class="mono" style="font-size:10.5px">secret is ephemeral, per segment</span></div>
+          <div class="pay">+12,500<br>testnet points<br><span style="font-size:10px;letter-spacing:.12em">claim &rarr; txHash</span></div>
+        </div>
+      </div>
+      <p class="cap">Counts and proofs on the HUD — never identities.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Big screen + listener phone &middot; QR join</span><span class="tag">3 / 8</span></div>
+</section>
+
+<!-- ============================== 4 ============================== -->
+<section class="slide s4" id="s4">
+  <div class="pad head">
+    <span class="kicker">04 — Architecture</span>
+    <span class="pageno">3 deployed<b>preprod</b></span>
+  </div>
+  <div class="body">
+    <h1 class="claim" style="margin-top:6px">Three Compact contracts, live on Midnight preprod</h1>
+    <div class="legend">
+      <span class="pub"><i></i>Public ledger fact</span>
+      <span class="pri"><i></i>Private witness / private state</span>
+      <span class="nev"><i></i>Never on-chain</span>
+    </div>
+    <div class="dgwrap">
+      <svg class="dg" viewBox="0 0 1136 300" role="img" aria-label="Contract diagram: private witnesses enter three Compact contracts, public facts come out">
+        <defs>
+          <pattern id="hp" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+            <rect width="7" height="7" fill="#0B0B0A"/>
+            <line x1="0" y1="0" x2="0" y2="7" stroke="#FFE45E" stroke-width="1.6" opacity=".5"/>
+          </pattern>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#0B0B0A"/>
+          </marker>
+        </defs>
+
+        <!-- private inputs -->
+        <g>
+          <rect x="4" y="26" width="196" height="74" fill="url(#hp)" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="18" y="52" font-size="13" fill="#FFE45E">LISTENER SECRET</text>
+          <text x="18" y="74" font-size="11.5" fill="#FFFDF6" class="sm">ephemeral, per segment</text>
+          <text x="18" y="90" font-size="11.5" fill="#FFFDF6" class="sm">witness &rarr; nullifier</text>
+
+          <rect x="4" y="116" width="196" height="74" fill="url(#hp)" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="18" y="142" font-size="13" fill="#FFE45E">CLAIM SECRET</text>
+          <text x="18" y="164" font-size="11.5" fill="#FFFDF6" class="sm">ephemeral, per claim</text>
+          <text x="18" y="180" font-size="11.5" fill="#FFFDF6" class="sm">witness &rarr; claimNullifier</text>
+
+          <rect x="4" y="206" width="196" height="74" fill="url(#hp)" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="18" y="232" font-size="13" fill="#FFE45E">SPEND COMMITMENT</text>
+          <text x="18" y="254" font-size="11.5" fill="#FFFDF6" class="sm">hash("slopstream:</text>
+          <text x="18" y="270" font-size="11.5" fill="#FFFDF6" class="sm">spend:" || cents)</text>
+        </g>
+
+        <!-- arrows in -->
+        <g stroke="#0B0B0A" stroke-width="3" fill="none" marker-end="url(#ar)">
+          <path d="M200 63 L258 63"/>
+          <path d="M200 153 L258 153"/>
+          <path d="M200 243 L258 243"/>
+        </g>
+
+        <!-- contracts -->
+        <g>
+          <rect x="262" y="18" width="420" height="90" fill="#FFE45E" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="278" y="44" font-size="19" fill="#0B0B0A">ProofOfAttention</text>
+          <text x="278" y="66" font-size="11.5" fill="#0B0B0A" class="sm">submitAttentionProof — verifier-key gated</text>
+          <text x="278" y="84" font-size="11.5" fill="#0B0B0A" class="sm">4-deep replay window &middot; setAttentionThreshold (owner)</text>
+          <rect x="278" y="94" width="0" height="0"/>
+          <text x="470" y="14" font-size="11" fill="#4A4A44" class="sm">addr <tspan fill="#0B0B0A" font-weight="700">{{DEPLOY_ADDR_POA}}</tspan></text>
+
+          <rect x="262" y="118" width="420" height="90" fill="#FFE45E" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="278" y="144" font-size="19" fill="#0B0B0A">RewardClearing</text>
+          <text x="278" y="166" font-size="11.5" fill="#0B0B0A" class="sm">createRewardPool (owner) &middot; per pool per cleared bid</text>
+          <text x="278" y="184" font-size="11.5" fill="#0B0B0A" class="sm">claimReward — exactly-once via claim nullifier</text>
+          <text x="470" y="114" font-size="11" fill="#4A4A44" class="sm">addr <tspan fill="#0B0B0A" font-weight="700">{{DEPLOY_ADDR_REWARD}}</tspan></text>
+
+          <rect x="262" y="208" width="420" height="90" fill="#FFE45E" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="278" y="234" font-size="19" fill="#0B0B0A">PreviewRightsThreshold</text>
+          <text x="278" y="256" font-size="11.5" fill="#0B0B0A" class="sm">recordSpend (owner) &middot; proveQualification</text>
+          <text x="278" y="274" font-size="11.5" fill="#0B0B0A" class="sm">spend &ge; threshold &rarr; only the boolean is public</text>
+        </g>
+
+        <!-- arrows out -->
+        <g stroke="#0B0B0A" stroke-width="3" fill="none" marker-end="url(#ar)">
+          <path d="M682 63 L740 63"/>
+          <path d="M682 163 L740 163"/>
+          <path d="M682 253 L740 253"/>
+        </g>
+
+        <!-- public outputs -->
+        <g>
+          <rect x="744" y="18" width="388" height="90" fill="#FFFDF6" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="760" y="42" font-size="12" fill="#4A4A44" class="tiny">PUBLIC LEDGER</text>
+          <text x="760" y="66" font-size="15" fill="#0B0B0A">nullifier &middot; verifiedCount</text>
+          <text x="760" y="88" font-size="15" fill="#0B0B0A">thresholdMet</text>
+
+          <rect x="744" y="118" width="388" height="90" fill="#FFFDF6" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="760" y="142" font-size="12" fill="#4A4A44" class="tiny">PUBLIC LEDGER</text>
+          <text x="760" y="166" font-size="15" fill="#0B0B0A">totalPool &middot; claimedTotal</text>
+          <text x="760" y="188" font-size="15" fill="#0B0B0A">claimCount &middot; poolActive</text>
+
+          <rect x="744" y="208" width="388" height="90" fill="#FFFDF6" stroke="#0B0B0A" stroke-width="3"/>
+          <text x="760" y="232" font-size="12" fill="#4A4A44" class="tiny">PUBLIC LEDGER</text>
+          <text x="760" y="256" font-size="15" fill="#0B0B0A">qualified (boolean)</text>
+          <text x="760" y="278" font-size="13" fill="#4A4A44">amount never leaves the witness</text>
+
+          <rect x="744" y="292" width="0" height="0"/>
+        </g>
+        <text x="744" y="310" font-size="10.5" fill="#4A4A44" class="sm">Never on-chain: identity, answers, weights, budgets.</text>
+      </svg>
+    </div>
+  </div>
+  <div class="foot"><span>deploy:all — one wallet, three contracts &rarr; contracts/preprod/deployment.json</span><span class="tag">4 / 8</span></div>
+</section>
+
+<!-- ============================== 5 ============================== -->
+<section class="slide s5" id="s5">
+  <div class="pad head">
+    <span class="kicker">05 — Privacy mechanics</span>
+    <span class="pageno">Judge<b>slide</b></span>
+  </div>
+  <div class="body">
+    <h1 class="claim" style="margin-top:4px">Dual ledger, doing exactly what it is for</h1>
+    <div class="pt">
+      <div class="col pri">
+        <h3>Private — witness</h3>
+        <ul>
+          <li><b>Listener secret</b>ephemeral, per listener per segment; lives only in private state, rotated every submission</li>
+          <li><b>Claim secret</b>ephemeral, per claim; binds the claim to one consumed attention nullifier</li>
+          <li><b>Brand&rsquo;s exact spend</b><span class="mono">hash("slopstream:spend:" || cents)</span> — commitment only, amount never lands</li>
+        </ul>
+      </div>
+      <div class="col pub">
+        <h3>Public — ledger</h3>
+        <ul>
+          <li><b>Nullifiers</b>replay-protecting, unlinkable to a person</li>
+          <li><b>verifiedCount</b>aggregate only — no viewer rows</li>
+          <li><b>thresholdMet</b>the fact the buyer is paying for</li>
+          <li><b>qualified flag</b>boolean; plus pool totals + claim count</li>
+        </ul>
+      </div>
+      <div class="col nev">
+        <h3>Never on-chain</h3>
+        <ul>
+          <li><b>Identity</b>no account, no device graph, no profile store</li>
+          <li><b>Answers</b>grading is private to the verifier</li>
+          <li><b>Weights</b>per-listener reward share stays off-chain by design</li>
+          <li><b>Budgets</b>campaign spend and bids are not disclosed to rivals</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">Segment / challenge binding is proven <b>in-circuit</b>, never disclosed. Three facts go public; nothing identifies a human.</p>
+  </div>
+  <div class="foot"><span>Prove the fact, hide the person</span><span class="tag">5 / 8</span></div>
+</section>
+
+<!-- ============================== 6 ============================== -->
+<section class="slide s6" id="s6">
+  <div class="pad head">
+    <span class="kicker">06 — Falsifiability</span>
+    <span class="pageno">/verify<b>public</b></span>
+  </div>
+  <div class="body">
+    <div>
+      <h1 class="claim" style="margin-top:10px">Verify it yourself. <span class="hl">Run zero of our code.</span></h1>
+      <p class="lead">Every midnight receipt links to <span class="mono">/verify?nullifier=&hellip;</span>.
+        The page reads <b>public preprod indexer state</b>, prints the raw state
+        <b>SHA-256 before the verdict</b>, and offers a console snippet, a terminal
+        one-liner and an AI prompt — three independent paths to the same answer.</p>
+      <div class="falsify"><b>&ldquo;No record&rdquo; is only ever shown after a successful read.</b>
+        A failed or unauthenticated read can never render as absence — that is the whole point of the page.</div>
+      <p class="cap">Contract <span class="tok">{{DEPLOY_ADDR_POA}}</span> &nbsp; claim tx <span class="tok">{{DEPLOY_TX_CLAIM}}</span></p>
+    </div>
+    <div>
+      <div class="win">
+        <div class="tb"><div class="dots"><i></i><i></i><i></i></div>
+          <div class="url">/verify?nullifier=midnight_&hellip;</div></div>
+        <div class="in">
+          <div class="vstate">
+            <div class="lab">Raw ledger state — hashed before any verdict</div>
+            <div class="sha">sha256 {{STATE_SHA256}}</div>
+          </div>
+          <div class="vrows">
+            <div><span class="k">nullifier present</span><span class="yes">TRUE</span></div>
+            <div><span class="k">verifiedCount</span><span class="mono">7</span></div>
+            <div><span class="k">thresholdMet</span><span class="yes">TRUE</span></div>
+            <div><span class="k">txHash</span><span class="tok">{{DEPLOY_TX_CLAIM}}</span></div>
+          </div>
+          <div class="checks">
+            <div><span class="h">Console</span>fetch indexer state, re-hash, compare</div>
+            <div><span class="h">Terminal</span>one curl + shasum, no repo clone</div>
+            <div><span class="h">AI prompt</span>paste-in prompt that re-derives the verdict</div>
+          </div>
+        </div>
+      </div>
+      <p class="cap">Mock of the shipped page. Judge path: <span class="mono">JUDGES.md</span> + <span class="mono">PROOF.md</span>.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Receipt provenance, end to end</span><span class="tag">6 / 8</span></div>
+</section>
+
+<!-- ============================== 7 ============================== -->
+<section class="slide s7" id="s7">
+  <div class="pad head">
+    <span class="kicker">07 — Wave 1 &rarr; Wave 2</span>
+    <span class="pageno">Submitted<b>today</b></span>
+  </div>
+  <div class="body">
+    <h1 class="claim" style="margin-top:2px">Wave 1 &rarr; Wave 2 — what we shipped <span class="hl">this wave</span></h1>
+    <table class="diff">
+      <thead><tr><th style="width:13%">Area</th><th style="width:33%">Wave 1 (compiled, not deployed)</th><th class="now">Wave 2 — this submission</th></tr></thead>
+      <tbody>
+        <tr><td class="area">Contracts</td><td class="w1">0 deployed. <span class="mono">ProofOfAttention</span> compiled; preprod deploy attempted, wallet sync stalled before funds were visible.</td><td class="w2"><b>3 deployed to Midnight preprod</b> — <span class="mono">ProofOfAttention</span> <span class="tok">{{DEPLOY_ADDR_POA}}</span>, <span class="mono">RewardClearing</span> <span class="tok">{{DEPLOY_ADDR_REWARD}}</span>, <span class="mono">PreviewRightsThreshold</span>.</td></tr>
+        <tr><td class="area">Circuits</td><td class="w1">3 exported (PoA only).</td><td class="w2"><b>10 exported circuits</b> across the three contracts, bindings + zkir + prover/verifier keys committed.</td></tr>
+        <tr><td class="area">Caller gating</td><td class="w1"><span class="mono">submitAttentionProof</span> was <b>not gated</b> — a documented hole.</td><td class="w2"><b>Hole closed</b>: verifier-key gated <span class="mono">owner == publicKey(localSecretKey(), sequence)</span>.</td></tr>
+        <tr><td class="area">Receipts</td><td class="w1"><span class="mono">verifierMode</span> label only.</td><td class="w2"><span class="mono">txHash</span> threaded verifier &rarr; api &rarr; shared &rarr; UI; <span class="mono">/verify?nullifier=</span> deep-link.</td></tr>
+        <tr><td class="area">Verification</td><td class="w1">None — take our word.</td><td class="w2"><b><span class="mono">/verify</span> public surface</b>: raw state SHA-256 before the verdict + independent console / terminal / AI checks.</td></tr>
+        <tr><td class="area">Tests</td><td class="w1">verifier + api vitest only.</td><td class="w2"><b>18/18</b> zero-install circuit-mirror tests in <span class="mono">contracts/test/*.test.mjs</span> (<span class="mono">node --test</span>).</td></tr>
+        <tr><td class="area">Network</td><td class="w1">Midnight-hosted preprod indexer / RPC.</td><td class="w2"><b>Migrated to Blockfrost</b> + <span class="mono">?project_id=</span> auth — the hosted endpoints went <b>HTTP 410 on 2026-10-09</b>, mid-wave.</td></tr>
+      </tbody>
+    </table>
+    <div class="gate">
+      <span>Judge pack: JUDGES.md + PROOF.md</span>
+      <span class="ghost">Apache-2.0 &middot; topic midnightntwrk &middot; public repo</span>
+      <span class="ghost">compactc 0.31.1 &middot; midnight-js 4.1.x</span>
+    </div>
+  </div>
+  <div class="foot"><span>Meaningful new Midnight functionality completed during Wave 2</span><span class="tag">7 / 8</span></div>
+</section>
+
+<!-- ============================== 8 ============================== -->
+<section class="slide s8" id="s8">
+  <div class="pad head">
+    <span class="kicker">08 — Roadmap + honest limits</span>
+    <span class="pageno">Preprod,<b>not mainnet</b></span>
+  </div>
+  <div class="body">
+    <h1 class="claim" style="margin-top:2px">What is true today — and what we say plainly about it</h1>
+    <div class="tl">
+      <div class="rail"></div>
+      <div class="row">
+        <div class="stop">
+          <div class="dot"></div>
+          <div class="who">Wave 1</div>
+          <div class="what">Stub loop</div>
+          <div class="detail">bid &rarr; generate &rarr; play &rarr; challenge &rarr; receipt &rarr; 80/20 clearing. <span class="mono">ProofOfAttention</span> compiled, <b>not deployed</b>; wallet sync stalled.</div>
+        </div>
+        <div class="stop hot">
+          <div class="dot"></div>
+          <div class="who">Wave 2 — submitted today</div>
+          <div class="what">3 contracts live on preprod</div>
+          <div class="detail">Reward clearing + spend-threshold circuits, verifier-key gating, <span class="mono">txHash</span> provenance, <span class="mono">/verify</span>, 18/18 mirror tests, Blockfrost migration.</div>
+        </div>
+        <div class="stop">
+          <div class="dot"></div>
+          <div class="who">Next</div>
+          <div class="what">On-chain bid clearing</div>
+          <div class="detail"><span class="mono">BidClearing</span> (declared sketch), DUST-funded listener wallets, pilot: 1 live brand + 10 listeners on video. Mainnet opened permissionless deploy 2026-10-02; bump midnight-js 5.x before the v8&rarr;v9 fork reaches preprod — our v8-compiled contracts keep working, no recompile.</div>
+        </div>
+      </div>
+    </div>
+    <div class="limits">
+      <div class="ls">
+        <h4>Honest limits — stated on the page</h4>
+        <ul>
+          <li><b>Backend ledger is authoritative</b> for clearing during the hackathon; on-chain records are corroborating evidence + non-repudiation, not independent settlement. Yet.</li>
+          <li><b>BidClearing is a declared sketch</b>, not a hidden one — we say so rather than ship a hollow contract.</li>
+          <li><b>Not audited. Preprod, not mainnet.</b></li>
+          <li><b>Listener rewards are ledger points.</b> No USD value promise, nothing transferable — no money-transmitter framing.</li>
+          <li><b>Anti-Sybil is real but not perfect</b>: dual 4-deep replay windows, per-session commitment, claim rate limits. Non-trivial, not Sybil-proof.</li>
+        </ul>
+      </div>
+      <div class="next">
+        <h4>The ask</h4>
+        <ul>
+          <li>Repo: <span class="mono" style="font-size:11.5px">github.com/sneldao/slopstream</span></li>
+          <li><b>5-minute judge path</b> — <span class="mono">node --test contracts/test/*.test.mjs</span>, then <span class="mono">/verify</span> with a receipt nullifier.</li>
+          <li>Feedback wanted on on-chain clearing shape + nullifier unlinkability claims.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Stripe moves dollars &middot; Midnight proves facts</span><span class="tag">8 / 8</span></div>
+</section>
+
+</div></div>
+
+<div class="hud" id="hud">
+  <span id="hudLabel">1 / 8</span>
+  <div class="dots" id="hudDots"></div>
+  <span>&larr; &rarr; / click to advance</span>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var n = slides.length, i = 0;
+  document.body.classList.add('js');
+
+  var dots = document.getElementById('hudDots');
+  slides.forEach(function(_, k){
+    var d = document.createElement('i');
+    d.addEventListener('click', function(){ go(k); });
+    dots.appendChild(d);
+  });
+
+  function fit(){
+    var k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    document.documentElement.style.setProperty('--k', k > 0 ? k : 1);
+  }
+  function go(nxt){
+    i = Math.max(0, Math.min(n - 1, nxt));
+    slides.forEach(function(s, k){ s.classList.toggle('active', k === i); });
+    Array.prototype.forEach.call(dots.children, function(d, k){ d.classList.toggle('on', k === i); });
+    document.getElementById('hudLabel').textContent = (i + 1) + ' / ' + n;
+    if (history.replaceState) history.replaceState(null, '', '#' + (i + 1));
+  }
+  window.addEventListener('resize', fit);
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (e.key === 'Home') { go(0); }
+    else if (e.key === 'End') { go(n - 1); }
+  });
+  document.addEventListener('click', function(e){
+    if (e.target.closest('.hud')) return;
+    if (e.target.closest('a')) return;
+    go(i + 1);
+  });
+  var fromHash = parseInt((location.hash || '').replace('#',''), 10);
+  fit();
+  go(isFinite(fromHash) && fromHash >= 1 && fromHash <= n ? fromHash - 1 : 0);
+})();
+</script>
+</body>
+</html>
