@@ -1,7 +1,7 @@
 {
-  "id": "evergreen_acme_01",
+  "id": "evergreen_acme_industries_01",
   "version": 1,
-  "brandId": "brand_acme",
+  "brandId": "brand_acme_industries",
   "tier": "audio_image",
   "durationSec": 17,
   "transcript": "Acme rockets. Torn headlines peel back to reveal a launch nobody asked for and everybody watched. Acme: we put the 'ace' in 'space.'",
