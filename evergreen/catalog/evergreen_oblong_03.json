@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_oblong_03",
+  "version": 1,
+  "brandId": "brand_oblong",
+  "tier": "audio_image",
+  "durationSec": 19,
+  "transcript": "Circle. Rectangle. Oblong. Somewhere in between: lunch. Oblong Foods: geometry you can chew.",
+  "summary": "Whiteboard shape debate",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Whiteboard shape debate",
+  "media": {
+    "audio": {
+      "key": "audio/190e15ebc339d5bbff04388561bc86965f514afd3b0836e7020a30a1793eda7a.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "190e15ebc339d5bbff04388561bc86965f514afd3b0836e7020a30a1793eda7a",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/ea76afce61c2a3331bee0c2d93d43da1d70ebf780c6c386168d8465f5839ede0.png",
+      "contentType": "image/png",
+      "sha256": "ea76afce61c2a3331bee0c2d93d43da1d70ebf780c6c386168d8465f5839ede0",
+      "kind": "image"
+    }
+  },
+  "style": "whiteboard"
+}

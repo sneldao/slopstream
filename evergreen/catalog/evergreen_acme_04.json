@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_acme_04",
+  "version": 1,
+  "brandId": "brand_acme",
+  "tier": "audio_image",
+  "durationSec": 16,
+  "transcript": "Grainy footage, 1972. A pioneer plants a flag reading 'Acme, eventually.' Acme: ahead of our time by about fifty years.",
+  "summary": "Archival launch film",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Archival launch film",
+  "media": {
+    "audio": {
+      "key": "audio/0d8da9134fb759580e7e45ebe4af407af92177a8e272d31f76161ca7997207fb.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "0d8da9134fb759580e7e45ebe4af407af92177a8e272d31f76161ca7997207fb",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/f0d15662dd4f7890ddf9a6c8dc9a2dc790edd88bfd093de25dabec7724fcbae5.png",
+      "contentType": "image/png",
+      "sha256": "f0d15662dd4f7890ddf9a6c8dc9a2dc790edd88bfd093de25dabec7724fcbae5",
+      "kind": "image"
+    }
+  },
+  "style": "archival-film"
+}

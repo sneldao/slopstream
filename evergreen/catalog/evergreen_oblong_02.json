@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_oblong_02",
+  "version": 1,
+  "brandId": "brand_oblong",
+  "tier": "audio_image",
+  "durationSec": 18,
+  "transcript": "Tiny forklifts stack oblong crackers into a perfect oblong. Quality you can measure with a ruler.",
+  "summary": "Isometric cracker stack",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Isometric cracker stack",
+  "media": {
+    "audio": {
+      "key": "audio/17832ea292f50fcd89b54ffa133763aec3c219d35b46bc3627ec67c5b24e517a.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "17832ea292f50fcd89b54ffa133763aec3c219d35b46bc3627ec67c5b24e517a",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/e2c6d4e0491243a53f6f14451a29f3637bea0716dd4bb13c93a7c1411131a979.png",
+      "contentType": "image/png",
+      "sha256": "e2c6d4e0491243a53f6f14451a29f3637bea0716dd4bb13c93a7c1411131a979",
+      "kind": "image"
+    }
+  },
+  "style": "isometric"
+}

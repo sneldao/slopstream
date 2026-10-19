@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_free_01",
+  "version": 1,
+  "brandId": "brand_free",
+  "tier": "audio_image",
+  "durationSec": 17,
+  "transcript": "FREE SLOP. No funnel, no funnel cakes, just slop. Soy ink and smudged registration, like nature intended.",
+  "summary": "Riso print splatter",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Riso print splatter",
+  "media": {
+    "audio": {
+      "key": "audio/0db652610931d13d54b319ff34ad081badae8076e071feaa16f2b8ad35732306.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "0db652610931d13d54b319ff34ad081badae8076e071feaa16f2b8ad35732306",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/51dae8d76637aa944b648c019026dc29f702ef2e04ad9ab89a4506dae99b0924.png",
+      "contentType": "image/png",
+      "sha256": "51dae8d76637aa944b648c019026dc29f702ef2e04ad9ab89a4506dae99b0924",
+      "kind": "image"
+    }
+  },
+  "style": "risograph"
+}

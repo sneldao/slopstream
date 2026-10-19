@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_oblong_01",
+  "version": 1,
+  "brandId": "brand_oblong",
+  "tier": "audio_image",
+  "durationSec": 17,
+  "transcript": "Oblong Foods presents the square sandwich for round people. Cut from a magazine. Tastes like a magazine.",
+  "summary": "Collage sandwich reveal",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Collage sandwich reveal",
+  "media": {
+    "audio": {
+      "key": "audio/16cbb8c50a65e618e8964472b6450962dcee3f4fbb7a388c74d6d7983f8e3be1.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "16cbb8c50a65e618e8964472b6450962dcee3f4fbb7a388c74d6d7983f8e3be1",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/f78bfeb3354f83b6a9178b889870f2f6ffdbe0c5f8e5880afd640ba0566d6954.png",
+      "contentType": "image/png",
+      "sha256": "f78bfeb3354f83b6a9178b889870f2f6ffdbe0c5f8e5880afd640ba0566d6954",
+      "kind": "image"
+    }
+  },
+  "style": "paper-collage"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_acme_01",
+  "version": 1,
+  "brandId": "brand_acme",
+  "tier": "audio_image",
+  "durationSec": 17,
+  "transcript": "Acme rockets. Torn headlines peel back to reveal a launch nobody asked for and everybody watched. Acme: we put the 'ace' in 'space.'",
+  "summary": "Acme launch via ripped newsprint",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Acme launch via ripped newsprint",
+  "media": {
+    "audio": {
+      "key": "audio/02b3f9ce1936f3600e398eea6b5e477a1425b3a4e47a6171e5ef3dbdc4cc937a.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "02b3f9ce1936f3600e398eea6b5e477a1425b3a4e47a6171e5ef3dbdc4cc937a",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/a84d5675caabec39fa0cd7e2875ca814bcc9c99aa9c6bba92d96a28f62e3d8f7.png",
+      "contentType": "image/png",
+      "sha256": "a84d5675caabec39fa0cd7e2875ca814bcc9c99aa9c6bba92d96a28f62e3d8f7",
+      "kind": "image"
+    }
+  },
+  "style": "paper-collage"
+}

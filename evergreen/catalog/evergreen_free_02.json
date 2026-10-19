@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_free_02",
+  "version": 1,
+  "brandId": "brand_free",
+  "tier": "audio_image",
+  "durationSec": 18,
+  "transcript": "Technical drawing of a content hose. Inflow: everything. Outflow: FREE SLOP. Tolerance: none.",
+  "summary": "Blueprint of the slop hose",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Blueprint of the slop hose",
+  "media": {
+    "audio": {
+      "key": "audio/0ea83d0110a36a973837fbb53ef9b41613ad8e603fada912f862503dcc729464.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "0ea83d0110a36a973837fbb53ef9b41613ad8e603fada912f862503dcc729464",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/1e0159ecae3cb6304de152adeb78062a1751ecbd3c0c76ad2171d17e04618f5b.png",
+      "contentType": "image/png",
+      "sha256": "1e0159ecae3cb6304de152adeb78062a1751ecbd3c0c76ad2171d17e04618f5b",
+      "kind": "image"
+    }
+  },
+  "style": "blueprint"
+}

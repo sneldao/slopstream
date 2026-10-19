@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_acme_03",
+  "version": 1,
+  "brandId": "brand_acme",
+  "tier": "audio_image",
+  "durationSec": 19,
+  "transcript": "A stick figure draws a rocket, then a slightly larger rocket. Acme: ambition, hand-drawn since last Tuesday.",
+  "summary": "Whiteboard rocket sketch",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Whiteboard rocket sketch",
+  "media": {
+    "audio": {
+      "key": "audio/0aaa6d3f94160c32e2adfaf3d1620fa5f6e57a78e8a5582d86b628f83c82ebf9.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "0aaa6d3f94160c32e2adfaf3d1620fa5f6e57a78e8a5582d86b628f83c82ebf9",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/bfd84055794e6f2b94610f5db4381c9a7dd429f36e2f59cb00c5cdc9efeb2ece.png",
+      "contentType": "image/png",
+      "sha256": "bfd84055794e6f2b94610f5db4381c9a7dd429f36e2f59cb00c5cdc9efeb2ece",
+      "kind": "image"
+    }
+  },
+  "style": "whiteboard"
+}

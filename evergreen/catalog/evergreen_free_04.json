@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_free_04",
+  "version": 1,
+  "brandId": "brand_free",
+  "tier": "audio_image",
+  "durationSec": 16,
+  "transcript": "Chalk equation: attention divided by zero equals FREE SLOP. The math teacher left. The math stays.",
+  "summary": "Chalkboard proof",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Chalkboard proof",
+  "media": {
+    "audio": {
+      "key": "audio/11bdbb96649f629b57b1170af4a4c42334c86bdb2c440c7b0d64abc18425f363.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "11bdbb96649f629b57b1170af4a4c42334c86bdb2c440c7b0d64abc18425f363",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/3a3785d3bb0f9f89ccd60f45b417ddd8f614face16167527287d776b51b4ff3a.png",
+      "contentType": "image/png",
+      "sha256": "3a3785d3bb0f9f89ccd60f45b417ddd8f614face16167527287d776b51b4ff3a",
+      "kind": "image"
+    }
+  },
+  "style": "chalkboard"
+}

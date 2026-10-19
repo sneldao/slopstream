@@ -1,0 +1,25 @@
+{
+  "id": "evergreen_acme_02",
+  "version": 1,
+  "brandId": "brand_acme",
+  "tier": "audio_image",
+  "durationSec": 18,
+  "transcript": "Inside the Acme warehouse, tiny workers route one very large package. It is a single sock. Acme: logistics, but for your heart.",
+  "summary": "Isometric warehouse tour",
+  "brief": "Unofficial AI-generated parody ad. Not affiliated with or endorsed by any real brand. Isometric warehouse tour",
+  "media": {
+    "audio": {
+      "key": "audio/030fc5f76803265d7187eef3b03f738a7b8bf70534cc8e068ea8e1312801bc8a.mp3",
+      "contentType": "audio/mpeg",
+      "sha256": "030fc5f76803265d7187eef3b03f738a7b8bf70534cc8e068ea8e1312801bc8a",
+      "kind": "audio"
+    },
+    "visual": {
+      "key": "image/a4055de6d86643ff2426811bb3151bfcb7acddaf28f41d4e5960b1481d2481cb.png",
+      "contentType": "image/png",
+      "sha256": "a4055de6d86643ff2426811bb3151bfcb7acddaf28f41d4e5960b1481d2481cb",
+      "kind": "image"
+    }
+  },
+  "style": "isometric"
+}

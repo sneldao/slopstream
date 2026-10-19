@@ -25,3 +25,7 @@ COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 EXPOSE 4000
 CMD ["node", "apps/api/dist/index.js"]
+
+# Evergreen catalog + media baked into the image (minted via
+# apps/api/src/scripts/mint-evergreen.ts; read-only at runtime).
+COPY evergreen/ /data/evergreen/
