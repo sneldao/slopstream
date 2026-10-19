@@ -51,6 +51,7 @@ type HealthResponse = {
   ok: true;
   service: string;
   generatorMode: GeneratorMode;
+  cost?: { maxTier: ProductionTier; callsUsed: number; callBudget: number };
 };
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -259,6 +260,9 @@ export function createGeneratorServer({
           ok: true,
           service: "slopstream-generator",
           generatorMode,
+          // Providers that bill per call report how much of their budget is
+          // left, so "will this run away?" is answerable without the env file.
+          ...(provider?.costPosture ? { cost: provider.costPosture() } : {}),
         });
         return;
       }

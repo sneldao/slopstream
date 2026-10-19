@@ -83,6 +83,15 @@ export function generate(
 /** Provider seam for Daytona/model implementations. */
 export interface GenerationProvider {
   generate(request: GenerationRequest): Promise<GenerationResult>;
+  /**
+   * Optional, for providers that bill per call: the effective cost ceiling and
+   * how much of it this process has used. Reported on /health.
+   */
+  costPosture?(): {
+    maxTier: ProductionTier;
+    callsUsed: number;
+    callBudget: number;
+  };
 }
 
 export class StubGenerationProvider implements GenerationProvider {

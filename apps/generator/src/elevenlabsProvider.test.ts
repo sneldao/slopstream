@@ -21,6 +21,10 @@ const REQUEST_WITH_CONTINUITY: GenerationRequest = {
   continuityImageUrl: "http://localhost:4300/assets/prev.png",
 };
 const FORMAT = FORMATS[0];
+const CREDENTIALS = {
+  ELEVENLABS_API_KEY: "test-api-key",
+  ELEVENLABS_VOICE_ID: "test-voice-id",
+};
 
 describe("imagePromptFor", () => {
   it("prepends the reference-image clause only when grounded", () => {
@@ -154,5 +158,52 @@ describe("createElevenLabsProviderFromEnv", () => {
         ASSET_UPLOAD_URL: "https://asset-uploader.example.test",
       }),
     ).toThrow("ASSET_UPLOAD_TOKEN");
+  });
+});
+
+describe("spend guards", () => {
+  const base = {
+    ...CREDENTIALS,
+    ASSET_BASE_URL: "https://assets.example.com/slopstream",
+  };
+
+  it("defaults to the cheapest tier, so video is an explicit decision", () => {
+    expect(createElevenLabsProviderFromEnv(base).costPosture().maxTier).toBe(
+      "audio",
+    );
+  });
+
+  it("honours an explicit ELEVENLABS_MAX_TIER", () => {
+    expect(
+      createElevenLabsProviderFromEnv({
+        ...base,
+        ELEVENLABS_MAX_TIER: "video",
+      }).costPosture().maxTier,
+    ).toBe("video");
+  });
+
+  it("refuses at a spent budget without reaching the network", async () => {
+    const provider = createElevenLabsProviderFromEnv({
+      ...base,
+      ELEVENLABS_MAX_GENERATIONS: "0",
+    });
+    await expect(provider.generate(REQUEST)).rejects.toThrow(
+      /budget exhausted/,
+    );
+  });
+
+  it("reports the budget it will enforce", () => {
+    expect(
+      createElevenLabsProviderFromEnv(base).costPosture().callBudget,
+    ).toBeGreaterThan(0);
+  });
+
+  it.each(["-3", "1.5", "banana"])("rejects a bad budget: %s", (value) => {
+    expect(() =>
+      createElevenLabsProviderFromEnv({
+        ...base,
+        ELEVENLABS_MAX_GENERATIONS: value,
+      }),
+    ).toThrow("ELEVENLABS_MAX_GENERATIONS");
   });
 });

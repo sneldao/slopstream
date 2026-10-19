@@ -61,9 +61,10 @@ const TTS_MODELS = [
 type TtsModel = (typeof TTS_MODELS)[number];
 
 /**
- * Tier hierarchy — used by ELEVENLABS_MAX_TIER to cap spend. If set to
- * `audio`, all requests produce audio-only regardless of the bid tier,
- * skipping image and video generation entirely.
+ * Tier hierarchy — the axis ELEVENLABS_MAX_TIER caps *which stages run*. Set to
+ * `audio`, all requests produce audio-only regardless of the bid tier, skipping
+ * image and video generation entirely. This bounds cost per call; it does not
+ * bound the number of calls — see ELEVENLABS_MAX_GENERATIONS.
  */
 const TIER_ORDER: ProductionTier[] = [
   "audio",
@@ -71,6 +72,16 @@ const TIER_ORDER: ProductionTier[] = [
   "video",
   "premium",
 ];
+
+/**
+ * Runaway brake for a provider that bills per call: the number of `generate()`
+ * calls one process may make before it refuses. 200 is far above a one-time
+ * evergreen mint (the runbook mints 12-15) and far below what a live-generating
+ * loop burns in a day, so an accidentally-on stream fails closed into encores
+ * instead of an open-ended invoice. It is a per-process counter, not a billing
+ * quota — a restart resets it, so the account-level limit stays the real one.
+ */
+const DEFAULT_MAX_GENERATIONS = 200;
 
 function tierRank(tier: ProductionTier): number {
   return TIER_ORDER.indexOf(tier);
@@ -96,6 +107,11 @@ export interface ElevenLabsProviderConfig {
   ttsModel: TtsModel;
   /** Maximum tier to generate. Requests above this are downgraded. */
   maxTier: ProductionTier;
+  /**
+   * Runaway brake on the call count. Bounds cost per process, while maxTier
+   * bounds cost per call.
+   */
+  maxGenerations: number;
   /** Free-LLM creative chain; undefined = template scripts only. */
   llmEndpoints?: LlmEndpoint[];
   /** Per-endpoint timeout for the LLM chain. */
@@ -142,12 +158,25 @@ function parseTtsModel(value: string | undefined): TtsModel {
 }
 
 function parseMaxTier(value: string | undefined): ProductionTier {
-  if (value === undefined || value === "") return "premium";
+  // Unset means the cheapest path, not the most expensive one. Video on every
+  // segment has to be a decision someone made, not a missing line in an env file.
+  if (value === undefined || value === "") return "audio";
   if ((TIER_ORDER as readonly string[]).includes(value))
     return value as ProductionTier;
   throw new Error(
     `ELEVENLABS_MAX_TIER=${value} is not a valid tier. Use one of: ${TIER_ORDER.join(", ")}`,
   );
+}
+
+function parseMaxGenerations(value: string | undefined): number {
+  if (value === undefined || value === "") return DEFAULT_MAX_GENERATIONS;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(
+      "ELEVENLABS_MAX_GENERATIONS must be a non-negative whole number",
+    );
+  }
+  return parsed;
 }
 
 function parseLlmTimeoutMs(value: string | undefined): number {
@@ -184,6 +213,9 @@ export function createElevenLabsProviderFromEnv(
     maxTier: parseMaxTier(
       optionalEnvironmentValue(environment, "ELEVENLABS_MAX_TIER"),
     ),
+    maxGenerations: parseMaxGenerations(
+      optionalEnvironmentValue(environment, "ELEVENLABS_MAX_GENERATIONS"),
+    ),
     llmEndpoints: parseLlmEndpoints(
       optionalEnvironmentValue(environment, "LLM_ENDPOINTS"),
     ),
@@ -214,10 +246,14 @@ export function createElevenLabsProviderFromEnv(
  * For `audio` tier: assetUrl = .mp3 (the AdSurface shows the orb)
  * For `audio_image` tier: assetUrl = .png (the AdSurface shows an image plane)
  * For `video`/`premium` tier: assetUrl = .mp4 (the AdSurface shows a video plane)
+ *
+ * Cost is bounded on two axes: `maxTier` caps what one call may spend, and
+ * `maxGenerations` caps how many calls this process makes before refusing.
  */
 export class ElevenLabsGenerationProvider implements GenerationProvider {
   private readonly client: ElevenLabsClient;
   private readonly publisher: AssetPublisher;
+  private generationsUsed = 0;
 
   constructor(private readonly config: ElevenLabsProviderConfig) {
     this.client = new ElevenLabsClient({ apiKey: config.apiKey });
@@ -230,9 +266,39 @@ export class ElevenLabsGenerationProvider implements GenerationProvider {
           assetBaseUrl: config.assetBaseUrl,
         },
       );
+    // Print the money posture on boot: an operator deciding whether to leave
+    // this running should not have to re-read the env file to know it.
+    console.log(
+      `[generator] elevenlabs tier<=${config.maxTier} budget=${
+        config.maxGenerations === Infinity ? "unbounded" : config.maxGenerations
+      } calls`,
+    );
+  }
+
+  /** What an operator needs to know about money without reading the env file. */
+  costPosture(): {
+    maxTier: ProductionTier;
+    callsUsed: number;
+    callBudget: number;
+  } {
+    return {
+      maxTier: this.config.maxTier,
+      callsUsed: this.generationsUsed,
+      callBudget: this.config.maxGenerations,
+    };
   }
 
   async generate(request: GenerationRequest): Promise<GenerationResult> {
+    if (this.generationsUsed >= this.config.maxGenerations) {
+      // Throwing rather than quietly degrading: the scheduler marks the segment
+      // failed and encores cover the gap. Dead air is recoverable; a bill is not.
+      throw new Error(
+        `ElevenLabs generation budget exhausted (${this.config.maxGenerations} calls). ` +
+          "Raise ELEVENLABS_MAX_GENERATIONS or stop the generator.",
+      );
+    }
+    this.generationsUsed += 1;
+
     // Cap the tier to the configured maximum (spend mitigation).
     const tier = capTier(request.tier, this.config.maxTier);
 
