@@ -1106,6 +1106,13 @@ export interface EvergreenEntry {
   /** Display brand; resolved against snapshot brands at seed time. */
   brandId: string;
   tier: ProductionTier;
+  /**
+   * Visual treatment label, e.g. "paper-collage" or "isometric". Rotation
+   * alternates style as well as brand so a small catalog does not air the same
+   * look twice running. Optional: entries without one never block the variety
+   * rule, which keeps pre-style catalogs behaving exactly as before.
+   */
+  style?: string;
   /** Playback length in seconds (target 15–20 for rotation feel). */
   durationSec: number;
   /** Feeds the challenge engine on every airing. */

@@ -101,6 +101,11 @@ export function checkEvergreenEntry(
     visual = v.file;
   }
   if (
+    e.style !== undefined &&
+    (typeof e.style !== "string" || !e.style.trim() || e.style.length > 40)
+  )
+    return fail(`${where}.style must be a short label when present`);
+  if (
     e.weight !== undefined &&
     (typeof e.weight !== "number" ||
       !Number.isFinite(e.weight) ||
@@ -125,6 +130,7 @@ export function checkEvergreenEntry(
       summary: e.summary as string,
       brief: e.brief as string,
       media: visual ? { audio: audio.file, visual } : { audio: audio.file },
+      ...(typeof e.style === "string" ? { style: e.style.trim() } : {}),
       ...(typeof e.weight === "number" ? { weight: e.weight } : {}),
       ...(typeof e.weightUntil === "string"
         ? { weightUntil: e.weightUntil }

@@ -840,6 +840,7 @@ export function createRouter(deps: ApiDeps): Router {
           id: entry.id,
           brandId: entry.brandId,
           tier: entry.tier,
+          ...(entry.style !== undefined ? { style: entry.style } : {}),
           durationSec: entry.durationSec,
         })),
       });

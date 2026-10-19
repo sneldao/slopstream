@@ -27,7 +27,7 @@
    Keep briefs to 15-20s of speech (~40-55 words). Favor `audio` and
    `audio_image`; video only for hero spots.
 3. **Collect results**: save each `GenerationResult` (assetUrl + media +
-   transcript + summary + durationSec) into `mint-queue.json` as
+   transcript + summary + durationSec **+ `style`**) into `mint-queue.json` as
    `{ "results": [...] }`. Download URLs may be `https:` or local `file:`.
 4. **Curate**: delete duds from the queue before minting. Keepers need a
    non-empty transcript (challenges are generated from it) and a summary.
@@ -38,6 +38,58 @@
    Repeat per brand (one `--brandId` per run).
 6. **Verify**: `GET /evergreen/catalog` lists entries; fetch one entry's
    `/evergreen/media/<key>` and compare SHA-256 with the JSON.
+
+### 1a. Style buckets (why the loop stays watchable)
+
+`style` is the visual treatment label. `pickNextEvergreen` scores entries
+`weight / (1 + airCount)` and then prefers one that is fresh in **both** brand
+and style, falling back to brand-only variety, then to the best score. So a
+twelve-entry pack that alternates four treatments reads as a channel with
+range; a pack of twelve identical treatments reads as a screensaver.
+
+A 12-entry first pack, as one `mint-queue.json` (`--tier` and `--brandId` are
+per-run, so group the runs that way — one brand per invocation):
+
+```json
+{
+  "results": [
+    {
+      "style": "paper-collage",
+      "durationSec": 18,
+      "transcript": "Acme rockets. Torn headlines peel back to reveal a launch nobody asked for and everybody watched.",
+      "summary": "Acme launch teased via ripped newsprint",
+      "media": {
+        "version": 1,
+        "durationSec": 18,
+        "audio": { "url": "https://assets.example.com/slopstream/a1.mp3", "contentType": "audio/mpeg" },
+        "visual": { "url": "https://assets.example.com/slopstream/a1.png", "contentType": "image/png", "type": "image" }
+      }
+    },
+    {
+      "style": "isometric",
+      "durationSec": 17,
+      "transcript": "Inside the Acme warehouse, tiny workers route one very large package.",
+      "summary": "Isometric warehouse tour",
+      "media": { "version": 1, "durationSec": 17, "audio": { "url": "file:///tmp/mint/a2.mp3", "contentType": "audio/mpeg" }, "visual": { "url": "file:///tmp/mint/a2.png", "contentType": "image/png", "type": "image" } }
+    },
+    { "style": "whiteboard", "durationSec": 16, "transcript": "…", "summary": "…", "media": { "…": "…" } },
+    { "style": "archival-film", "durationSec": 19, "transcript": "…", "summary": "…", "media": { "…": "…" } }
+  ]
+}
+```
+
+Two real entries, then repeat the shape — do **not** copy the `…` stubs, they
+are not valid queue input. Twelve entries = three treatments x four brands, or
+four x three; anything under four distinct styles makes the alternation
+invisible.
+
+Pick treatments that are cheap to hold consistent — paper collage, isometric,
+whiteboard, archival film, risograph, blueprint. Each is a prompt style on the
+existing `flows.image` path, not a new pipeline, and none of them need the
+`video` tier. Keep one `video`-tier hero entry per brand at most.
+
+`style` is optional: entries without one never block the variety rule, so a
+catalog minted before this field existed rotates exactly as it did before.
 
 ## 2. Content policy (enforced at mint, not after)
 
@@ -58,6 +110,8 @@
 
 Rotation weights: new entries mint with `"weight": 2-3` plus
 `"weightUntil": "<now + 7d>"` for boosted rotation, then decay to base.
+Rotation variety skips the last aired brand **and** last aired style (see
+`pickNextEvergreen`), which is what makes a small catalog feel like a channel.
 Cadence: one fresh segment a week keeps the loop from going stale.
 
 ## 4. Rollback

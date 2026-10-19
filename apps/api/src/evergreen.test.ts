@@ -116,6 +116,28 @@ describe("validateEvergreenCatalog", () => {
       ).ok,
     ).toBe(false);
   });
+  it("keeps a style label and rejects a blank or oversized one", () => {
+    const kept = validateEvergreenCatalog(
+      { version: 1, entries: [entry({ style: "paper-collage" })] },
+      "/media",
+      readFile,
+    );
+    expect(kept.ok && kept.catalog.entries[0]?.style).toBe("paper-collage");
+    expect(
+      validateEvergreenCatalog(
+        { version: 1, entries: [entry({ style: "   " })] },
+        "/media",
+        readFile,
+      ).ok,
+    ).toBe(false);
+    expect(
+      validateEvergreenCatalog(
+        { version: 1, entries: [entry({ style: "x".repeat(41) })] },
+        "/media",
+        readFile,
+      ).ok,
+    ).toBe(false);
+  });
 });
 describe("rotation", () => {
   it("boosts weightUntil entries 3x", () => {
@@ -142,6 +164,53 @@ describe("rotation", () => {
     expect(pickNextEvergreen([a, b], states, "brand_a", Date.now())?.id).toBe(
       "evergreen_b",
     );
+  });
+  it("alternates style as well as brand", () => {
+    const a = entry({
+      id: "evergreen_a",
+      brandId: "brand_a",
+      style: "paper-collage",
+    });
+    const b = entry({
+      id: "evergreen_b",
+      brandId: "brand_b",
+      style: "paper-collage",
+    });
+    const c = entry({
+      id: "evergreen_c",
+      brandId: "brand_b",
+      style: "isometric",
+    });
+    expect(
+      pickNextEvergreen(
+        [a, b, c],
+        new Map(),
+        "brand_a",
+        Date.now(),
+        "paper-collage",
+      )?.id,
+    ).toBe("evergreen_c");
+  });
+  it("falls back to brand variety when no style alternative exists", () => {
+    const a = entry({
+      id: "evergreen_a",
+      brandId: "brand_a",
+      style: "paper-collage",
+    });
+    const b = entry({
+      id: "evergreen_b",
+      brandId: "brand_b",
+      style: "paper-collage",
+    });
+    expect(
+      pickNextEvergreen(
+        [a, b],
+        new Map(),
+        "brand_a",
+        Date.now(),
+        "paper-collage",
+      )?.id,
+    ).toBe("evergreen_b");
   });
   it("airs a ready segment with public manifest and tracks state", () => {
     const store: EvergreenStore = {

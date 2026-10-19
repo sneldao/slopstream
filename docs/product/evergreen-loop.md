@@ -30,8 +30,11 @@ off that catalog indefinitely with the generator and scraper **off**.
 
 - **Rotation, not playlist.** Segments air as full live windows
   (`playing → challenges → window-closed`) with rotation weights, variety
-  penalties (no back-to-back brand repeats — see `pickEncoreCandidate`), and
-  boost decay for new entries. It must never feel like a playlist on repeat.
+  penalties (no back-to-back brand **or style** repeats — `pickNextEvergreen`,
+  and `pickEncoreCandidate` for encores), and boost decay for new entries.
+  Style is the second variety axis: a pack that alternates four treatments
+  reads as a channel with range, a pack of one treatment reads as a
+  screensaver. It must never feel like a playlist on repeat.
 - **Challenges work from day one.** Every catalog entry carries its transcript
   and challenge set, so Q&A, proofs, and thresholds function with zero new
   game code.

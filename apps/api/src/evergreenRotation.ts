@@ -25,12 +25,13 @@ export function effectiveWeight(entry: EvergreenEntry, nowMs: number): number {
     return base * EVERGREEN_BOOST_MULTIPLIER;
   return base;
 }
-/** Highest weight/(1+airCount); variety skips last brand when alternative exists. Ties break by catalog order. */
+/** Highest weight/(1+airCount); variety skips the last brand and style when an alternative exists. Ties break by catalog order. */
 export function pickNextEvergreen(
   entries: EvergreenEntry[],
   states: Map<string, EvergreenRotationState>,
   lastBrandId: string | null,
   nowMs: number,
+  lastStyle: string | null = null,
 ): EvergreenEntry | null {
   if (!entries.length) return null;
   const scored = entries.map((entry, index) => ({
@@ -41,11 +42,20 @@ export function pickNextEvergreen(
       (1 + (states.get(entry.id)?.airCount ?? 0)),
   }));
   scored.sort((a, b) => b.score - a.score || a.index - b.index);
-  if (lastBrandId !== null) {
-    const varied = scored.find((s) => s.entry.brandId !== lastBrandId);
-    if (varied) return varied.entry;
-  }
-  return scored[0]?.entry ?? null;
+  const freshBrand = (e: EvergreenEntry): boolean =>
+    lastBrandId === null || e.brandId !== lastBrandId;
+  const freshStyle = (e: EvergreenEntry): boolean =>
+    lastStyle === null || (e.style ?? null) !== lastStyle;
+  // Both axes, then brand alone, then the best score: a catalog that cannot
+  // vary still has to air rather than stalling the loop.
+  return (
+    scored.find((s) => freshBrand(s.entry) && freshStyle(s.entry))?.entry ??
+    (lastBrandId !== null
+      ? scored.find((s) => s.entry.brandId !== lastBrandId)?.entry
+      : undefined) ??
+    scored[0]?.entry ??
+    null
+  );
 }
 function manifestForEntry(
   entry: EvergreenEntry,
@@ -86,12 +96,14 @@ export function airNextEvergreen(
 ): { segment: SegmentRow; entry: EvergreenEntry } | null {
   if (!store.entries.length) return null;
   let lastBrandId: string | null = null;
+  let lastStyle: string | null = null;
   let latest = -1;
   for (const state of store.states.values()) {
     if (state.lastAiredAtMs !== undefined && state.lastAiredAtMs >= latest) {
       latest = state.lastAiredAtMs;
-      lastBrandId =
-        store.entries.find((e) => e.id === state.entryId)?.brandId ?? null;
+      const aired = store.entries.find((e) => e.id === state.entryId);
+      lastBrandId = aired?.brandId ?? null;
+      lastStyle = aired?.style ?? null;
     }
   }
   const entry = pickNextEvergreen(
@@ -99,6 +111,7 @@ export function airNextEvergreen(
     store.states,
     lastBrandId,
     nowMs,
+    lastStyle,
   );
   if (!entry) return null;
   const media = manifestForEntry(entry, store.assetBaseUrl);

@@ -52,6 +52,7 @@ describe("mint-evergreen", () => {
         },
         transcript: "Acme launches Rockets today.",
         summary: "Acme launch",
+        style: "paper-collage",
       },
       0,
       {
@@ -73,6 +74,7 @@ describe("mint-evergreen", () => {
     );
     expect(entry.brief).toContain("Unofficial AI-generated parody");
     expect(entry.media.audio.sha256).toBe(sha);
+    expect(entry.style).toBe("paper-collage");
   });
 
   it("rejects keeper gaps (missing audio/transcript)", async () => {

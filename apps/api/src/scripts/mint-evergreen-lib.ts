@@ -43,6 +43,8 @@ export interface MintQueueEntry {
   durationSec?: number;
   transcript?: string;
   summary?: string;
+  /** Visual treatment; rotation alternates it so a pack does not air one look twice. */
+  style?: string;
 }
 
 export async function mintEntry(
@@ -135,6 +137,7 @@ export async function mintEntry(
     summary: briefText,
     brief: `${args.label} ${briefText}`.trim(),
     media: out,
+    ...(result.style?.trim() ? { style: result.style.trim() } : {}),
   };
   if (!args.dryRun) {
     mkdirSync(args.catalogDir, { recursive: true });
