@@ -1,7 +1,14 @@
-# Slopstream — Wave 3 Submission
+# Slopstream — Submission Pack
 
 > Privacy-first attention settlement for a live AI-generated ad stream.
 > **Stripe moves dollars. Midnight proves facts.**
+
+> **Round submitted: Wave 2 (2026-10-19).** We planned the scope below as "Wave 3"
+> in our own notes and finished it inside the Wave 2 window, so the "Wave 2 →
+> Wave 3" table here *is* the progress-completed-during-this-wave field. The
+> form-ready Wave 1 → Wave 2 framing, acceptance checklist and honest
+> what-is-real table are in
+> [`docs/hackathon/wave2-submission.md`](docs/hackathon/wave2-submission.md).
 
 ## The privacy thesis (what changed in framing)
 

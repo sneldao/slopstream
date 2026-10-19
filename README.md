@@ -69,7 +69,7 @@ Setup: `pnpm install`, then `pnpm dev:web` / `pnpm dev:api` / `pnpm dev:verifier
 
 ## Midnight Buildathon — judge evaluation guide
 
-Slopstream is entered in the Midnight Buildathon (Wave 3: Oct 27 – Nov 16, 2026). This section is the fastest path for a judge to evaluate the Midnight integration; see [JUDGES.md](JUDGES.md) for the 5-minute checklist and [SUBMISSION.md](SUBMISSION.md) for the Wave 2 → Wave 3 diff.
+Slopstream is entered in the Midnight Buildathon. **This is our Wave 2 submission (submitted 2026-10-19)**; the Wave 3 window opens Oct 27. Note that our internal notes call this scope "Wave 3" because we built ahead of the round — the form-ready Wave 1 → Wave 2 framing is in [docs/hackathon/wave2-submission.md](docs/hackathon/wave2-submission.md). This section is the fastest path for a judge to evaluate the Midnight integration; see [JUDGES.md](JUDGES.md) for the 5-minute checklist and [SUBMISSION.md](SUBMISSION.md) for the diff table.
 
 **The privacy story in one paragraph:** brands buy verified human attention, but neither the listener's identity nor their answers may ever touch a public ledger. `ProofOfAttention.compact` proves "a valid listener satisfied this segment's challenge" while keeping the listener secret, answer, and session in private state — only a replay-protecting nullifier, an aggregate count, and a threshold flag are disclosed. That is Midnight's dual-ledger model doing exactly what it is for: prove the fact, hide the person.
 

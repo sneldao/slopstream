@@ -56,9 +56,14 @@ Sample verified receipt: nullifier `midnight_<hex>` → check at `/verify`.
   recorded, not prevented. Timing of events is correlatable by observers.
 - Not audited. Not mainnet.
 
-## What changed since Wave 2
+## What changed since our previous submission
 
-- Wave 2: preprod `ProofOfAttention` (single contract, stub-default verifier).
-- Wave 3 (this wave): + `RewardClearing` + `PreviewRightsThreshold` circuits,
-  verifier-key gate, Compact-mirroring `node:test` suites, preprod deployment of
-  all three, `/verify` page, deck + video.
+Round labels: the hackathon round we are submitting into is **Wave 2**; our
+internal notes called this same scope "Wave 3" because we built ahead of it.
+
+- Previous round: `ProofOfAttention` compiled and SDK-wired, preprod deploy
+  attempted and stalled on wallet sync (the stated milestone for this round).
+- This round: preprod deploy of **all three** contracts — `ProofOfAttention`,
+  `RewardClearing`, `PreviewRightsThreshold` — plus verifier-key gating,
+  Compact-mirroring `node:test` suites, `txHash` provenance on receipts, the
+  `/verify` page, deck + video.
