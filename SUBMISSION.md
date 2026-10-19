@@ -5,7 +5,7 @@
 
 > **Round submitted: Wave 2 (2026-10-19).** We planned the scope below as "Wave 3"
 > in our own notes and finished it inside the Wave 2 window, so the "Wave 2 →
-> Wave 3" table here *is* the progress-completed-during-this-wave field. The
+> Wave 3" table here _is_ the progress-completed-during-this-wave field. The
 > form-ready Wave 1 → Wave 2 framing, acceptance checklist and honest
 > what-is-real table are in
 > [`docs/hackathon/wave2-submission.md`](docs/hackathon/wave2-submission.md).
@@ -54,7 +54,7 @@ pnpm --filter @slopstream/midnight compact     # compiles all 3 (compactc 0.31.1
 node --test contracts/test/*.test.mjs          # 18/18, zero installs
 pnpm --filter @slopstream/verifier test        # 6/6
 pnpm --filter @slopstream/api test             # 95/95
-pnpm -r test                                   # 342 across the workspace
+pnpm -r test                                   # 349 across the workspace
 ```
 
 Then open `/verify` on the deployed web app and paste a `midnight_<hex>`

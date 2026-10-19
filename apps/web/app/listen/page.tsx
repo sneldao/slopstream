@@ -50,6 +50,8 @@ const SIGNAL_NOTICES: Record<ConnectionLabel, string> = {
  */
 export default function ListenPage() {
   const { state, connectionStatus, hasEverConnected } = useStream();
+  const signalNotice =
+    SIGNAL_NOTICES[connectionLabel(connectionStatus, hasEverConnected)];
   useMediaPreload(state.upcomingSegments);
   const audioUrl = playbackAudioUrl(state.nowPlaying);
   const { signalRef, unlock, muted, toggleMute, playbackState } =
@@ -340,11 +342,7 @@ export default function ListenPage() {
               {connectionStatus !== "connected" && (
                 <div role="status" style={styles.signalNotice}>
                   <span style={styles.signalDot} />
-                  {
-                    SIGNAL_NOTICES[
-                      connectionLabel(connectionStatus, hasEverConnected)
-                    ]
-                  }
+                  {signalNotice}
                 </div>
               )}
 

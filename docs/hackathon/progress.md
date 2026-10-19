@@ -641,3 +641,22 @@ all three surfaces to consume the real API + WebSocket gateway when ready —
 zero code changes to the components. The listener creates/resumes an anonymous
 session in `sessionStorage`; the demo brand console additionally requires the
 explicitly demo-only `NEXT_PUBLIC_DEMO_BRAND_TOKEN`.
+
+## 2026-10-19 (late) — Evergreen baseline loop live
+
+The stream now has an always-on, zero-credit content baseline:
+`evergreen/` carries a 12-entry catalog (3 fictional brands x 4 styles)
+minted from bundled stub fixtures via `mint-evergreen` — no ElevenLabs
+spent. `Dockerfile.api` bakes it to `/data/evergreen`; api envs
+(`EVERGREEN_CATALOG_DIR`, `EVERGREEN_MEDIA_DIR`,
+`EVERGREEN_ASSET_BASE_URL=https://slopstream.144.202.117.160.sslip.io` —
+the gateway proxies `/evergreen/media/*` to the api) +
+`EVERGREEN_MODE=1` on the orchestrator flip the scheduler to the
+eternal-loop path. Verified: `/evergreen/catalog` returns 12 entries,
+segments cycle playing→window-closed continuously, media bytes fetch
+200 through the gateway. Gotcha for future mints: catalog brandIds must
+not collide with the demo seed (ApiError: brand id already exists at
+boot — that's why acme→acme_industries, free→slop_co, oblong→oblong_foods).
+Still pending: the assets-host LE cert for `slopstream-assets.*` is
+unissued (media for NEW generated content only; evergreen media is
+served via the gateway and works).

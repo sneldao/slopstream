@@ -48,6 +48,36 @@ The orchestrator is the browser-facing gateway. It proxies REST commands and
 snapshots to the private API, owns the WebSocket sequence space, permits the
 `Idempotency-Key` CORS header, and forwards that header to the API.
 
+## Front-end environment
+
+`apps/web` is not in the compose stack — it is built separately (Vercel or its
+own container), so its live-feed configuration is easy to leave at the
+`.env.example` localhost defaults while every backend service is correct.
+`NEXT_PUBLIC_*` values are **inlined at build time**, not read at runtime:
+changing them in the host's env and restarting is not enough — the web image
+or Vercel deployment must rebuild.
+
+| Variable                   | Purpose                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL` | Public `https://` origin of the orchestrator gateway (snapshot + commands).                          |
+| `NEXT_PUBLIC_WS_URL`       | Public `wss://` origin of the same gateway (the WebSocket).                                          |
+| `NEXT_PUBLIC_SITE_URL`     | Canonical origin for sitemap/robots/OG. Never used by the PWA manifest, which stays origin-relative. |
+
+Leave `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_WS_URL` **unset** only when a
+reverse proxy serves `/stream/snapshot` and the WebSocket upgrade from the same
+origin the page is served from; the client then derives both from
+`window.location`. Pointing either at `localhost` in a public build produces a
+permanently dead feed on the visitor's machine, which the surfaces report as
+`No signal` (big screen) and "Can't reach the live stream" (listener) — the
+same standby appearance as an unminted evergreen catalog, so check the browser's
+Network tab for the snapshot request before re-running the mint.
+
+The WebSocket has no path filter on the gateway, so any path on the gateway
+origin upgrades. A TLS proxy that terminates the connection without forwarding
+`Upgrade`/`Connection` headers leaves HTTP snapshots working while the socket
+never opens: the screen shows live data that stops moving and the pill reads
+`Reconnecting`.
+
 ## Durability environment
 
 These settings are optional for the stub Coolify demo and required once

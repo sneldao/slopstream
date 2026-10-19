@@ -6,7 +6,7 @@
 > **Wave labelling, so the form matches the repo:** we planned the work below as
 > "Wave 3" in our own notes and finished it inside the Wave 2 window. Every
 > "Wave 3" string in `SUBMISSION.md`, `docs/hackathon/wave3-plan.md` and
-> `deck/` means *this* wave. The delta the judges care about is **Wave 1 → now**.
+> `deck/` means _this_ wave. The delta the judges care about is **Wave 1 → now**.
 
 ---
 
@@ -35,7 +35,7 @@ sync. This wave closed that gap and then went past it:
   `verifierMode === "midnight"`. A stub-mode receipt can never wear an
   on-chain label.
 - **`/verify` — the falsifiability surface.** Browser-side read of public
-  preprod indexer state; the raw state SHA-256 is shown *before* the verdict;
+  preprod indexer state; the raw state SHA-256 is shown _before_ the verdict;
   console snippet, terminal one-liner and AI prompt that execute none of our
   code; and a hard rule that "no record" is only ever reported after a
   successful read — indexer failure, missing token or malformed address render
@@ -68,8 +68,8 @@ sync. This wave closed that gap and then went past it:
 
 **Tests:** `node --test contracts/test/*.test.mjs` → 18/18 with zero installs
 (domain tags, revert strings, window shift, threshold flip, refusal codes).
-Workspace suite: 342 tests green — API 95/95, generator 100/100, orchestrator
-67/67, web 69/69, verifier 6/6, asset-uploader 5/5.
+Workspace suite: 349 tests green — API 95/95, generator 100/100, orchestrator
+67/67, web 76/76, verifier 6/6, asset-uploader 5/5.
 
 ---
 
@@ -115,15 +115,15 @@ Key files: `contracts/src/*.compact`, `packages/midnight/src/{api,wallet,witness
 
 ## 4. What is real, what is not (say this before a judge asks)
 
-| Claim | Reality |
-| --- | --- |
-| On-chain proof of attention | Real on preprod — nullifier + counter, verifier-gated, tx hash on the receipt |
-| Reward pool + claims | Contract real on preprod; claims are fired through the SDK. The listener-facing claim UI is the next layer |
-| Bid clearing | Backend ledger is authoritative; `BidClearing.compact` is a declared sketch, not a hidden one |
-| Spend threshold | Contract real; `recordSpend` stores a commitment, `proveQualification` reveals only the boolean |
-| Payments | Stripe in production; in-memory ledger for the hackathon |
-| AI generation | Real ElevenLabs TTS / image / video behind tier caps |
-| Audit / mainnet | Neither. Not audited, preprod only |
+| Claim                       | Reality                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| On-chain proof of attention | Real on preprod — nullifier + counter, verifier-gated, tx hash on the receipt                              |
+| Reward pool + claims        | Contract real on preprod; claims are fired through the SDK. The listener-facing claim UI is the next layer |
+| Bid clearing                | Backend ledger is authoritative; `BidClearing.compact` is a declared sketch, not a hidden one              |
+| Spend threshold             | Contract real; `recordSpend` stores a commitment, `proveQualification` reveals only the boolean            |
+| Payments                    | Stripe in production; in-memory ledger for the hackathon                                                   |
+| AI generation               | Real ElevenLabs TTS / image / video behind tier caps                                                       |
+| Audit / mainnet             | Neither. Not audited, preprod only                                                                         |
 
 Mainnet went permissionless on 2026-10-02, so "mainnet deploy" on the roadmap no
 longer needs a review slot. The ledger v8→v9 fork is in flight; our v8-compiled
@@ -184,7 +184,7 @@ const rc = await RewardClearingApi.join(
   process.env.REWARD_CLEARING_CONTRACT_ADDRESS!,
   logger,
 );
-await rc.createRewardPool(1_000_000);          // testnet points, not currency
+await rc.createRewardPool(1_000_000); // testnet points, not currency
 const claim = await rc.claimReward("<midnight_nullifier_hex>", 100);
 logger.info(`claim tx ${claim.txHash}`);
 logger.info(JSON.stringify(await rc.readLedgerState()));
