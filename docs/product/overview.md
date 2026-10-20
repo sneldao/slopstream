@@ -94,13 +94,13 @@ Not "AI advertising platform." Not "blockchain advertising." Not "ad-supported s
 
 ## Phased rollout
 
-| Phase | Focus | Success looks like |
-| --- | --- | --- |
-| **1 — Continuum** | Unbroken free stream, great generation, continuity, archive world | People watch multiple segments; stream never stalls; ads are enjoyable |
-| **2 — Sponsorship** | Brands pay to enter the story (tier upgrades, named beats, claim flow) | Companies discover ads made for them; first voluntary spend |
-| **3 — Marketplace** | Auctions, clearing, attention proofs, 80/20 pools | Verified spend clears; listeners earn; full economic loop |
+| Phase               | Focus                                                                  | Success looks like                                                     |
+| ------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **1 — Continuum**   | Unbroken free stream, great generation, continuity, archive world      | People watch multiple segments; stream never stalls; ads are enjoyable |
+| **2 — Sponsorship** | Brands pay to enter the story (tier upgrades, named beats, claim flow) | Companies discover ads made for them; first voluntary spend            |
+| **3 — Marketplace** | Auctions, clearing, attention proofs, 80/20 pools                      | Verified spend clears; listeners earn; full economic loop              |
 
-The hackathon codebase is **auction-scheduled** today (a slot closes → a segment is realized). That was a reasonable engineering shortcut, but it inverted the product priority. The target architecture decouples **playback** from **auctions**: always keep segments generating and ready; auctions assign *who sponsors the next beat*, not *whether there is a next beat*. See [architecture](../technical/architecture.md#stream-scheduling-product-direction).
+The hackathon codebase is **auction-scheduled** today (a slot closes → a segment is realized). That was a reasonable engineering shortcut, but it inverted the product priority. The target architecture decouples **playback** from **auctions**: always keep segments generating and ready; auctions assign _who sponsors the next beat_, not _whether there is a next beat_. See [architecture](../technical/architecture.md#stream-scheduling-product-direction).
 
 ## The most important product principle
 
@@ -195,3 +195,4 @@ Slopstream is "a marketplace for attention." The human channel sells verified hu
 - The agent channel can't borrow proof-of-attention as its trust primitive. It needs proof-of-use plus user verification — a distinct circuit.
 - **Prompt injection at scale.** The moment agents ingest brand-authored content, that content becomes an injection payload aimed at the developer's agent. Mitigation: serve agents structured, sanitized fields (enum categories, numeric tiers, short validated claim strings) — never raw generated prose — and mark all content as untrusted third-party data.
 - The proof-of-use protocol, product-side SDK, user-verification circuit, and x402 integration are each multi-day efforts. This is a post-hackathon direction, captured here so the thesis is visible, not so it gets built this weekend.
+- The agent channel also has an **inbound** half: platforms submitting the videos their users make, which we curate and air like a TV station. Same rail discipline applies in reverse — partner submissions never clear an attention bid or mint listener rewards, because whoever authors the transcript authors the answer key. Strategy in [evergreen-loop.md](evergreen-loop.md) (Stage 4), build phasing in [roadmap.md](../technical/roadmap.md) (Phase 3b).

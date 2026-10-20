@@ -5,7 +5,7 @@
 > marketplace — without adding features that dilute the core loop.
 >
 > Canonical cold-start strategy: [Evergreen Loop](../product/evergreen-loop.md).
-> That document owns the *what and why*; this one tracks *build phases*.
+> That document owns the _what and why_; this one tracks _build phases_.
 
 ## Core product loop (do not dilute)
 
@@ -120,6 +120,129 @@ screen → we craft the segment → boosted rotation.
 
 ---
 
+## Phase 3b — Partner airtime and the metered broadcast API
+
+Conceived 2026-10-20. The inbound half of the agent channel described in
+[product/overview.md](../product/overview.md): other platforms — AI video tools,
+generators, agentic creators — hand us the videos their users make, and we air
+them rotation-curated like a TV station. A partner feed is not a new pipeline.
+It is a second **author** of the same catalog artifact `mint-evergreen`
+produces today, so the whole build is ingest + trust boundaries.
+
+The same object answers the stream's real weakness: the catalog is 12 entries,
+all of them ours.
+
+### What already exists, and what has to be built
+
+| Capability                    | Today                                                                                                                                         | Partner airtime needs                                                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Segment definition            | `mint-evergreen` writes the exact entry shape (`id version brandId tier durationSec transcript summary brief media{key,contentType,…} style`) | Accept the same shape from an outside caller. Zero schema invention                                                          |
+| Media integrity               | content-addressed R2/`/assets` keys; the API verifies declared SHA-256 against the bytes and fails closed at boot                             | Fetch-once-then-mirror through the `apps/asset-uploader` Worker; the airable object is the digest, never the submitter's URL |
+| Dedupe                        | content-addressed keys collapse identical bytes                                                                                               | Free                                                                                                                         |
+| Rotation                      | `pickNextEvergreen`: `weight/(1+airCount)`, `weightUntil` boost decay, variety penalties on brand **and style**                               | Partner = brand axis. A per-partner share cap is config, not code                                                            |
+| Boosted rotation as a product | `weightUntil`                                                                                                                                 | Already Phase 3                                                                                                              |
+| Challenges                    | `AppChallenge` carries the answer and is backend-only; the public variant omits it and binds `opensAfterSeconds` / `expiresAfterSeconds`      | **Submitters never author challenges.** We generate them from the transcript                                                 |
+| Playout length                | scheduler clamps the window to manifest duration                                                                                              | Enforce a duration ceiling at ingest                                                                                         |
+| Boot validation               | `evergreenValidate.ts`, fail closed                                                                                                           | Must be strictly _stronger_ at ingest — see the restart vector below                                                         |
+| Catalog writability           | read at boot from `EVERGREEN_CATALOG_DIR`; the current image **bakes** it                                                                     | A writable catalog (volume or table) plus a rescan trigger. This is the first real build item                                |
+| Metered machine reads         | none                                                                                                                                          | New: x402-shaped reads on the orchestrator gateway                                                                           |
+
+### Three constraints that decide the design
+
+1. **Boot validation is a restart vector.** The API fail-closes on a bad entry
+   at boot. Anything that can write into the catalog can therefore crash-loop
+   the stream. Ingest must run every boot check _before_ accepting, and a
+   rejected submission must be indistinguishable to the loop from never having
+   arrived. Without this, "platforms send us videos" is an availability
+   vulnerability, not a feature.
+2. **Ingest never touches settlement eligibility.** Partner segments air with
+   `bidId: null`, exactly like evergreen today — nothing to clear. Attention
+   proofs on partner slots are recorded, not paid. The moment partner content
+   becomes earnable it needs signed provenance plus a human curation gate,
+   because a submitter who authors both the transcript and the challenge owns
+   the answer key.
+3. **A channel that anyone can feed is a broadcaster.** Rights to publicly air
+   someone else's user content, moderation, and takedown arrive the day the
+   first partner video plays. `mint-evergreen` already refuses local and private
+   media origins, so the network boundary exists; what does not exist is any
+   moderation or takedown path.
+
+### Logistics
+
+- **Intake stays manual first** — a JSON POST to the API or a `mint` run over a
+  submitted manifest, then a human (us) screens it. Self-serve is Phase 3+
+  behaviour, and "self-serve advertiser UI" is already on the do-not-build list.
+- **Rights representation per submission**: who owns it, are they licensed to
+  publicly air it, is there a takedown contact. Not a checkbox — a stored field
+  on the entry.
+- **Quotas**: submissions/day per partner, bytes and duration ceiling, total
+  partner share of the rotation.
+- **Labeling**: the catalog `brief` prefix ("Unofficial AI-generated parody ad.
+  Not affiliated with…") is a per-entry convention today, which means a
+  submitter writes their own disclosure. That has to become server-controlled
+  and derived from the source type before partner media airs — it is also the
+  advertising-disclosure item already sitting in Phase 4.
+- **Takedown**: delete entry + drop the rotation position + keep the tombstone,
+  because historical attention proofs reference a slot that aired. Deleting
+  history would break the receipts.
+- **Review labor is the actual cost.** Provider spend stays near $0 because
+  partner content arrives pre-rendered — no generation at all.
+
+### Cost model — the "$0/day" claim needs a footnote here
+
+Inbound media moves the meter from generation to storage and egress. Mirroring
+every accepted video to R2 is a real, growing bill; R2's no-egress-fee model is
+what makes airing it affordable, and the free allowance is a ceiling, not a
+guarantee (same wording discipline as the free-tier guardrails in
+[deployment.md](deployment.md)). Publish the review-time budget next to the
+dollar budget — one human-hour per submission is the number that actually
+scales badly.
+
+### The metered read surface (x402) — gate the output, not the input
+
+A payment gate prices demand, and the demand that exists today is machine reads,
+not submissions: platforms will not pay to be aired to an audience that is us,
+while an agent paying a few cents to learn what is on air, what its verified
+attention profile is, or to claim a rotation window has a reason to exist now.
+
+```text
+GET /v1/air-now            what is playing, structured fields only
+GET /v1/air-history        aired slots + verified-attention counts
+GET /v1/air-receipt/:slot  the attention proof a machine can re-verify
+POST /v1/air-claim         reserve a boosted window (writes weightUntil)
+```
+
+- Serve **structured, sanitized fields** — enum categories, numbers, short
+  validated strings — never raw transcript or generated prose. Brand-authored
+  text in an agent's context window is a prompt-injection payload; same rule as
+  the agent channel in `docs/product/overview.md`.
+- Agent reads never clear a bid or mint listener rewards, at any price.
+- The x402 protocol (402 + `PAYMENT-REQUIRED`, facilitator verify/settle) has no
+  Midnight implementation. **P0 is the shape, not the settlement**: a free
+  metered tier behind a header contract we control, so turning on a real rail
+  later is a swap and not a redesign. Do not describe it as paying agents until
+  a facilitator exists.
+- The orchestrator gateway is the right host — it already owns CORS and the
+  browser-facing surface; the private API keeps serving the data.
+
+### Phasing
+
+|     | Deliverable                                                                                            | Effort                | Gate to start                            |
+| --- | ------------------------------------------------------------------------------------------------------ | --------------------- | ---------------------------------------- |
+| P0  | metered on-air read API (free tier) + MCP wrapper; x402 header shape, no settlement                    | 1–2 days              | nothing — demoable this wave             |
+| P1  | writable catalog path + rescan trigger; ingest endpoint; ingest-time mirror + validation-before-accept | 2–4 days              | Phase 1 catalog work landed              |
+| P2  | partner intake: rights fields, quotas, tombstones, server-controlled labeling, one pilot partner       | days, not weeks       | a named partner with lawful media        |
+| P3  | provenance-signed entries + curation gate → earnable partner slots                                     | new circuit           | Phase 2 + first abuse attempt understood |
+| P4  | real x402 settlement + boosted-window purchase as the product                                          | facilitator-dependent | a rail to settle on                      |
+
+**Outcome:** supply-side content diversity for near-zero provider cost, plus a
+machine-readable surface that is the honest first product — _verified broadcast
+signal priced in machine money_ — which is also the line Midnight's own
+"autonomous economic agents / machine-to-machine commerce" category is asking
+for.
+
+---
+
 ## Phase 4 — Scale, trust, and operations
 
 Only after Phases 1–3 are solid.
@@ -138,7 +261,7 @@ Only after Phases 1–3 are solid.
 
 ---
 
-## What *not* to build
+## What _not_ to build
 
 - **Live auction resurrection**: hibernates until advertiser competition demands it.
 - **Self-serve advertiser UI**: manual curation is the quality filter while small.
@@ -152,4 +275,5 @@ Only after Phases 1–3 are solid.
 1. **Phase 1 now** — durable catalog is the single unblock; everything else queues behind it.
 2. **Phase 2 next** — token turns the alive URL into a growing one.
 3. **Phase 3 on demand** — a real advertiser is the trigger, not a date.
-4. **Phase 4 when funded** — scale work follows revenue, not anticipation.
+4. **Phase 3b P0 alongside Phase 1** — the metered on-air read API needs no catalog write access, so it is the one piece of the partner track that can ship during the hackathon. Everything above P0 waits for a partner who can answer for the media they send.
+5. **Phase 4 when funded** — scale work follows revenue, not anticipation.

@@ -75,7 +75,7 @@ Replace fictional mock-USD balances with a real-but-worthless testnet token:
 ### Stage 3 — Advertiser staking (only when someone knocks)
 
 Manual onboarding first: advertiser sends docs/links → we screen NSFW →
-we craft the segment → it enters rotation. Curation *is* the quality filter.
+we craft the segment → it enters rotation. Curation _is_ the quality filter.
 
 - **Rotation weight = ad product.** New advertiser content gets boosted
   rotation for N plays/days, then decays to the long tail unless re-staked.
@@ -87,9 +87,32 @@ we craft the segment → it enters rotation. Curation *is* the quality filter.
 - **The live auction hibernates** until two advertisers compete for the same
   slot — a good problem. Slots are rotation positions, not auction windows.
 
+### Stage 4 — Partner airtime (they send us the video)
+
+The mirror image of Stage 3. Instead of us crafting a segment for one
+advertiser, platforms hand over the videos their users make and we curate them
+into rotation — a TV station for machine-made media. Same catalog artifact, new
+author; no new pipeline. Infra and phasing:
+[roadmap.md — Phase 3b](../technical/roadmap.md).
+
+- **It fixes the real failure mode, not a hypothetical one.** Staleness is what
+  kills a loop, and a 12-entry catalog where every entry is ours is the
+  thinnest version of that problem. Partner content arrives pre-rendered, so
+  diversity costs no generation.
+- **Ingest never touches settlement.** Partner slots air with nothing to clear,
+  exactly like the loop today. Proof stays honest: the submitter owns the
+  transcript, so the submitter never owns the challenge, and rewards stay on
+  our own authored media until entries carry signed provenance.
+- **Curation stays the filter, and now it is a duty.** A channel anyone can
+  feed inherits rights, moderation and takedown obligations on day one. Review
+  time becomes the binding cost — budget it like money.
+- **Sell the read, not the slot, first.** The paid surface with demand today is
+  machines asking "what is on air and did anyone provably watch it" — not
+  platforms paying for airtime we have no audience for yet.
+
 ## Privacy boundary (non-negotiable)
 
-The cold open promises *"Prove they watched. Never reveal who."* The
+The cold open promises _"Prove they watched. Never reveal who."_ The
 advertiser story must not break it:
 
 - **Default:** advertisers learn counts and proofs, never identities —
@@ -109,6 +132,10 @@ Same value, privacy intact.
   free-segment brief).
 - No real-brand defamation, no adult / pharma / crypto-yield claims.
 - A human (us) is the filter until volume forces tooling.
+
+Stage 4 makes this load-bearing rather than prudent: partner media is not our
+parody, so the disclosure line becomes server-controlled per source type, and
+the intake has to record who owns the clip and who answers a takedown.
 
 ## Cadence
 
