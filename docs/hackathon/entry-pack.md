@@ -116,10 +116,25 @@ wrote most of the code against them and the 349 tests are how either of us can
 tell that happened correctly. That is true, it is the interesting part of this
 project, and it does not need to be softened.
 
-## Before publishing the URL anywhere
+## What the public URL actually exposes
 
-`apps/web/vercel.json` now bakes `https://slopstream.144.202.117.160.sslip.io`
-into the build, and the repo is public — so the VPS address is public too. Check
-that the Coolify panel and SSH are not reachable from that IP without auth
-before sending the site to grant reviewers, and prefer a real domain on the
-submission forms (both startups programmes read the domain as a signal).
+`apps/web/vercel.json` bakes `https://slopstream.144.202.117.160.sslip.io` into
+the build. The IP is not the sensitive part — an `sslip.io` hostname resolves to
+it publicly anyway, so publishing it in a repo adds nothing an observer cannot
+get with `dig`. The exposure that matters is what listens on that address:
+confirm the Coolify dashboard is not reachable unauthenticated (its own port,
+often 8443, and often left open on a fresh install), and that SSH is key-only
+and not the deployer's only gate. Prefer a real domain on the submission forms
+regardless — both startups programmes read the domain as a signal.
+
+## Decision (2026-10-20)
+
+Goal is **credits and visibility, not cash**. Pre-revenue, $16k/yr of ElevenLabs
+characters and Cloudflare R2 we already consume beats speculative prize money,
+and neither application costs engineering time during the deploy. So: submit
+Cloudflare for Startups and the ElevenLabs Startup Grants now; write the
+HackerNoon Decentralize AI post once a freshly-built web bundle actually
+connects (an existing-project venue needs a URL that plays, not one on
+`No signal`); keep Colosseum Eternal on watch for the November window as the
+only door that is both cash and investor exposure. No build-gated entry before
+the Midnight wave closes.
