@@ -55,6 +55,14 @@ export interface ApiEnv {
   /** Public origin browsers use to fetch evergreen bytes (served by this API
    * under /evergreen/media/*). Must be queryless public HTTPS in production. */
   evergreenAssetBaseUrl?: string;
+  /**
+   * Metered broadcast read API (Phase 3b P0) — GET /air/*. Unset everything
+   * here for the demo defaults; AIR_API_ENABLED=0 answers 404 instead.
+   */
+  airApiEnabled: boolean;
+  /** Free-tier calls per client per window. Fairness, not access control. */
+  airApiCallsPerWindow: number;
+  airApiWindowSec: number;
 }
 
 function num(value: string | undefined, fallback: number): number {
@@ -171,6 +179,15 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     evergreenCatalogDir: env.EVERGREEN_CATALOG_DIR?.trim() || undefined,
     evergreenMediaDir: env.EVERGREEN_MEDIA_DIR?.trim() || undefined,
     evergreenAssetBaseUrl: env.EVERGREEN_ASSET_BASE_URL?.trim() || undefined,
+    airApiEnabled: env.AIR_API_ENABLED !== "0",
+    airApiCallsPerWindow: positive(
+      "AIR_API_CALLS_PER_WINDOW",
+      num(env.AIR_API_CALLS_PER_WINDOW, 120),
+    ),
+    airApiWindowSec: positive(
+      "AIR_API_WINDOW_SEC",
+      num(env.AIR_API_WINDOW_SEC, 60),
+    ),
   };
 }
 

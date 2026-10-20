@@ -25,6 +25,7 @@ import {
   type TopUpCommand,
 } from "@slopstream/shared";
 import type { AuctionEngine } from "./auction.js";
+import { registerAirRoutes, type AirApiConfig } from "./airApi.js";
 import type { ClearingEngine } from "./clearing.js";
 import { generateChallenges, nextUnfired, toPublic } from "./challenges.js";
 import type { EventBus } from "./bus.js";
@@ -70,6 +71,11 @@ export interface ApiDeps {
   evergreen?: EvergreenStore | null;
   /** Directory holding catalog media files (kind/<sha>.<ext>). */
   evergreenMediaDir?: string;
+  /**
+   * Metered machine-readable broadcast surface (Phase 3b P0). Omitted keys
+   * take the defaults in airApi.ts; `enabled: false` answers 404.
+   */
+  airApi?: Partial<AirApiConfig>;
 }
 
 type Handler = (req: Request, res: Response) => void | Promise<void>;
@@ -920,6 +926,12 @@ export function createRouter(deps: ApiDeps): Router {
       res.send(bytes);
     }),
   );
+
+  // ------------------------------------------------- broadcast read API
+  // Phase 3b P0: the machine-readable half of the broadcast, for external
+  // agents and platforms. Whitelisted projection, metered, read-only —
+  // see airApi.ts and docs/technical/roadmap.md.
+  registerAirRoutes(router, { ledger, bus, clearing, config: deps.airApi });
 
   // Reconnect replay for the gateway when Redis is unavailable (in-memory bus).
   router.get(

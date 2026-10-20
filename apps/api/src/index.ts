@@ -196,6 +196,11 @@ app.use(
     publishLifecycleEvents: env.publishLifecycleEvents,
     evergreen: evergreenBoot?.store ?? null,
     evergreenMediaDir: env.evergreenMediaDir ?? "",
+    airApi: {
+      enabled: env.airApiEnabled,
+      callsPerWindow: env.airApiCallsPerWindow,
+      windowMs: env.airApiWindowSec * 1000,
+    },
   }),
 );
 app.use(apiErrorHandler);
