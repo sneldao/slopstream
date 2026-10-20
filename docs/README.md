@@ -29,3 +29,4 @@ Product design and technical architecture for **The Continuum** — a live, infi
 - [parallel-track-plan.md](hackathon/parallel-track-plan.md) — why Slopstream fits the Agentic Cinema Parallel track and the build plan for a valid submission.
 - [clickhouse-track-plan.md](hackathon/clickhouse-track-plan.md) — archived ClickHouse track pivot; kept for reference, but we are now submitting to Parallel.
 - [3d-overhaul-plan.md](hackathon/3d-overhaul-plan.md) — archived decision record for the earlier 3D fluid-world prototype.
+- [entry-pack.md](hackathon/entry-pack.md) — the hackathons, grants and programmes we are eligible for outside Midnight, with verified deadlines, prior-work rules, and the claims that must not leave the repo.
