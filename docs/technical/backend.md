@@ -66,6 +66,27 @@ The WebSocket is a **server-to-client projection**, not a mutation API. Clients 
 | Read price history               | `GET /stream/price-history`                    | Public cleared-price points; `clearedAt` is the settlement evaluation time, with optional ISO `since`, `limit`, and `format=csv`                                                                                                                          |
 | Load or recover stream state     | `GET /stream/snapshot`                         | Current segment, age-capped recent completed segments, latest public cleared-bid settlement/explanation, the next generated/ready queue, brand palettes, public leaderboard/stats, open auction deadline, active `PublicChallenge`, and an `asOfSequence` |
 | Poll auction state               | `GET /auctions/current`, `GET /auctions/:slot` | `AuctionState` (status, deadline, standing bid, winner + `segmentId` after close)                                                                                                                                                                         |
+| Read the broadcast as a machine  | `GET /air/now`, `/air/history`, `/air/receipt/:segmentId` | Metered, unauthenticated projection of the live slot, aired history, and one slot's attention receipt — no transcript, brief, or challenge text                                                                                                          |
+
+**Machine-readable broadcast surface (Phase 3b P0).** The `/air/*` reads exist
+for external agents and partner platforms, and are assembled field by field in
+`apps/api/src/airApi.ts`. Excluded on purpose: the segment transcript, the
+generation `brief`, `SegmentRow.summary`, challenge question/options/answer,
+listener session ids, and per-proof reward estimates — brand- and
+partner-authored prose inside an agent's context window is an injection payload,
+and a leaked challenge is an answer key. A receipt names a proof by its public
+nullifier (`proofRef`) and nothing else. Nothing reachable here can clear a bid
+or mint a listener reward, and an evergreen or free airing reports
+`settlement.settles: false`. Calls are metered per client against
+`AIR_API_CALLS_PER_WINDOW` within `AIR_API_WINDOW_SEC` and answer 429 with
+`retry-after` (plus `x-air-tier` / `x-air-remaining` on every response);
+`AIR_API_ENABLED=0` answers 404 as if unmounted. The meter is fairness, not
+access control — `X-Forwarded-For` is client-supplied — and there is
+deliberately no x402 `PAYMENT-REQUIRED` payload on this surface until a
+settlement rail exists to honour it. `apps/api/src/mcpBroadcast.ts` bridges the
+same three reads to MCP over stdio (`air_now`, `air_history`, `air_receipt`,
+pointed at a deployment with `SLOPSTREAM_API_URL`) and adds no fields of its
+own.
 
 Stream ops: `GET /ops/metrics` on the orchestrator gateway returns
 `StreamOpsMetrics` (generation latency, playback, queue depth, ready-buffer

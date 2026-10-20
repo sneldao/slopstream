@@ -145,7 +145,7 @@ all of them ours.
 | Playout length                | scheduler clamps the window to manifest duration                                                                                              | Enforce a duration ceiling at ingest                                                                                         |
 | Boot validation               | `evergreenValidate.ts`, fail closed                                                                                                           | Must be strictly _stronger_ at ingest — see the restart vector below                                                         |
 | Catalog writability           | read at boot from `EVERGREEN_CATALOG_DIR`; the current image **bakes** it                                                                     | A writable catalog (volume or table) plus a rescan trigger. This is the first real build item                                |
-| Metered machine reads         | none                                                                                                                                          | New: x402-shaped reads on the orchestrator gateway                                                                           |
+| Metered machine reads         | `GET /air/now`, `/air/history`, `/air/receipt/:id` — free tier, IP-metered, whitelisted projection                                              | A price and a write: x402 settlement once a facilitator exists, plus `POST /air/claim`                                       |
 
 ### Three constraints that decide the design
 
@@ -206,10 +206,10 @@ while an agent paying a few cents to learn what is on air, what its verified
 attention profile is, or to claim a rotation window has a reason to exist now.
 
 ```text
-GET /v1/air-now            what is playing, structured fields only
-GET /v1/air-history        aired slots + verified-attention counts
-GET /v1/air-receipt/:slot  the attention proof a machine can re-verify
-POST /v1/air-claim         reserve a boosted window (writes weightUntil)
+GET  /air/now                 playing + recent + upcoming, structured fields only
+GET  /air/history             aired slots + verified-attention counts
+GET  /air/receipt/:segmentId  the attention proof a machine can re-verify
+POST /air/claim               reserve a boosted window (writes weightUntil) — P1+
 ```
 
 - Serve **structured, sanitized fields** — enum categories, numbers, short
@@ -222,14 +222,24 @@ POST /v1/air-claim         reserve a boosted window (writes weightUntil)
   metered tier behind a header contract we control, so turning on a real rail
   later is a swap and not a redesign. Do not describe it as paying agents until
   a facilitator exists.
-- The orchestrator gateway is the right host — it already owns CORS and the
-  browser-facing surface; the private API keeps serving the data.
+- An agent that should not have to learn our routes gets the same data through
+  `apps/api/src/mcpBroadcast.ts` — three stdio MCP tools (`air_now`,
+  `air_history`, `air_receipt`) over the `/air/*` reads. It is a thin bridge,
+  hand-rolled instead of pulling in `@modelcontextprotocol/sdk` for four
+  methods, and it **adds no fields**: the projection is the injection boundary,
+  so the MCP layer cannot leak what the HTTP layer already refuses to send.
+  `SLOPSTREAM_API_URL` points it at a deployment.
+- The orchestrator gateway is the right host for a paid surface — it already
+  owns CORS and the browser-facing market. P0 shipped on Lane 2 anyway, because
+  the gateway reverse-proxies every unlisted path: `/air/*` reaches clients
+  through the same origin with no gateway change, and no price on it yet.
+  Renaming or versioning (`/v1/*`) is a gateway alias for P4, not a rewrite.
 
 ### Phasing
 
 |     | Deliverable                                                                                            | Effort                | Gate to start                            |
 | --- | ------------------------------------------------------------------------------------------------------ | --------------------- | ---------------------------------------- |
-| P0  | metered on-air read API (free tier) + MCP wrapper; x402 header shape, no settlement                    | 1–2 days              | nothing — demoable this wave             |
+| P0  | **Shipped 2026-10-20** — metered on-air read API (`airApi.ts`, free tier, no x402 body until a rail exists) + stdio MCP bridge (`mcpBroadcast.ts`) | 1–2 days              | nothing — demoable this wave             |
 | P1  | writable catalog path + rescan trigger; ingest endpoint; ingest-time mirror + validation-before-accept | 2–4 days              | Phase 1 catalog work landed              |
 | P2  | partner intake: rights fields, quotas, tombstones, server-controlled labeling, one pilot partner       | days, not weeks       | a named partner with lawful media        |
 | P3  | provenance-signed entries + curation gate → earnable partner slots                                     | new circuit           | Phase 2 + first abuse attempt understood |

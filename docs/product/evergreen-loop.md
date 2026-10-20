@@ -108,7 +108,10 @@ author; no new pipeline. Infra and phasing:
   time becomes the binding cost — budget it like money.
 - **Sell the read, not the slot, first.** The paid surface with demand today is
   machines asking "what is on air and did anyone provably watch it" — not
-  platforms paying for airtime we have no audience for yet.
+  platforms paying for airtime we have no audience for yet. This is the part
+  that exists now, free and metered: `GET /air/now`, `/air/history`,
+  `/air/receipt/:segmentId`, plus the same three as MCP tools. Read-only and
+  machine-shaped from the start, it prices demand before it promises delivery.
 
 ## Privacy boundary (non-negotiable)
 
