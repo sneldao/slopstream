@@ -558,10 +558,27 @@ is confirmed on preprod — verifiable via the indexer.
 
 **Still waiting on:** `dust.balance()` goes positive only once the dust
 sub-wallet's sync reaches the registration tx — the same multi-hour
-full-history grind. `deploy-all6` runs unassisted (`~/slopstream-deploy/
-deploy-all6.log`, launcher `run-deploy.sh`); when dust shows it deploys all
-three contracts and writes `contracts/preprod/deployment.json` in one shot —
-pull + commit when it lands. Note sync state is in-memory
+full-history grind.
+
+**Dust sync root cause — found and fixed (3e14302):** instrumenting the
+SDK's error paths (`WsSubscriptionClient` + both wallet `Sync.js` files on
+the VPS) showed Blockfrost closes GraphQL WS subscriptions every ~6 min.
+`wallet-sdk-dust-wallet@4.1.0` (what `wallet-sdk@1.1.0` via `testkit-js`
+resolves) loses its resume cursor on reconnect, so every server-side close
+silently restarted the 1.7M-event replay — dust sync could _never_ finish.
+`wallet-sdk-dust-wallet@4.2.0` rewrote `subscribeWallet` with a durable
+`appliedIndex - 1` resume cursor + buffered apply. Pinned repo-wide via
+`.pnpmfile.cjs` `readPackage` hook (`pnpm-workspace.yaml` `overrides`
+cannot rewrite specs inside published manifests under pnpm v10; the same
+file now also carries the `ledger-v8` pin that `package.json`'s ignored
+`pnpm.overrides` was silently dropping). With 4.2.0 the replay runs at
+~100 % CPU with zero recurring `Wallet.Sync` errors — the earlier ~8 % CPU
+was the sync dying and idle-looping, not "slow but working."
+
+`deploy-all10` runs unassisted (`~/slopstream-deploy/deploy-all10.log`,
+milestone watcher `watch.sh` → `status.txt`); when dust shows it deploys
+all three contracts and writes `contracts/preprod/deployment.json` in one
+shot — pull + commit when it lands. Note sync state is in-memory
 (`txHistoryStorage.storage = {}`), so any process restart re-grinds from
 zero — leave the run alone.
 
