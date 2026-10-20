@@ -1,3 +1,17 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm v10 no longer reads the "pnpm" field in package.json — overrides live here.
+# ledger-v8 pinned for public-network (preprod) compatibility: ledger-v9 builds
+# target Compact 0.34+/Midnight.js v5 which the current networks do not serve.
+# dust-wallet pinned to 4.2.0: wallet-sdk@1.1.0 (via testkit-js) resolves
+# ^4.1.0 -> 4.1.0, whose subscribeWallet loses events on server-side WS
+# reconnects (Blockfrost closes subscriptions every ~6 min); 4.2.0 rewrote
+# the resume cursor + buffering to survive reconnects.
+overrides:
+  "@midnight-ntwrk/ledger-v8": "8.1.0"
+  "@midnight-ntwrk/wallet-sdk-dust-wallet": "4.2.0"
+
+onlyBuiltDependencies:
+  - "esbuild"
