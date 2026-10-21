@@ -92,20 +92,56 @@ export const bootstrap = async (opts: {
 export const waitForDust = async (stack: SlopstreamStack): Promise<void> => {
   // Dust becomes visible only once the dust sub-wallet's sync reaches the
   // registration tx — on preprod that is a multi-hour full-history grind, so
-  // this deadline must be generous.
+  // this deadline must be generous. Balance > 0 is NOT enough: the DUST
+  // spend proof anchors to the wallet's dust tree at chain tip, so a
+  // still-syncing wallet produces an InvalidDustSpendProof (1010/170).
   const deadline = Date.now() + 24 * 60 * 60_000;
   while (Date.now() < deadline) {
-    const state = await new Promise<{ dust: bigint }>((resolve) => {
+    const state = await new Promise<{
+      dust: bigint;
+      synced: boolean;
+      detail: string;
+    }>((resolve) => {
       const sub = stack.walletProvider.wallet.state().subscribe((s) => {
-        resolve({ dust: s.dust.balance(new Date()) ?? 0n });
+        const complete = (p: unknown): boolean =>
+          !!(
+            p &&
+            typeof p === "object" &&
+            typeof (p as { isStrictlyComplete?: unknown })
+              .isStrictlyComplete === "function" &&
+            (p as { isStrictlyComplete: () => boolean }).isStrictlyComplete()
+          );
+        const dustProgress = (s.dust as { state?: { progress?: unknown } })
+          .state?.progress;
+        const shieldedProgress = (
+          s.shielded as { state?: { progress?: unknown } }
+        ).state?.progress;
+        const unshieldedProgress = (s.unshielded as { progress?: unknown })
+          .progress;
+        const dustC = complete(dustProgress);
+        const shieldedC = complete(shieldedProgress);
+        const unshieldedC = complete(unshieldedProgress);
+        const applied =
+          (dustProgress as Record<string, unknown> | undefined)?.appliedIndex ??
+          (dustProgress as Record<string, unknown> | undefined)?.appliedId ??
+          "?";
+        resolve({
+          dust: s.dust.balance(new Date()) ?? 0n,
+          synced: dustC && shieldedC && unshieldedC,
+          detail: `dust=${dustC} shielded=${shieldedC} unshielded=${unshieldedC} applied=${applied}`,
+        });
         sub.unsubscribe();
       });
     });
-    if (state.dust > 0n) {
-      logger.info(`Dust balance available: ${state.dust}`);
+    if (state.dust > 0n && state.synced) {
+      logger.info(
+        `Dust balance available and wallet at chain tip: ${state.dust} (${state.detail})`,
+      );
       return;
     }
-    logger.info("No dust yet; dust accrues block by block. Waiting 15s...");
+    logger.info(
+      `Waiting for dust: balance=${state.dust} ${state.detail} (15s)`,
+    );
     await new Promise((r) => setTimeout(r, 15_000));
   }
   throw new Error("Timed out waiting for dust balance.");
